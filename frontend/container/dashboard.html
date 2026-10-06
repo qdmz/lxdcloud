@@ -1,0 +1,274 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>容器面板 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <!-- 顶部导航 -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-logo" id="brandLogo">L</div>
+        <div style="min-width:0">
+          <div class="brand-name" id="brandName">LXD 容器面板</div>
+          <div class="brand-sub" id="topContainerName">容器</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" id="copyHashBtn" title="点击复制访问码" style="display:flex;align-items:center;gap:6px">⧉ <span>访问码</span><code id="hashChip" class="mono" style="color:var(--primary)">···</code></button>
+        <button class="btn btn-success btn-sm" id="openConsoleBtn">▶ 控制台</button>
+        <button class="btn btn-primary btn-sm" id="fmBtn">◈ 文件管理</button>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page">
+
+    <!-- 页面头部 -->
+    <div class="page-head">
+      <div>
+        <h2 id="pageContainerName">容器名称 <span id="statusBadge"></span></h2>
+        <div class="sub" id="containerSub">加载中...</div>
+      </div>
+      <div class="page-head-actions" id="actionButtons">
+        <button class="btn btn-success btn-sm" id="startBtn">启动</button>
+        <button class="btn btn-warning btn-sm" id="stopBtn" style="background:rgba(251,191,36,.12);color:var(--yellow);border-color:rgba(251,191,36,.3)">停止</button>
+        <button class="btn btn-ghost btn-sm" id="restartBtn">重启</button>
+        <button class="btn btn-primary btn-sm" id="reinstallBtn">重装系统</button>
+        <button class="btn btn-danger btn-sm" id="resetPwdBtn">重置密码</button>
+      </div>
+    </div>
+
+    <!-- 资源监控 -->
+    <div class="section">
+      <div class="res-grid" id="resGrid">
+        <div class="card res-card"><div class="skeleton" style="width:66px;height:66px;border-radius:50%"></div><div style="flex:1"><div class="skeleton" style="height:14px;width:70%"></div><div class="skeleton" style="height:14px;width:90%;margin-top:8px"></div></div></div>
+        <div class="card res-card"><div class="skeleton" style="width:66px;height:66px;border-radius:50%"></div><div style="flex:1"><div class="skeleton" style="height:14px;width:70%"></div><div class="skeleton" style="height:14px;width:90%;margin-top:8px"></div></div></div>
+        <div class="card res-card"><div class="skeleton" style="width:66px;height:66px;border-radius:50%"></div><div style="flex:1"><div class="skeleton" style="height:14px;width:70%"></div><div class="skeleton" style="height:14px;width:90%;margin-top:8px"></div></div></div>
+        <div class="card res-card"><div class="skeleton" style="width:66px;height:66px;border-radius:50%"></div><div style="flex:1"><div class="skeleton" style="height:14px;width:70%"></div><div class="skeleton" style="height:14px;width:90%;margin-top:8px"></div></div></div>
+      </div>
+    </div>
+
+    <!-- 标签页 -->
+    <div class="section">
+      <div class="card" style="padding:16px 16px 4px">
+        <div class="tabs" id="tabsBar">
+          <button class="tab active" data-tab="info">基本信息</button>
+          <button class="tab" data-tab="ipv4Pool">IPv4 地址</button>
+          <button class="tab" data-tab="ipv4Mapping">IPv4 映射</button>
+          <button class="tab" data-tab="ipv6Pool">IPv6 地址</button>
+          <button class="tab" data-tab="ipv6Mapping">IPv6 映射</button>
+          <button class="tab" data-tab="reverseProxy">反向代理</button>
+          <button class="tab" data-tab="dns">DNS</button>
+        </div>
+      </div>
+
+      <!-- 基本信息 -->
+      <div class="card tab-panel" id="tab-info" style="margin-top:14px;padding:6px 6px">
+        <div class="kv" id="infoKV">
+          <div class="kv-item"><div class="k">容器名称</div><div class="v" id="infoName">-</div></div>
+          <div class="kv-item"><div class="k">运行状态</div><div class="v" id="infoStatus">-</div></div>
+          <div class="kv-item"><div class="k">操作系统 / 镜像</div><div class="v" id="infoImage">-</div></div>
+          <div class="kv-item"><div class="k">SSH 密码</div><div class="v" id="infoPassword">-</div></div>
+          <div class="kv-item"><div class="k">容器 Hash</div><div class="v" id="infoHash">-</div></div>
+          <div class="kv-item"><div class="k">IPv4 地址</div><div class="v" id="infoIPv4">-</div></div>
+          <div class="kv-item"><div class="k">IPv6 地址</div><div class="v" id="infoIPv6">-</div></div>
+          <div class="kv-item"><div class="k">配额</div><div class="v" id="infoQuota">-</div></div>
+        </div>
+      </div>
+
+      <!-- IPv4 池 -->
+      <div class="card tab-panel" id="tab-ipv4Pool" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>IPv4 地址绑定</h3>
+          <div class="extra"><span id="ipv4PoolCount">0</span> 个地址 <button class="btn btn-primary btn-sm" id="allocIpv4Btn">+ 分配</button></div>
+        </div>
+        <div id="ipv4PoolList"><div class="empty">加载中...</div></div>
+      </div>
+
+      <!-- IPv4 映射 -->
+      <div class="card tab-panel" id="tab-ipv4Mapping" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>IPv4 端口映射</h3>
+          <div class="extra"><span id="ipv4MappingCount">0</span> 条 <button class="btn btn-primary btn-sm" id="addIpv4MappingBtn">+ 添加</button></div>
+        </div>
+        <div id="ipv4MappingList"><div class="empty">加载中...</div></div>
+      </div>
+
+      <!-- IPv6 池 -->
+      <div class="card tab-panel" id="tab-ipv6Pool" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>IPv6 地址绑定</h3>
+          <div class="extra"><span id="ipv6PoolCount">0</span> 个地址 <button class="btn btn-primary btn-sm" id="allocIpv6Btn">+ 分配</button></div>
+        </div>
+        <div id="ipv6PoolList"><div class="empty">加载中...</div></div>
+      </div>
+
+      <!-- IPv6 映射 -->
+      <div class="card tab-panel" id="tab-ipv6Mapping" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>IPv6 端口映射</h3>
+          <div class="extra"><span id="ipv6MappingCount">0</span> 条 <button class="btn btn-primary btn-sm" id="addIpv6MappingBtn">+ 添加</button></div>
+        </div>
+        <div id="ipv6MappingList"><div class="empty">加载中...</div></div>
+      </div>
+
+      <!-- 反向代理 -->
+      <div class="card tab-panel" id="tab-reverseProxy" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>反向代理</h3>
+          <div class="extra"><span id="reverseProxyCount">0</span> 条 <button class="btn btn-primary btn-sm" id="addReverseProxyBtn">+ 新增</button></div>
+        </div>
+        <div id="reverseProxyList"><div class="empty">加载中...</div></div>
+      </div>
+
+      <!-- DNS -->
+      <div class="card tab-panel" id="tab-dns" style="margin-top:14px;padding:16px;display:none">
+        <div class="section-head">
+          <h3>DNS 服务器</h3>
+          <div class="extra"><button class="btn btn-primary btn-sm" id="saveDnsBtn">保存</button></div>
+        </div>
+        <div class="field">
+          <label>每行一个 DNS 服务器地址</label>
+          <textarea class="input" id="dnsInput" placeholder="例如：&#10;8.8.8.8&#10;223.5.5.5"></textarea>
+        </div>
+      </div>
+    </div>
+  </main>
+
+  <footer class="footer" id="footerText"></footer>
+
+  <!-- 重装系统 -->
+  <div class="modal-mask" id="reinstallModal">
+    <div class="modal">
+      <h3>重装系统</h3>
+      <div class="field" style="margin-bottom:14px">
+        <label>选择镜像</label>
+        <select class="select" id="reinstallImage"></select>
+      </div>
+      <div class="field">
+        <label>设置新密码</label>
+        <input class="input" id="reinstallPassword" type="text" placeholder="请输入新 root 密码">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="reinstallModal">取消</button>
+        <button class="btn btn-danger" id="reinstallConfirm">确认重装</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 重置密码 -->
+  <div class="modal-mask" id="resetPwdModal">
+    <div class="modal">
+      <h3>重置密码</h3>
+      <div class="field">
+        <label>新密码</label>
+        <input class="input" id="resetPwdInput" type="text" placeholder="请输入新密码">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="resetPwdModal">取消</button>
+        <button class="btn btn-danger" id="resetPwdConfirm">确认重置</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 分配 IP -->
+  <div class="modal-mask" id="allocIpModal">
+    <div class="modal">
+      <h3 id="allocIpTitle">分配 IPv4 地址</h3>
+      <div class="field">
+        <label>分配数量</label>
+        <input class="input" id="allocIpCount" type="number" min="1" max="100" value="1">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="allocIpModal">取消</button>
+        <button class="btn btn-primary" id="allocIpConfirm">分配</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 添加端口映射 -->
+  <div class="modal-mask" id="mappingModal">
+    <div class="modal">
+      <h3 id="mappingTitle">添加端口映射</h3>
+      <div class="field" style="margin-bottom:14px">
+        <label>协议</label>
+        <select class="select" id="mappingProtocol">
+          <option value="tcp">TCP</option>
+          <option value="udp">UDP</option>
+          <option value="tcp+udp">TCP+UDP</option>
+        </select>
+      </div>
+      <div class="grid grid-2" style="gap:12px;margin-bottom:14px">
+        <div class="field">
+          <label>公网端口</label>
+          <input class="input" id="mappingPublicPort" type="text" placeholder="如 8080 或 1000-1010">
+        </div>
+        <div class="field">
+          <label>容器端口</label>
+          <input class="input" id="mappingContainerPort" type="text" placeholder="如 80 或 1000-1010">
+        </div>
+      </div>
+      <div class="field">
+        <label>备注</label>
+        <input class="input" id="mappingDesc" type="text" placeholder="可选">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="mappingModal">取消</button>
+        <button class="btn btn-primary" id="mappingConfirm">添加</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- 新增反代 -->
+  <div class="modal-mask" id="reverseProxyModal">
+    <div class="modal">
+      <h3>新增反向代理</h3>
+      <div class="field" style="margin-bottom:14px">
+        <label>域名</label>
+        <input class="input" id="rpDomain" type="text" placeholder="如 panel.example.com">
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>目标端口</label>
+        <input class="input" id="rpTargetPort" type="text" placeholder="容器内服务端口">
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>SSL 类型</label>
+        <select class="select" id="rpSSLType">
+          <option value="none">不启用（HTTP）</option>
+          <option value="auto">自动（Let's Encrypt）</option>
+          <option value="custom">自定义证书</option>
+        </select>
+      </div>
+      <div id="rpCustomFields" style="display:none">
+        <div class="field" style="margin-bottom:14px">
+          <label>SSL 证书（PEM）</label>
+          <textarea class="input" id="rpSSLCert" style="min-height:70px"></textarea>
+        </div>
+        <div class="field" style="margin-bottom:14px">
+          <label>SSL 私钥（PEM）</label>
+          <textarea class="input" id="rpSSLKey" style="min-height:70px"></textarea>
+        </div>
+      </div>
+      <div class="field" style="margin-bottom:14px">
+        <label>备注</label>
+        <input class="input" id="rpDesc" type="text" placeholder="可选">
+      </div>
+      <div class="modal-actions">
+        <button class="btn btn-ghost" data-close="reverseProxyModal">取消</button>
+        <button class="btn btn-primary" id="rpConfirm">新增</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="./js/dashboard.js"></script>
+</body>
+</html>

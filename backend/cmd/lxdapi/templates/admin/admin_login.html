@@ -1,0 +1,197 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 管理员登录</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {{if .UseLocalCDN}}
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/iconify.min.js"></script>
+    {{else}}
+    <script src="https://cdn.jsdelivr.net/npm/@tailwindcss/browser@4"></script>
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    {{end}}
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        .input-transition {
+            transition: all 0.25s ease;
+        }
+        .input-transition:focus {
+            transform: translateY(-1px);
+        }
+    </style>
+</head>
+<body class="min-h-screen flex items-center justify-center relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center;{{else}}background: linear-gradient(135deg, rgb(239 246 255) 0%, rgb(224 231 255) 50%, rgb(237 233 254) 100%);{{end}}">
+    {{if .BgImage}}
+    <div class="absolute inset-0 bg-white" style="opacity: {{.BgOpacity}}%;"></div>
+    {{end}}
+    <div class="relative z-10 w-full max-w-lg px-3 sm:px-4">
+    <div class="content-box rounded-2xl shadow-2xl p-4 sm:p-6 w-full">
+        <div class="text-center mb-4 sm:mb-6">
+            <div class="flex justify-center mb-2 sm:mb-3">
+                <div class="bg-gradient-to-br from-blue-500 to-indigo-600 p-2 sm:p-3 rounded-2xl shadow-lg">
+                    <span class="iconify text-white" data-icon="mdi:server-network" data-width="32" data-height="32"></span>
+                </div>
+            </div>
+            <h1 class="text-xl sm:text-2xl font-bold text-gray-800 mb-1">{{ .LoginTitle }}</h1>
+            <p class="text-xs sm:text-sm text-gray-600 flex items-center justify-center gap-1.5 sm:gap-2">
+                <span class="iconify" data-icon="mdi:lock" data-width="12"></span>
+                请登录以继续
+            </p>
+        </div>
+        <form id="loginForm" class="space-y-3 sm:space-y-4">
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5 flex items-center gap-1.5 sm:gap-2">
+                    <span class="iconify text-blue-500" data-icon="mdi:account" data-width="14"></span>
+                    用户名
+                </label>
+                <input 
+                    type="text" 
+                    name="username" 
+                    required
+                    class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-transition outline-none"
+                    placeholder="请输入用户名"
+                >
+            </div>
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5 flex items-center gap-1.5 sm:gap-2">
+                    <span class="iconify text-blue-500" data-icon="mdi:lock" data-width="14"></span>
+                    密码
+                </label>
+                <div class="relative">
+                    <input 
+                        id="passwordInput"
+                        type="password" 
+                        name="password" 
+                        required
+                        class="w-full px-2.5 sm:px-3 py-1.5 sm:py-2 pr-9 sm:pr-10 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-transition outline-none"
+                        placeholder="请输入密码"
+                    >
+                    <button 
+                        type="button"
+                        onclick="togglePassword()"
+                        class="absolute right-2 sm:right-3 top-1/2 -translate-y-1/2 text-gray-500 hover:text-gray-700 transition"
+                    >
+                        <span id="eyeIcon" class="iconify" data-icon="mdi:eye-off" data-width="18"></span>
+                    </button>
+                </div>
+            </div>
+            <div>
+                <label class="block text-xs sm:text-sm font-medium text-gray-700 mb-1 sm:mb-1.5 flex items-center gap-1.5 sm:gap-2">
+                    <span class="iconify text-blue-500" data-icon="mdi:shield-check" data-width="14"></span>
+                    验证码
+                </label>
+                <div class="flex gap-2 sm:gap-3">
+                    <input 
+                        type="text" 
+                        name="captcha" 
+                        required
+                        maxlength="4"
+                        class="flex-1 px-2.5 sm:px-3 py-1.5 sm:py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-blue-500 input-transition outline-none"
+                        placeholder="请输入验证码"
+                    >
+                    <img 
+                        id="captchaImg" 
+                        src="" 
+                        alt="验证码"
+                        class="h-9 sm:h-10 w-24 sm:w-28 border border-gray-300 rounded-lg cursor-pointer hover:opacity-90 transition-all"
+                        onclick="refreshCaptcha()"
+                        title="点击刷新"
+                    >
+                </div>
+            </div>
+            <div id="errorMsg" class="hidden bg-red-50 border border-red-200 text-red-600 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg text-xs sm:text-sm flex items-center gap-1.5 sm:gap-2">
+                <span class="iconify" data-icon="mdi:alert-circle" data-width="14"></span>
+                <span id="errorText"></span>
+            </div>
+            <button 
+                type="submit"
+                class="w-full bg-gradient-to-r from-blue-600 to-indigo-600 hover:from-blue-700 hover:to-indigo-700 text-white text-sm sm:text-base font-semibold py-2 sm:py-2.5 px-4 rounded-lg transition-all duration-300 shadow-md hover:shadow-lg flex items-center justify-center gap-2"
+            >
+                <span class="iconify" data-icon="mdi:login" data-width="16"></span>
+                登 录
+            </button>
+        </form>
+        <div class="mt-3 sm:mt-4 text-center text-xs text-gray-500">
+            <p class="flex items-center justify-center gap-1 bg-blue-50 px-2.5 sm:px-3 py-1.5 sm:py-2 rounded-lg border border-blue-100">
+                <span class="iconify text-blue-500" data-icon="mdi:information" data-width="12"></span>
+                默认用户名和密码在 config.yaml 中配置
+            </p>
+        </div>
+    </div>
+    <script>
+        window.addEventListener('DOMContentLoaded', () => {
+            refreshCaptcha();
+        });
+        
+        function togglePassword() {
+            const passwordInput = document.getElementById('passwordInput');
+            const eyeIcon = document.getElementById('eyeIcon');
+            
+            if (passwordInput.type === 'password') {
+                passwordInput.type = 'text';
+                eyeIcon.setAttribute('data-icon', 'mdi:eye');
+            } else {
+                passwordInput.type = 'password';
+                eyeIcon.setAttribute('data-icon', 'mdi:eye-off');
+            }
+        }
+        
+        async function refreshCaptcha() {
+            try {
+                const response = await fetch('/api/admin/captcha');
+                const result = await response.json();
+                if (result.code === 200) {
+                    document.getElementById('captchaImg').src = result.image;
+                }
+            } catch (error) {
+                console.error('获取验证码失败:', error);
+            }
+        }
+        document.getElementById('loginForm').addEventListener('submit', async (e) => {
+            e.preventDefault();
+            const formData = new FormData(e.target);
+            const data = Object.fromEntries(formData);
+            try {
+                const response = await fetch('/api/admin/login', {
+                    method: 'POST',
+                    headers: {
+                        'Content-Type': 'application/json',
+                    },
+                    body: JSON.stringify(data),
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    window.location.href = result.data.redirect;
+                } else {
+                    showError(result.msg);
+                    refreshCaptcha();
+                    document.querySelector('input[name="captcha"]').value = '';
+                }
+            } catch (error) {
+                showError('登录失败，请重试');
+                refreshCaptcha();
+            }
+        });
+        function showError(msg) {
+            const errorDiv = document.getElementById('errorMsg');
+            const errorText = document.getElementById('errorText');
+            errorText.textContent = msg;
+            errorDiv.classList.remove('hidden');
+            setTimeout(() => {
+                errorDiv.classList.add('hidden');
+            }, 4000);
+        }
+    </script>
+    </div>
+</body>
+</html>
+

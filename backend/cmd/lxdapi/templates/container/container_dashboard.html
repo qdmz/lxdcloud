@@ -1,0 +1,2345 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 容器控制</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    {{if .UseLocalCDN}}
+    <script src="/static/js/chart.min.js"></script>
+    {{else}}
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+            --container-notice-opacity: {{if .ContainerNoticeOpacity}}{{.ContainerNoticeOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        .notice-box {
+            background-color: rgba(255, 255, 255, calc(var(--container-notice-opacity) / 100)) !important;
+        }
+        .custom-tab-active {
+            background-color: #2563eb !important;
+            color: white !important;
+            border: 1px solid #2563eb !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+        .custom-tab-inactive {
+            background-color: transparent !important;
+            color: #374151 !important;
+            border: 1px solid #9ca3af !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        }
+        .custom-tab-inactive:hover {
+            background-color: #e5e7eb !important;
+            border: 1px solid #9ca3af !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    <div id="noticeFloat" style="display: none; position: fixed; top: 80px; left: 20px; z-index: 9999; max-width: 400px; width: calc(100% - 40px);">
+        <div class="notice-box rounded-xl shadow-xl border border-blue-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-white">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                    </svg>
+                    <span class="font-semibold text-sm">系统公告</span>
+                </div>
+                <button onclick="closeNotice()" class="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <div id="noticeContent" class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed"></div>
+            </div>
+        </div>
+    </div>
+    
+    {{template "container/container_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%; z-index: 0;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12 max-w-7xl" style="z-index: 1;">
+
+        <div class="content-box rounded-lg border border-gray-200 p-3 lg:p-4 mb-3 lg:mb-4">
+            <div class="flex flex-row items-center justify-between gap-2">
+                <div class="flex items-center gap-2 lg:gap-3">
+                    <div id="containerIconBg" class="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center">
+                        <svg class="w-6 lg:w-7 h-6 lg:h-7 text-white" fill="currentColor" viewBox="0 0 20 20">
+                            <path d="M3 4a1 1 0 011-1h12a1 1 0 011 1v2a1 1 0 01-1 1H4a1 1 0 01-1-1V4zM3 10a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H4a1 1 0 01-1-1v-6zM14 9a1 1 0 00-1 1v6a1 1 0 001 1h2a1 1 0 001-1v-6a1 1 0 00-1-1h-2z"></path>
+                        </svg>
+                    </div>
+                    <div class="min-w-0 flex-1">
+                        <h1 id="containerName" class="text-sm lg:text-base font-semibold text-gray-800 truncate">加载中...</h1>
+                        <div class="flex flex-col sm:flex-row sm:gap-3 lg:gap-4 text-xs mt-0.5">
+                            <p class="text-gray-500 truncate">镜像: <span id="containerImage" class="font-medium text-gray-800">加载中...</span></p>
+                            <p class="text-gray-500 truncate">密码: <span id="containerPassword" class="font-mono font-medium text-gray-800">-</span></p>
+                        </div>
+                    </div>
+                </div>
+                <div id="containerStatus" class="self-start sm:self-center">
+                    <span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">加载中...</span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-3 lg:p-4 mb-3 lg:mb-4">
+            <h2 class="text-sm lg:text-base font-semibold text-gray-800 mb-2 lg:mb-3">容器操作</h2>
+            <div class="flex flex-wrap gap-1.5 lg:gap-2">
+                <button onclick="startContainer()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded transition whitespace-nowrap">启动</button>
+                <button onclick="stopContainer()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded transition whitespace-nowrap">停止</button>
+                <button onclick="restartContainer()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition whitespace-nowrap">重启</button>
+                <button onclick="openConsole()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-cyan-700 bg-cyan-50 hover:bg-cyan-100 border border-cyan-200 rounded transition whitespace-nowrap">VNC控制台</button>
+                <button onclick="showResetPasswordModal()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition whitespace-nowrap">重置密码</button>
+                <button onclick="showReinstallModal()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded transition whitespace-nowrap">重装系统</button>
+                <button onclick="showDNSModal()" class="px-2 py-1 lg:py-1.5 text-xs font-medium text-sky-700 bg-sky-50 hover:bg-sky-100 border border-sky-200 rounded transition whitespace-nowrap">DNS设置</button>
+            </div>
+        </div>
+
+        <div class="flex gap-1 lg:gap-2 content-box rounded-lg p-1 mb-4 overflow-x-auto w-fit">
+            <a id="infoTabBtn" class="custom-tab-active px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('info')">资源监控</a>
+            <a id="ipv4PoolTabBtn" class="custom-tab-inactive px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('ipv4Pool')" style="display:none;">IPv4 地址池</a>
+            <a id="ipv4MappingTabBtn" class="custom-tab-inactive px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('ipv4Mapping')" style="display:none;">IPv4 端口映射</a>
+            <a id="ipv6PoolTabBtn" class="custom-tab-inactive px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('ipv6Pool')" style="display:none;">IPv6 地址池</a>
+            <a id="ipv6MappingTabBtn" class="custom-tab-inactive px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('ipv6Mapping')" style="display:none;">IPv6 端口映射</a>
+            <a id="reverseProxyTabBtn" class="custom-tab-inactive px-2 py-1 lg:py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('reverseProxy')" style="display:none;">反向代理</a>
+        </div>
+
+        <div id="tabContent">
+            <div id="infoTab" class="tab-pane" style="display: block;">
+        <div class="grid grid-cols-1 md:grid-cols-3 gap-3 mb-4">
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-blue-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-600">内网 IPv4</p>
+                        <p id="containerIPv4" class="text-sm font-mono font-medium text-gray-800 mt-0.5">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-purple-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-600">内网 IPv6</p>
+                        <p id="containerIPv6" class="text-xs font-mono font-medium text-gray-800 break-all mt-0.5">-</p>
+                    </div>
+                </div>
+            </div>
+            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                <div class="flex items-center gap-2">
+                    <svg class="w-5 h-5 text-gray-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                    </svg>
+                    <div class="flex-1">
+                        <p class="text-xs text-gray-600 mb-1">容器访问码</p>
+                        <div class="flex items-center gap-1">
+                            <code id="containerHash" class="text-xs font-mono font-medium text-gray-800 select-all">加载中...</code>
+                            <button onclick="copyHash()" class="p-1 text-gray-600 hover:bg-gray-200 rounded-lg transition" title="复制">
+                                <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M8 16H6a2 2 0 01-2-2V6a2 2 0 012-2h8a2 2 0 012 2v2m-6 12h8a2 2 0 002-2v-8a2 2 0 00-2-2h-8a2 2 0 00-2 2v8a2 2 0 002 2z"></path>
+                                </svg>
+                            </button>
+                        </div>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <h2 class="text-base font-semibold text-gray-800 mb-3">资源监控</h2>
+            <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 mb-3">
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                    <p class="text-xs text-gray-600">CPU使用</p>
+                    <p id="resCPU" class="text-sm font-medium text-gray-800 mt-0.5">-</p>
+                </div>
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                    <p class="text-xs text-gray-600">内存</p>
+                    <p id="resMemory" class="text-sm font-medium text-gray-800 mt-0.5">-</p>
+                </div>
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                    <p class="text-xs text-gray-600">磁盘</p>
+                    <p id="resDisk" class="text-sm font-medium text-gray-800 mt-0.5">-</p>
+                </div>
+                <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 border border-gray-200">
+                    <p class="text-xs text-gray-600">流量</p>
+                    <p id="resTraffic" class="text-sm font-medium text-gray-800 mt-0.5">-</p>
+                </div>
+            </div>
+            <div class="grid grid-cols-1 md:grid-cols-2 xl:grid-cols-4 gap-3">
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <h3 class="text-xs font-semibold text-gray-700 mb-2">CPU使用趋势 (%)</h3>
+                    <div style="height: 150px;">
+                        <canvas id="cpuChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <h3 class="text-xs font-semibold text-gray-700 mb-2">内存使用趋势 (%)</h3>
+                    <div style="height: 150px;">
+                        <canvas id="memoryChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <h3 class="text-xs font-semibold text-gray-700 mb-2">磁盘使用趋势 (%)</h3>
+                    <div style="height: 150px;">
+                        <canvas id="diskChart"></canvas>
+                    </div>
+                </div>
+                <div class="bg-gray-50 rounded-lg p-3">
+                    <h3 class="text-xs font-semibold text-gray-700 mb-2">流量使用趋势 (%)</h3>
+                    <div style="height: 150px;">
+                        <canvas id="trafficChart"></canvas>
+                    </div>
+                </div>
+            </div>
+        </div>
+            </div>
+
+            <div id="ipv4PoolTab" class="tab-pane" style="display: none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-800">公网 IP 管理</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">已用 <span id="ipv4PoolCount">0</span> / 限制 <span id="ipv4PoolLimit">0</span></p>
+                        </div>
+                        <button onclick="showAddIPv4PoolModal()" class="content-box hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            申请 IP
+                        </button>
+                    </div>
+                    <div id="ipv4PoolList">
+                        <p class="text-center text-gray-500 py-4 text-xs">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ipv4MappingTab" class="tab-pane" style="display: none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-800">端口转发规则</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">已用 <span id="ipv4MappingCount">0</span> / 限制 <span id="ipv4MappingLimit">0</span></p>
+                        </div>
+                        <button onclick="showAddIPv4MappingModal()" class="content-box hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            添加IPv4规则
+                        </button>
+                    </div>
+                    <div id="ipv4MappingList">
+                        <p class="text-center text-gray-500 py-4 text-xs">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ipv6PoolTab" class="tab-pane" style="display: none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-800">IPv6 地址管理</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">已用 <span id="ipv6PoolCount">0</span> / 限制 <span id="ipv6PoolLimit">0</span></p>
+                        </div>
+                        <button onclick="showAddIPv6PoolModal()" class="content-box hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            申请 IPv6
+                        </button>
+                    </div>
+                    <div id="ipv6PoolList">
+                        <p class="text-center text-gray-500 py-4 text-xs">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="ipv6MappingTab" class="tab-pane" style="display: none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-800">IPv6 端口转发</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">已用 <span id="ipv6MappingCount">0</span> / 限制 <span id="ipv6MappingLimit">0</span></p>
+                        </div>
+                        <button onclick="showAddIPv6MappingModal()" class="content-box hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            添加IPv6规则
+                        </button>
+                    </div>
+                    <div id="ipv6MappingList">
+                        <p class="text-center text-gray-500 py-4 text-xs">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div id="reverseProxyTab" class="tab-pane" style="display: none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                    <div class="flex justify-between items-center mb-3">
+                        <div>
+                            <h2 class="text-base font-semibold text-gray-800">域名绑定</h2>
+                            <p class="text-xs text-gray-500 mt-0.5">已用 <span id="reverseProxyCount">0</span> / 限制 <span id="reverseProxyLimit">0</span></p>
+                        </div>
+                        <button onclick="showAddReverseProxyModal()" class="content-box hover:bg-gray-50 text-gray-700 border border-gray-200 px-3 py-1.5 rounded-lg text-xs font-medium transition flex items-center gap-1.5">
+                            <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                            </svg>
+                            添加反向代理
+                        </button>
+                    </div>
+                    <div id="reverseProxyList">
+                        <p class="text-center text-gray-500 py-4 text-xs">加载中...</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <dialog id="addIPv4PoolModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">申请公网 IPv4</h3>
+            <form id="addIPv4PoolForm" class="space-y-3">
+                <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-sm text-blue-800">系统将随机分配一个可用的公网 IPv4 地址。</span>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddIPv4PoolModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">确认分配</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="addIPv4MappingModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">添加端口映射规则</h3>
+            <form id="addIPv4MappingForm" class="space-y-3">
+                <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-sm text-blue-800">系统将自动在所有绑定的公网 IP 上创建此规则。</span>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">公网端口 <span class="text-gray-400 text-xs">(留空随机)</span></span></label>
+                    <input type="number" id="ipv4MappingPublicPort" min="10000" max="65535" class="input input-bordered input-sm" placeholder="10000-65535">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">容器端口 *</span></label>
+                    <input type="number" id="ipv4MappingContainerPort" required min="1" max="65535" class="input input-bordered input-sm" placeholder="例如: 80">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">端口数量</span></label>
+                    <input type="number" id="ipv4MappingPortCount" required min="1" max="100" value="1" class="input input-bordered input-sm" placeholder="默认为 1">
+                    <label class="label"><span class="label-text-alt text-gray-500">大于 1 表示连续端口段</span></label>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">描述</span></label>
+                    <input type="text" id="ipv4MappingDescription" class="input input-bordered input-sm" placeholder="规则描述">
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddIPv4MappingModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">添加规则</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="resetPasswordModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-purple-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                </svg>
+                重置root密码
+            </h3>
+            <form id="resetPasswordForm" class="space-y-4">
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">新密码 <span class="text-red-500">*</span></span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="newPassword" required class="input input-bordered input-sm flex-1 outline-none focus:ring-2 focus:ring-purple-500 focus:border-purple-500" placeholder="请输入新密码">
+                        <button type="button" onclick="generateResetPassword()" class="px-3 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition whitespace-nowrap">
+                            生成
+                        </button>
+                    </div>
+                    <label class="label">
+                        <span class="label-text-alt text-gray-500">输入新密码或点击生成按钮自动生成强密码</span>
+                    </label>
+                </div>
+                <div class="modal-action pt-2">
+                    <button type="button" onclick="closeResetPasswordModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition flex items-center gap-2">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-2">
+                        <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 7a2 2 0 012 2m4 0a6 6 0 01-7.743 5.743L11 17H9v2H7v2H4a1 1 0 01-1-1v-2.586a1 1 0 01.293-.707l5.964-5.964A6 6 0 1121 9z"></path>
+                        </svg>
+                        确认重置
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="reinstallModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-orange-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                </svg>
+                重装系统
+            </h3>
+            <form id="reinstallForm" class="space-y-4">
+                <div class="flex items-start gap-3 p-3 bg-orange-50 border border-orange-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" class="w-5 h-5 text-orange-600 flex-shrink-0 mt-0.5" fill="none" viewBox="0 0 24 24" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z" /></svg>
+                    <span class="text-sm font-medium text-orange-800">重装系统将删除容器所有数据！</span>
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">操作系统镜像 <span class="text-red-500">*</span></span>
+                    </label>
+                    <select id="reinstallImage" required class="select select-bordered select-sm w-full outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500">
+                        <option value="">请选择镜像</option>
+                    </select>
+                    <label class="label">
+                        <span class="label-text-alt text-gray-500">选择要重装的操作系统镜像</span>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label">
+                        <span class="label-text font-medium">Root密码</span>
+                        <span class="label-text-alt text-gray-500">留空则使用原密码</span>
+                    </label>
+                    <div class="flex gap-2">
+                        <input type="text" id="reinstallPassword" class="input input-bordered input-sm flex-1 outline-none focus:ring-2 focus:ring-orange-500 focus:border-orange-500" placeholder="留空将使用数据库中的原密码">
+                        <button type="button" onclick="generateReinstallPassword()" class="px-3 py-1 text-xs font-medium text-orange-700 bg-orange-50 hover:bg-orange-100 border border-orange-200 rounded transition whitespace-nowrap">
+                            生成
+                        </button>
+                    </div>
+                    <label class="label">
+                        <span class="label-text-alt text-gray-500">留空使用原密码，输入新密码或点击生成按钮设置新密码</span>
+                    </label>
+                </div>
+                <div class="modal-action pt-2">
+                    <button type="button" onclick="closeReinstallModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-2">
+                        <svg class="w-4 h-4 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                        </svg>
+                        <span>确认重装</span>
+                    </button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="dnsModal" class="modal">
+        <div class="modal-box max-w-md">
+            <h3 class="font-bold text-lg mb-4 flex items-center gap-2">
+                <svg class="w-5 h-5 text-sky-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M21 12a9 9 0 01-9 9m9-9a9 9 0 00-9-9m9 9H3m9 9a9 9 0 01-9-9m9 9c1.657 0 3-4.03 3-9s-1.343-9-3-9m0 18c-1.657 0-3-4.03-3-9s1.343-9 3-9m-9 9a9 9 0 019-9"></path>
+                </svg>
+                DNS设置
+            </h3>
+            <div class="space-y-4">
+                <div class="form-control">
+                    <label class="label"><span class="label-text font-medium">DNS服务器</span></label>
+                    <textarea id="dnsServers" rows="4" class="textarea textarea-bordered w-full text-sm" placeholder="每行一个DNS地址，例如：&#10;8.8.8.8&#10;8.8.4.4"></textarea>
+                    <label class="label"><span class="label-text-alt text-gray-500">每行输入一个DNS服务器地址</span></label>
+                </div>
+            </div>
+            <div class="modal-action">
+                <button type="button" onclick="closeDNSModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                <button type="button" onclick="saveDNS()" class="px-4 py-2 text-sm font-medium text-white bg-sky-600 hover:bg-sky-700 rounded-lg transition">保存</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="addIPv6PoolModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">申请公网 IPv6</h3>
+            <form id="addIPv6PoolForm" class="space-y-3">
+                <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-sm text-blue-800">系统将自动分配一个 IPv6 地址。</span>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddIPv6PoolModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">确认分配</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="addIPv6MappingModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">添加 IPv6 端口映射</h3>
+            <form id="addIPv6MappingForm" class="space-y-3">
+                <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5" stroke="currentColor"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-sm text-blue-800">系统将自动在所有绑定的公网 IPv6 上创建此规则。</span>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">公网端口 <span class="text-gray-400 text-xs">(留空随机)</span></span></label>
+                    <input type="number" id="ipv6MappingPublicPort" min="10000" max="65535" class="input input-bordered input-sm" placeholder="10000-65535">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">容器端口 *</span></label>
+                    <input type="number" id="ipv6MappingContainerPort" required min="1" max="65535" class="input input-bordered input-sm" placeholder="例如: 80">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">端口数量</span></label>
+                    <input type="number" id="ipv6MappingPortCount" required min="1" max="100" value="1" class="input input-bordered input-sm" placeholder="默认为 1">
+                    <label class="label"><span class="label-text-alt text-gray-500">大于 1 表示连续端口段</span></label>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">描述</span></label>
+                    <input type="text" id="ipv6MappingDescription" class="input input-bordered input-sm" placeholder="规则描述">
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddIPv6MappingModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">添加规则</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="addReverseProxyModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">添加域名绑定</h3>
+            <form id="addReverseProxyForm" class="space-y-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">域名 *</span></label>
+                    <input type="text" id="reverseProxyDomain" required class="input input-bordered input-sm" placeholder="example.com">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">容器端口 *</span></label>
+                    <input type="number" id="reverseProxyTargetPort" required class="input input-bordered input-sm" placeholder="80">
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">描述</span></label>
+                    <input type="text" id="reverseProxyDescription" class="input input-bordered input-sm" placeholder="规则描述">
+                </div>
+                <hr class="my-3">
+                <div class="form-control">
+                    <label class="label cursor-pointer">
+                        <span class="label-text font-semibold">启用 HTTPS</span>
+                        <input type="checkbox" id="reverseProxySSLEnabled" class="checkbox checkbox-primary checkbox-sm">
+                    </label>
+                </div>
+                <div id="reverseProxySSLOptions" style="display:none;" class="space-y-3">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">SSL 证书类型</span></label>
+                        <select id="reverseProxySSLType" class="select select-bordered select-sm">
+                            <option value="self-signed">自动生成自签名证书</option>
+                            <option value="custom">手动填写证书内容</option>
+                        </select>
+                    </div>
+                    <div id="reverseProxyCustomCertFields" style="display:none;" class="space-y-2">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs">SSL 证书内容 *</span></label>
+                            <textarea id="reverseProxySSLCert" class="textarea textarea-bordered textarea-sm" rows="3" placeholder="-----BEGIN CERTIFICATE-----&#10;...&#10;-----END CERTIFICATE-----"></textarea>
+                        </div>
+                        <div class="form-control">
+                            <label class="label"><span class="label-text text-xs">SSL 私钥内容 *</span></label>
+                            <textarea id="reverseProxySSLKey" class="textarea textarea-bordered textarea-sm" rows="3" placeholder="-----BEGIN PRIVATE KEY-----&#10;...&#10;-----END PRIVATE KEY-----"></textarea>
+                        </div>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddReverseProxyModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">添加</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const hashFromUrl = urlParams.get('hash') || '{{.hash}}';
+        
+        const allParams = Array.from(urlParams.keys());
+        const hasInvalidParams = allParams.some(key => key !== 'hash') || 
+                                (allParams.length > 0 && !hashFromUrl);
+        
+        if (hasInvalidParams) {
+            window.location.href = '/container/login';
+        }
+        
+        let hash = hashFromUrl || localStorage.getItem('container_hash');
+        let headers = {};
+        
+        if (!hash) {
+            window.location.href = '/container/login';
+        }
+        
+        if (hashFromUrl) {
+            localStorage.setItem('container_hash', hashFromUrl);
+            console.log('使用访问码直接登录');
+            const newUrl = window.location.pathname;
+            window.history.replaceState({}, document.title, newUrl);
+        }
+        
+        headers = {'X-Container-Hash': hash};
+        
+        let containerData = null;
+        let containerName = '';
+        let portRangeConfig = { v4_port_start: 10000, v4_port_end: 65535, v6_port_start: 10000, v6_port_end: 65535 };
+        let ipPoolSettings = { allow_container_release_ipv4: false, allow_container_release_ipv6: false };
+
+        async function loadIPPoolSettings() {
+            try {
+                const response = await fetch('/api/public/ip-pool-settings');
+                const result = await response.json();
+                if (result.code === 200 && result.data) {
+                    ipPoolSettings = result.data;
+                }
+            } catch (error) {
+                console.error('加载IP池设置失败:', error);
+            }
+        }
+
+        async function loadPortRangeConfig() {
+            try {
+                const response = await fetch('/api/port-range/config');
+                const result = await response.json();
+                if (result.code === 200 && result.data) {
+                    portRangeConfig = result.data;
+                }
+            } catch (error) {
+                console.error('加载端口范围配置失败:', error);
+            }
+        }
+        
+        let cpuChart = null;
+        let memoryChart = null;
+        let diskChart = null;
+        let trafficChart = null;
+        
+        const maxDataPoints = 20;
+        const chartData = {
+            labels: [],
+            cpu: [],
+            memory: [],
+            disk: [],
+            traffic: []
+        };
+
+        $(document).ready(function() {
+            setTimeout(() => {
+                switchTab('info');
+            }, 100);
+
+            initCharts();
+            loadIPPoolSettings();
+            loadPortRangeConfig();
+            loadContainerInfo();
+            loadContainerHash();
+            loadIPv4PoolBindings();
+            loadIPv4MappingBindings();
+            loadIPv6PoolBindings();
+            loadIPv6MappingBindings();
+            loadReverseProxyRules();
+            setInterval(loadContainerInfo, 10000);
+            
+            $('#addIPv4PoolForm').submit(function(e) {
+                e.preventDefault();
+                submitAddIPv4Pool();
+            });
+
+            $('#addIPv6PoolForm').submit(function(e) {
+                e.preventDefault();
+                submitAddIPv6Pool();
+            });
+
+            $('#addIPv4MappingForm').submit(function(e) {
+                e.preventDefault();
+                submitAddIPv4Mapping();
+            });
+            
+            $('#addIPv6MappingForm').submit(function(e) {
+                e.preventDefault();
+                submitAddIPv6Mapping();
+            });
+
+            $('#addReverseProxyForm').submit(function(e) {
+                e.preventDefault();
+                submitAddReverseProxy();
+            });
+
+            $('#reverseProxySSLEnabled').change(function() {
+                if($(this).is(':checked')) {
+                    $('#reverseProxySSLOptions').show();
+                } else {
+                    $('#reverseProxySSLOptions').hide();
+                }
+            });
+
+            $('#reverseProxySSLType').change(function() {
+                if($(this).val() === 'custom') {
+                    $('#reverseProxyCustomCertFields').show();
+                } else {
+                    $('#reverseProxyCustomCertFields').hide();
+                }
+            });
+        });
+
+        function loadContainerInfo() {
+            $.ajax({
+                url: '/api/container/info',
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200) {
+                        containerData = result.data;
+                        if (containerData) {
+                            const isFirstLoad = !containerName || containerName === '';
+                            
+                            updateTabVisibility(containerData);
+                            renderContainerInfo(containerData);
+                            
+                            if (isFirstLoad) {
+                                loadIPv4MappingBindings();
+                                loadIPv6MappingBindings();
+                            }
+                        } else {
+                            showToast('error', '容器不存在');
+                        }
+                    } else {
+                        console.error('获取容器信息失败:', result.msg);
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 401 || xhr.status === 403) {
+                        localStorage.removeItem('container_hash');
+                        window.location.href = '/container/login';
+                    } else {
+                        console.error('获取容器信息失败');
+                    }
+                }
+            });
+        }
+
+        function renderContainerInfo(c) {
+            containerName = c.name || '';
+            
+            $('#containerName').text(containerName || '未知');
+            $('#containerNameInput').val(containerName || '未知');
+            
+            const status = (c.status || '').toLowerCase();
+            const statusBadge = status === 'running' ? 
+                '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>运行中</span>' : 
+                status === 'stopped' ?
+                '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">已停止</span>' :
+                status === 'frozen' ?
+                '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">已暂停</span>' :
+                '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">其他</span>';
+
+            const iconColor = status === 'running' ? 'from-green-500 to-green-600' : 'from-gray-500 to-gray-600';
+            $('#containerIconBg').removeClass().addClass(`w-12 h-12 bg-gradient-to-br ${iconColor} rounded-lg flex items-center justify-center`);
+            
+            $('#containerStatus').html(statusBadge);
+            $('#containerImage').text(c.image || '未知镜像');
+            $('#containerPassword').text(c.password || '-');
+
+            $('#containerIPv4').text(c.ipv4 && c.ipv4.length > 0 ? c.ipv4.join(', ') : '-');
+            $('#containerIPv6').text(c.ipv6 && c.ipv6.length > 0 ? c.ipv6.join(', ') : '-');
+
+            const cpuUsage = c.cpu_usage || 0;
+            const memoryUsed = c.memory_usage_raw || 0;
+            const memoryTotal = c.memory ? parseMemorySize(c.memory) : 0;
+            const diskUsed = c.disk_usage_raw || 0;
+            const diskTotal = c.disk ? parseMemorySize(c.disk) : 0;
+            const trafficUsedGB = c.traffic_usage_raw || 0;
+            const trafficUsed = trafficUsedGB * 1024 * 1024 * 1024;
+            const trafficLimit = c.traffic_limit || 0;
+
+            $('#resCPU').text(cpuUsage.toFixed(1) + '% / ' + (c.cpu || 1) + '核');
+            $('#resMemory').text(formatBytes(memoryUsed) + ' / ' + formatBytes(memoryTotal));
+            $('#resDisk').text(formatBytes(diskUsed) + ' / ' + formatBytes(diskTotal));
+            
+            const trafficLimitBytes = trafficLimit > 0 ? (trafficLimit * 1024 * 1024 * 1024) : 0;
+            if (trafficLimitBytes > 0) {
+                $('#resTraffic').text(formatBytes(trafficUsed) + ' / ' + formatBytes(trafficLimitBytes));
+            } else {
+                $('#resTraffic').text(formatBytes(trafficUsed) + ' / 无限制');
+            }
+
+            updateChartData(cpuUsage, memoryUsed, memoryTotal, diskUsed, diskTotal, trafficUsed, trafficLimitBytes);
+        }
+
+        function updateTabVisibility(data) {
+            const ipv4PoolLimit = data.ipv4_pool_limit || data.IPv4PoolLimit || 0;
+            const ipv4MappingLimit = data.ipv4_mapping_limit || data.IPv4MappingLimit || 0;
+            const ipv6PoolLimit = data.ipv6_pool_limit || data.IPv6PoolLimit || 0;
+            const ipv6MappingLimit = data.ipv6_mapping_limit || data.IPv6MappingLimit || 0;
+            const reverseProxyLimit = data.reverse_proxy_limit || data.ReverseProxyLimit || 0;
+            
+            $('#ipv4PoolLimit').text(ipv4PoolLimit);
+            $('#ipv4MappingLimit').text(ipv4MappingLimit);
+            $('#ipv6PoolLimit').text(ipv6PoolLimit);
+            $('#ipv6MappingLimit').text(ipv6MappingLimit);
+            $('#reverseProxyLimit').text(reverseProxyLimit);
+            
+            if (ipv4PoolLimit > 0) {
+                $('#ipv4PoolTabBtn').show();
+            } else {
+                $('#ipv4PoolTabBtn').hide();
+                if ($('#ipv4PoolTab').is(':visible')) {
+                    switchTab('info');
+                }
+            }
+            
+            if (ipv4MappingLimit > 0) {
+                $('#ipv4MappingTabBtn').show();
+            } else {
+                $('#ipv4MappingTabBtn').hide();
+                if ($('#ipv4MappingTab').is(':visible')) {
+                    switchTab('info');
+                }
+            }
+            
+            if (ipv6PoolLimit > 0) {
+                $('#ipv6PoolTabBtn').show();
+            } else {
+                $('#ipv6PoolTabBtn').hide();
+                if ($('#ipv6PoolTab').is(':visible')) {
+                    switchTab('info');
+                }
+            }
+            
+            if (ipv6MappingLimit > 0) {
+                $('#ipv6MappingTabBtn').show();
+            } else {
+                $('#ipv6MappingTabBtn').hide();
+                if ($('#ipv6MappingTab').is(':visible')) {
+                    switchTab('info');
+                }
+            }
+            
+            if (reverseProxyLimit > 0) {
+                $('#reverseProxyTabBtn').show();
+            } else {
+                $('#reverseProxyTabBtn').hide();
+                if ($('#reverseProxyTab').is(':visible')) {
+                    switchTab('info');
+                }
+            }
+        }
+
+        function parseMemorySize(sizeStr) {
+            if (!sizeStr) return 0;
+            const match = String(sizeStr).match(/^(\d+(?:\.\d+)?)\s*(MB|GB|KB|B)?$/i);
+            if (!match) return 0;
+            const value = parseFloat(match[1]);
+            const unit = (match[2] || 'B').toUpperCase();
+            const units = { 'B': 1, 'KB': 1024, 'MB': 1024 * 1024, 'GB': 1024 * 1024 * 1024 };
+            return value * (units[unit] || 1);
+        }
+
+        function formatBytes(bytes) {
+            if (bytes === 0) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB', 'TB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function initCharts() {
+            const commonOptions = {
+                responsive: true,
+                maintainAspectRatio: false,
+                interaction: { mode: 'index', intersect: false },
+                plugins: {
+                    legend: { display: false }
+                },
+                scales: {
+                    x: {
+                        ticks: {
+                            font: { size: 9 },
+                            maxRotation: 0,
+                            autoSkip: true,
+                            maxTicksLimit: 5
+                        }
+                    },
+                    y: {
+                        ticks: {
+                            font: { size: 9 }
+                        }
+                    }
+                }
+            };
+
+            cpuChart = new Chart(document.getElementById('cpuChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: 'CPU使用率 (%)',
+                        data: chartData.cpu,
+                        borderColor: 'rgb(59, 130, 246)',
+                        backgroundColor: 'rgba(59, 130, 246, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { 
+                            ...commonOptions.scales.y, 
+                            min: 0, 
+                            max: 100, 
+                            ticks: { 
+                                ...commonOptions.scales.y.ticks, 
+                                stepSize: 25,
+                                callback: function(value) { return value + '%'; }
+                            }
+                        }
+                    }
+                }
+            });
+
+            memoryChart = new Chart(document.getElementById('memoryChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: '内存使用率 (%)',
+                        data: chartData.memory,
+                        borderColor: 'rgb(34, 197, 94)',
+                        backgroundColor: 'rgba(34, 197, 94, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { 
+                            ...commonOptions.scales.y, 
+                            min: 0, 
+                            max: 100, 
+                            ticks: { 
+                                ...commonOptions.scales.y.ticks, 
+                                stepSize: 25,
+                                callback: function(value) { return value + '%'; }
+                            }
+                        }
+                    }
+                }
+            });
+
+            diskChart = new Chart(document.getElementById('diskChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: '磁盘使用率 (%)',
+                        data: chartData.disk,
+                        borderColor: 'rgb(234, 179, 8)',
+                        backgroundColor: 'rgba(234, 179, 8, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { 
+                            ...commonOptions.scales.y, 
+                            min: 0, 
+                            max: 100, 
+                            ticks: { 
+                                ...commonOptions.scales.y.ticks, 
+                                stepSize: 25,
+                                callback: function(value) { return value + '%'; }
+                            }
+                        }
+                    }
+                }
+            });
+
+            trafficChart = new Chart(document.getElementById('trafficChart').getContext('2d'), {
+                type: 'line',
+                data: {
+                    labels: chartData.labels,
+                    datasets: [{
+                        label: '流量使用率 (%)',
+                        data: chartData.traffic,
+                        borderColor: 'rgb(168, 85, 247)',
+                        backgroundColor: 'rgba(168, 85, 247, 0.1)',
+                        fill: true,
+                        tension: 0.4
+                    }]
+                },
+                options: {
+                    ...commonOptions,
+                    scales: {
+                        ...commonOptions.scales,
+                        y: { 
+                            ...commonOptions.scales.y, 
+                            min: 0, 
+                            max: 100, 
+                            ticks: { 
+                                ...commonOptions.scales.y.ticks, 
+                                stepSize: 25,
+                                callback: function(value) { return value + '%'; }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        function updateChartData(cpuUsage, memoryUsed, memoryTotal, diskUsed, diskTotal, trafficUsed, trafficLimitBytes) {
+            const now = new Date().toLocaleTimeString();
+            
+            chartData.labels.push(now);
+            chartData.cpu.push(cpuUsage);
+            chartData.memory.push(memoryTotal > 0 ? (memoryUsed / memoryTotal * 100) : 0);
+            chartData.disk.push(diskTotal > 0 ? (diskUsed / diskTotal * 100) : 0);
+            chartData.traffic.push(trafficLimitBytes > 0 ? (trafficUsed / trafficLimitBytes * 100) : 0);
+
+            if (chartData.labels.length > maxDataPoints) {
+                chartData.labels.shift();
+                chartData.cpu.shift();
+                chartData.memory.shift();
+                chartData.disk.shift();
+                chartData.traffic.shift();
+            }
+
+            if (cpuChart) cpuChart.update('none');
+            if (memoryChart) memoryChart.update('none');
+            if (diskChart) diskChart.update('none');
+            if (trafficChart) trafficChart.update('none');
+        }
+
+        function openConsole() {
+            if (!containerName) {
+                showToast('error', '容器名称未加载，请稍后重试');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/container/console/create-token',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify({ hostname: containerName }),
+                success: function(result) {
+                    if (result.code === 200 && result.data.token) {
+                        const consoleUrl = `/console?token=${result.data.token}`;
+                        window.open(consoleUrl, '_blank', 'width=1200,height=800');
+                    } else {
+                        showToast('error', '创建控制台令牌失败: ' + (result.msg || result.message));
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', '打开控制台失败');
+                }
+            });
+        }
+
+        function loadContainerHash() {
+            $('#containerHash').text(hash);
+        }
+
+        function loadContainerHashOld() {
+            $.ajax({
+                url: `/api/container/hash`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        $('#containerHash').text(result.data.hash || '-');
+                    } else {
+                        $('#containerHash').text('-');
+                    }
+                },
+                error: function() {
+                    $('#containerHash').text('加载失败');
+                }
+            });
+        }
+
+        function copyHash() {
+            const hash = $('#containerHash').text();
+            if (hash === '加载中...' || hash === '-' || hash === '加载失败') {
+                showToast('error', '访问码不可用');
+                return;
+            }
+            
+            if (navigator.clipboard && navigator.clipboard.writeText) {
+                navigator.clipboard.writeText(hash).then(() => {
+                    showToast('success', '访问码已复制到剪贴板');
+                }).catch(() => {
+                    fallbackCopy(hash);
+                });
+            } else {
+                fallbackCopy(hash);
+            }
+        }
+
+        function fallbackCopy(text) {
+            const textArea = document.createElement('textarea');
+            textArea.value = text;
+            textArea.style.position = 'fixed';
+            textArea.style.left = '-999999px';
+            document.body.appendChild(textArea);
+            textArea.select();
+            try {
+                document.execCommand('copy');
+                showToast('success', '访问码已复制到剪贴板');
+            } catch (err) {
+                showToast('error', '复制失败，请手动复制');
+            }
+            document.body.removeChild(textArea);
+        }
+
+        function regenerateHash() {
+            showToast('error', '容器用户无法重新生成访问码，请联系管理员');
+        }
+
+        function regenerateHashDisabled() {
+            if (!confirm('重新生成访问码后，旧访问码将失效，确定要继续吗？')) {
+                return;
+            }
+
+            showToast('info', '正在重新生成访问码...');
+            $.ajax({
+                url: `/api/container/regenerate-hash`,
+                type: 'POST',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        $('#containerHash').text(result.data.hash);
+                        showToast('success', '访问码已重新生成');
+                    } else {
+                        showToast('error', result.msg || '重新生成失败');
+                    }
+                },
+                error: function(xhr) {
+                    let msg = '重新生成失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        msg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function startContainer() {
+            if (!confirm('确定要启动容器吗？')) return;
+            performAction('/api/container/action?action=start', '启动');
+        }
+
+        function stopContainer() {
+            if (!confirm('确定要停止容器吗？')) return;
+            performAction('/api/container/action?action=stop', '停止');
+        }
+
+        function restartContainer() {
+            if (!confirm('确定要重启容器吗？')) return;
+            performAction('/api/container/action?action=restart', '重启');
+        }
+
+        function performAction(url, actionName) {
+            showToast('info', actionName + '中...');
+            $.ajax({
+                url: url,
+                type: 'POST',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', actionName + '成功');
+                        setTimeout(loadContainerInfo, 1000);
+                    } else {
+                        showToast('error', actionName + '失败: ' + (result.msg || result.message));
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', actionName + '失败');
+                }
+            });
+        }
+
+        function showResetPasswordModal() {
+            document.getElementById('resetPasswordModal').showModal();
+        }
+
+        function closeResetPasswordModal() {
+            document.getElementById('resetPasswordModal').close();
+        }
+
+        function generateResetPassword() {
+            const length = 16;
+            const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+            let password = '';
+            password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
+            password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
+            password += '0123456789'[Math.floor(Math.random() * 10)];
+            password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
+            for (let i = password.length; i < length; i++) {
+                password += charset[Math.floor(Math.random() * charset.length)];
+            }
+            password = password.split('').sort(() => Math.random() - 0.5).join('');
+            $('#newPassword').val(password);
+        }
+
+        $('#resetPasswordForm').on('submit', function(e) {
+            e.preventDefault();
+            const password = $('#newPassword').val();
+            if (!password) {
+                showToast('error', '请输入新密码');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/container/action?action=reset-password',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    password: password
+                }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '密码重置成功');
+                        closeResetPasswordModal();
+                        loadContainerInfo();
+                    } else {
+                        showToast('error', '密码重置失败: ' + (result.msg || result.message));
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', '密码重置失败');
+                }
+            });
+        });
+
+        function showReinstallModal() {
+            document.getElementById('reinstallModal').showModal();
+            loadReinstallTemplates();
+        }
+
+        function closeReinstallModal() {
+            document.getElementById('reinstallModal').close();
+        }
+
+        function showDNSModal() {
+            $.ajax({
+                url: '/api/container/dns',
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data.dns) {
+                        $('#dnsServers').val(result.data.dns.join('\n'));
+                    } else {
+                        $('#dnsServers').val('');
+                    }
+                    document.getElementById('dnsModal').showModal();
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    $('#dnsServers').val('');
+                    document.getElementById('dnsModal').showModal();
+                }
+            });
+        }
+
+        function closeDNSModal() {
+            document.getElementById('dnsModal').close();
+        }
+
+        function saveDNS() {
+            const dnsText = $('#dnsServers').val().trim();
+            if (!dnsText) {
+                showToast('error', 'DNS服务器不能为空');
+                return;
+            }
+            
+            const dnsServers = dnsText.split('\n').map(s => s.trim()).filter(s => s);
+            if (dnsServers.length === 0) {
+                showToast('error', 'DNS服务器不能为空');
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/container/dns',
+                type: 'PUT',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify({ dns: dnsServers }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', 'DNS设置成功');
+                        closeDNSModal();
+                    } else {
+                        showToast('error', result.msg || 'DNS设置失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    let errorMsg = 'DNS设置失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function loadReinstallTemplates() {
+            $.ajax({
+                url: '/api/container/templates',
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data.templates) {
+                        const templates = result.data.templates;
+                        let options = '<option value="">请选择镜像</option>';
+                        templates.forEach(t => {
+                            const label = t.alias || t.fingerprint.substring(0, 12);
+                            const osInfo = t.os && t.release ? ` (${t.os} ${t.release})` : '';
+                            options += `<option value="${t.alias || t.fingerprint}">${label}${osInfo}</option>`;
+                        });
+                        $('#reinstallImage').html(options);
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    $('#reinstallImage').html('<option value="">加载镜像列表失败</option>');
+                }
+            });
+        }
+
+        function generateReinstallPassword() {
+            const length = 16;
+            const charset = 'abcdefghijklmnopqrstuvwxyzABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789!@#$%^&*';
+            let password = '';
+            password += 'ABCDEFGHIJKLMNOPQRSTUVWXYZ'[Math.floor(Math.random() * 26)];
+            password += 'abcdefghijklmnopqrstuvwxyz'[Math.floor(Math.random() * 26)];
+            password += '0123456789'[Math.floor(Math.random() * 10)];
+            password += '!@#$%^&*'[Math.floor(Math.random() * 8)];
+            for (let i = password.length; i < length; i++) {
+                password += charset[Math.floor(Math.random() * charset.length)];
+            }
+            password = password.split('').sort(() => Math.random() - 0.5).join('');
+            $('#reinstallPassword').val(password);
+        }
+
+        $('#reinstallForm').on('submit', function(e) {
+            e.preventDefault();
+            const image = $('#reinstallImage').val();
+            const password = $('#reinstallPassword').val();
+            
+            if (!image) {
+                showToast('error', '请选择镜像');
+                return;
+            }
+            
+            if (!confirm('重装系统将删除所有数据，确定要继续吗？')) return;
+            
+            $.ajax({
+                url: '/api/container/action?action=reinstall',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    image: image,
+                    password: password
+                }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('info', '系统重装任务已启动，正在重装中...');
+                        closeReinstallModal();
+                        const taskId = result.data.task_id;
+                        pollTaskStatus(taskId, '当前容器', 'reinstall');
+                    } else {
+                        showToast('error', '重装系统失败: ' + (result.msg || result.message));
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', '重装系统失败');
+                }
+            });
+        });
+
+        function handleAuthError(xhr) {
+            if (xhr.status === 401 || xhr.status === 403) {
+                localStorage.removeItem('container_hash');
+                window.location.href = '/container/login';
+            }
+        }
+
+        function pollTaskStatus(taskId, containerName, action) {
+            let pollCount = 0;
+            const maxPolls = 120;
+            let hasShownRunning = false;
+            
+            const actionNames = {
+                'reinstall': '重装'
+            };
+            const actionName = actionNames[action] || action;
+            
+            const pollInterval = setInterval(function() {
+                pollCount++;
+                
+                $.ajax({
+                    url: '/api/admin/tasks/detail?task_id=' + taskId,
+                    type: 'GET',
+                    success: function(result) {
+                        if (result.code === 200 && result.data) {
+                            const task = result.data;
+                            
+                            if (task.status === 'running' && !hasShownRunning) {
+                                hasShownRunning = true;
+                                showToast('info', '正在执行' + actionName + '操作，请稍候...');
+                            } else if (task.status === 'success') {
+                                clearInterval(pollInterval);
+                                showToast('success', '容器 ' + containerName + ' ' + actionName + '成功！');
+                                setTimeout(() => loadContainerInfo(), 1000);
+                            } else if (task.status === 'failed') {
+                                clearInterval(pollInterval);
+                                const errorMsg = task.error_msg || actionName + '失败';
+                                showToast('error', '容器 ' + containerName + ' ' + actionName + '失败：' + errorMsg);
+                                setTimeout(() => loadContainerInfo(), 1000);
+                            }
+                        }
+                    },
+                    error: function() {}
+                });
+                
+                if (pollCount >= maxPolls) {
+                    clearInterval(pollInterval);
+                    showToast('warning', '操作超时，请手动刷新查看状态');
+                    loadContainerInfo();
+                }
+            }, 1000);
+        }
+
+        function switchTab(tabName) {
+            $('#infoTab, #ipv4PoolTab, #ipv4MappingTab, #ipv6PoolTab, #ipv6MappingTab, #reverseProxyTab').hide();
+            $('#infoTabBtn, #ipv4PoolTabBtn, #ipv4MappingTabBtn, #ipv6PoolTabBtn, #ipv6MappingTabBtn, #reverseProxyTabBtn').removeClass('custom-tab-active').addClass('custom-tab-inactive');
+            
+            if (tabName === 'info') {
+                $('#infoTab').show();
+                $('#infoTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'ipv4Pool') {
+                $('#ipv4PoolTab').show();
+                $('#ipv4PoolTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'ipv4Mapping') {
+                $('#ipv4MappingTab').show();
+                $('#ipv4MappingTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'ipv6Pool') {
+                $('#ipv6PoolTab').show();
+                $('#ipv6PoolTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'ipv6Mapping') {
+                $('#ipv6MappingTab').show();
+                $('#ipv6MappingTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'reverseProxy') {
+                $('#reverseProxyTab').show();
+                $('#reverseProxyTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            }
+        }
+
+        function loadIPv4PoolBindings() {
+            $.ajax({
+                url: `/api/container/ip?version=v4`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        renderIPv4PoolBindings(result.data.ipv4 || []);
+                    } else {
+                        $('#ipv4PoolList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                    }
+                }
+            });
+        }
+
+        function renderIPv4PoolBindings(bindings) {
+            $('#ipv4PoolCount').text(bindings.length);
+            if (bindings.length === 0) {
+                $('#ipv4PoolList').html('<p class="text-center text-gray-500 py-4 text-xs">暂无IPv4地址绑定</p>');
+                return;
+            }
+
+            let html = '<div class="overflow-x-auto"><table class="table table-xs"><thead><tr class="bg-gray-50"><th class="text-xs text-gray-600">公网IPv4</th><th class="text-xs text-gray-600">状态</th><th class="text-xs text-gray-600">分配时间</th><th class="text-xs text-gray-600">操作</th></tr></thead><tbody>';
+            bindings.forEach(b => {
+                const ipAddress = b.IPAddress || b.ip_address;
+                const status = b.Status || b.status || 'allocated';
+                const createdAt = b.CreatedAt || b.created_at;
+                
+                const ipEncoded = encodeURIComponent(ipAddress);
+                const statusBadge = status === 'bound' ? 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">已绑定</span>' : 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">已分配</span>';
+                const createTime = createdAt ? new Date(createdAt).toLocaleString('zh-CN') : '-';
+                const releaseBtn = ipPoolSettings.allow_container_release_ipv4 ? 
+                    `<button onclick="deleteIPv4Pool('${ipEncoded}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">释放</button>` :
+                    `<span class="px-2 py-1 text-xs text-gray-400">无权限</span>`;
+                html += `<tr class="bg-gray-50">
+                    <td><code class="text-xs font-mono text-gray-700">${ipAddress}</code></td>
+                    <td>${statusBadge}</td>
+                    <td><span class="text-xs text-gray-600">${createTime}</span></td>
+                    <td>${releaseBtn}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            $('#ipv4PoolList').html(html);
+        }
+
+        function loadIPv4MappingBindings() {
+            $.ajax({
+                url: `/api/container/port-mapping?version=v4`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        renderIPv4MappingBindings(result.data.ipv4 || []);
+                    } else {
+                        $('#ipv4MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                    }
+                },
+                error: function() {
+                    $('#ipv4MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                }
+            });
+        }
+
+        function renderIPv4MappingBindings(mappings) {
+            const groups = {};
+            mappings.forEach(m => {
+                const key = `${m.public_port}-${m.container_port}-${m.protocol}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        public_port: m.public_port,
+                        public_port_end: m.public_port_end,
+                        container_port: m.container_port,
+                        container_port_end: m.container_port_end,
+                        protocol: m.protocol,
+                        description: m.description,
+                        ips: [],
+                        ids: []
+                    };
+                }
+                groups[key].ips.push({
+                    ip: m.public_ip,
+                    interface: m.interface,
+                    status: m.status,
+                    created_at: m.created_at
+                });
+                groups[key].ids.push(m.id);
+            });
+            
+            const groupArray = Object.values(groups);
+            
+            let totalPorts = 0;
+            groupArray.forEach(group => {
+                if (group.public_port_end && group.public_port_end !== group.public_port) {
+                    totalPorts += group.public_port_end - group.public_port + 1;
+                } else {
+                    totalPorts += 1;
+                }
+            });
+            $('#ipv4MappingCount').text(totalPorts);
+            
+            if (groupArray.length === 0) {
+                $('#ipv4MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">暂无IPv4端口映射规则</p>');
+                return;
+            }
+
+            let html = '<div class="space-y-3">';
+            groupArray.forEach(group => {
+                const protocolText = group.protocol === 'both' ? 'TCP/UDP' : group.protocol.toUpperCase();
+                const ipCount = group.ips.length;
+                const idsStr = group.ids.join(',');
+                
+                const publicPortText = group.public_port_end && group.public_port_end !== group.public_port 
+                    ? `${group.public_port}-${group.public_port_end}`
+                    : group.public_port;
+                const containerPortText = group.container_port_end && group.container_port_end !== group.container_port
+                    ? `${group.container_port}-${group.container_port_end}`
+                    : group.container_port;
+                
+                const isPortRange = group.public_port_end && group.public_port_end !== group.public_port;
+                const portCount = isPortRange ? group.public_port_end - group.public_port + 1 : 1;
+                
+                html += `
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span class="text-base font-medium text-gray-800 font-mono">${publicPortText} → ${containerPortText}</span>
+                                <span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded">${protocolText}</span>
+                                ${isPortRange ? `<span class="px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded">${portCount}个端口</span>` : ''}
+                                <span class="text-xs text-gray-500">${ipCount}个公网IP</span>
+                            </div>
+                            <button onclick="deleteIPv4Mapping('${idsStr}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                        </div>
+                        ${group.description ? `<p class="text-xs text-gray-600 mb-2">${group.description}</p>` : ''}
+                        <details class="text-xs">
+                            <summary class="cursor-pointer text-blue-600 hover:text-blue-700">查看关联的公网IP</summary>
+                            <div class="mt-2 pl-4 space-y-1">
+                                ${group.ips.map(ip => `
+                                    <div class="flex items-center gap-2 text-gray-700">
+                                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                        <code class="text-xs">${ip.ip}</code>
+                                        <span class="text-gray-400">${ip.interface}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            $('#ipv4MappingList').html(html);
+        }
+
+        function showAddIPv4MappingModal() {
+            $('#ipv4MappingPublicPort').attr('min', portRangeConfig.v4_port_start);
+            $('#ipv4MappingPublicPort').attr('max', portRangeConfig.v4_port_end);
+            $('#ipv4MappingPublicPort').attr('placeholder', `${portRangeConfig.v4_port_start}-${portRangeConfig.v4_port_end}`);
+            document.getElementById('addIPv4MappingModal').showModal();
+        }
+
+        function closeAddIPv4MappingModal() {
+            document.getElementById('addIPv4MappingModal').close();
+            $('#addIPv4MappingForm')[0].reset();
+        }
+
+        function submitAddIPv4Mapping() {
+            const publicPortVal = $('#ipv4MappingPublicPort').val().trim();
+            const containerPort = parseInt($('#ipv4MappingContainerPort').val());
+            const portCount = parseInt($('#ipv4MappingPortCount').val());
+            const description = $('#ipv4MappingDescription').val();
+
+            if (!containerPort || !portCount) {
+                showToast('error', '请填写所有必填字段');
+                return;
+            }
+
+            const data = {
+                public_port: publicPortVal ? parseInt(publicPortVal) : 0,
+                container_port: containerPort,
+                port_count: portCount,
+                description: description
+            };
+
+            $.ajax({
+                url: '/api/container/port-mapping/allocate?version=v4',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const total = result.data.total || 0;
+                        const failed = result.data.failed || 0;
+                        if (failed > 0) {
+                            showToast('warning', `成功创建${total}条规则，${failed}条失败`);
+                        } else {
+                            showToast('success', `成功创建${total}条IPv4端口映射规则`);
+                        }
+                        closeAddIPv4MappingModal();
+                        loadIPv4MappingBindings();
+                    } else {
+                        showToast('error', result.msg || '创建规则失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '创建规则失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function deleteIPv4Mapping(idsStr) {
+            if (!confirm('确定要删除此端口映射规则吗？\n\n删除后将移除所有关联的NAT规则。')) return;
+
+            const ids = idsStr.split(',').map(id => parseInt(id));
+            let successCount = 0;
+            let failCount = 0;
+            
+            const deletePromises = ids.map(id => {
+                return $.ajax({
+                    url: '/api/container/port-mapping/release?version=v4',
+                    type: 'POST',
+                    headers: headers,
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: [id] })
+                }).then(
+                    result => { successCount++; },
+                    error => { failCount++; }
+                );
+            });
+            
+            Promise.all(deletePromises).finally(() => {
+                if (successCount > 0) {
+                    showToast('success', `成功删除${successCount}条规则`);
+                    loadIPv4MappingBindings();
+                }
+                if (failCount > 0) {
+                    showToast('error', `${failCount}条规则删除失败`);
+                }
+            });
+        }
+
+        function loadIPv6PoolBindings() {
+            $.ajax({
+                url: `/api/container/ip?version=v6`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        renderIPv6PoolBindings(result.data.ipv6 || []);
+                    } else {
+                        $('#ipv6PoolList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                    }
+                }
+            });
+        }
+
+        function renderIPv6PoolBindings(bindings) {
+            $('#ipv6PoolCount').text(bindings.length);
+            if (bindings.length === 0) {
+                $('#ipv6PoolList').html('<p class="text-center text-gray-500 py-4 text-xs">暂无IPv6地址绑定</p>');
+                return;
+            }
+
+            let html = '<div class="overflow-x-auto"><table class="table table-xs"><thead><tr class="bg-gray-50"><th class="text-xs text-gray-600">公网IPv6</th><th class="text-xs text-gray-600">状态</th><th class="text-xs text-gray-600">分配时间</th><th class="text-xs text-gray-600">操作</th></tr></thead><tbody>';
+            bindings.forEach(b => {
+                const ipAddress = b.IPAddress || b.ip_address;
+                const status = b.Status || b.status || 'allocated';
+                const createdAt = b.CreatedAt || b.created_at;
+                
+                const ipEncoded = encodeURIComponent(ipAddress);
+                const statusBadge = status === 'bound' ? 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">已绑定</span>' : 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">已分配</span>';
+                const createTime = createdAt ? new Date(createdAt).toLocaleString('zh-CN') : '-';
+                const releaseBtn = ipPoolSettings.allow_container_release_ipv6 ? 
+                    `<button onclick="deleteIPv6Pool('${ipEncoded}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">释放</button>` :
+                    `<span class="px-2 py-1 text-xs text-gray-400">无权限</span>`;
+                html += `<tr class="bg-gray-50">
+                    <td><code class="text-xs font-mono text-gray-700">${ipAddress}</code></td>
+                    <td>${statusBadge}</td>
+                    <td><span class="text-xs text-gray-600">${createTime}</span></td>
+                    <td>${releaseBtn}</td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            $('#ipv6PoolList').html(html);
+        }
+
+        function loadIPv6MappingBindings() {
+            $.ajax({
+                url: `/api/container/port-mapping?version=v6`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        renderIPv6MappingBindings(result.data.ipv6 || []);
+                    } else {
+                        $('#ipv6MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    $('#ipv6MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                }
+            });
+        }
+
+        function renderIPv6MappingBindings(mappings) {
+            const groups = {};
+            mappings.forEach(m => {
+                const key = `${m.public_port}-${m.container_port}-${m.protocol}`;
+                if (!groups[key]) {
+                    groups[key] = {
+                        public_port: m.public_port,
+                        public_port_end: m.public_port_end,
+                        container_port: m.container_port,
+                        container_port_end: m.container_port_end,
+                        protocol: m.protocol,
+                        description: m.description,
+                        ips: [],
+                        ids: []
+                    };
+                }
+                groups[key].ips.push({
+                    ip: m.public_ip,
+                    interface: m.interface,
+                    status: m.status,
+                    created_at: m.created_at
+                });
+                groups[key].ids.push(m.id);
+            });
+            
+            const groupArray = Object.values(groups);
+            
+            let totalPorts = 0;
+            groupArray.forEach(group => {
+                if (group.public_port_end && group.public_port_end !== group.public_port) {
+                    totalPorts += group.public_port_end - group.public_port + 1;
+                } else {
+                    totalPorts += 1;
+                }
+            });
+            $('#ipv6MappingCount').text(totalPorts);
+            
+            if (groupArray.length === 0) {
+                $('#ipv6MappingList').html('<p class="text-center text-gray-500 py-4 text-xs">暂无IPv6端口映射规则</p>');
+                return;
+            }
+
+            let html = '<div class="space-y-3">';
+            groupArray.forEach(group => {
+                const protocolText = group.protocol === 'both' ? 'TCP/UDP' : group.protocol.toUpperCase();
+                const ipCount = group.ips.length;
+                const idsStr = group.ids.join(',');
+                
+                const publicPortText = group.public_port_end && group.public_port_end !== group.public_port 
+                    ? `${group.public_port}-${group.public_port_end}`
+                    : group.public_port;
+                const containerPortText = group.container_port_end && group.container_port_end !== group.container_port
+                    ? `${group.container_port}-${group.container_port_end}`
+                    : group.container_port;
+                
+                const isPortRange = group.public_port_end && group.public_port_end !== group.public_port;
+                const portCount = isPortRange ? group.public_port_end - group.public_port + 1 : 1;
+                
+                html += `
+                    <div class="border border-gray-200 rounded-lg p-3 bg-gray-50">
+                        <div class="flex items-center justify-between mb-2">
+                            <div class="flex items-center gap-3 flex-wrap">
+                                <span class="text-base font-medium text-gray-800 font-mono">${publicPortText} → ${containerPortText}</span>
+                                <span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded">${protocolText}</span>
+                                ${isPortRange ? `<span class="px-2 py-0.5 text-xs font-medium text-purple-700 bg-purple-100 rounded">${portCount}个端口</span>` : ''}
+                                <span class="text-xs text-gray-500">${ipCount}个公网IPv6</span>
+                            </div>
+                            <button onclick="deleteIPv6Mapping('${idsStr}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                        </div>
+                        ${group.description ? `<p class="text-xs text-gray-600 mb-2">${group.description}</p>` : ''}
+                        <details class="text-xs">
+                            <summary class="cursor-pointer text-blue-600 hover:text-blue-700">查看关联的公网IPv6</summary>
+                            <div class="mt-2 pl-4 space-y-1">
+                                ${group.ips.map(ip => `
+                                    <div class="flex items-center gap-2 text-gray-700">
+                                        <span class="w-2 h-2 bg-green-500 rounded-full"></span>
+                                        <code class="text-xs">${ip.ip}</code>
+                                        <span class="text-gray-400">${ip.interface}</span>
+                                    </div>
+                                `).join('')}
+                            </div>
+                        </details>
+                    </div>
+                `;
+            });
+            html += '</div>';
+            $('#ipv6MappingList').html(html);
+        }
+
+        function showAddIPv6MappingModal() {
+            $('#ipv6MappingPublicPort').attr('min', portRangeConfig.v6_port_start);
+            $('#ipv6MappingPublicPort').attr('max', portRangeConfig.v6_port_end);
+            $('#ipv6MappingPublicPort').attr('placeholder', `${portRangeConfig.v6_port_start}-${portRangeConfig.v6_port_end}`);
+            document.getElementById('addIPv6MappingModal').showModal();
+        }
+
+        function closeAddIPv6MappingModal() {
+            document.getElementById('addIPv6MappingModal').close();
+            $('#addIPv6MappingForm')[0].reset();
+        }
+
+        function submitAddIPv6Mapping() {
+            const publicPortVal = $('#ipv6MappingPublicPort').val().trim();
+            const containerPort = parseInt($('#ipv6MappingContainerPort').val());
+            const portCount = parseInt($('#ipv6MappingPortCount').val());
+            const description = $('#ipv6MappingDescription').val();
+
+            if (!containerPort || !portCount) {
+                showToast('error', '请填写所有必填字段');
+                return;
+            }
+
+            const data = {
+                public_port: publicPortVal ? parseInt(publicPortVal) : 0,
+                container_port: containerPort,
+                port_count: portCount,
+                description: description
+            };
+
+            $.ajax({
+                url: '/api/container/port-mapping/allocate?version=v6',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const total = result.data.total || 0;
+                        const failed = result.data.failed || 0;
+                        if (failed > 0) {
+                            showToast('warning', `成功创建${total}条规则，${failed}条失败`);
+                        } else {
+                            showToast('success', `成功创建${total}条IPv6端口映射规则`);
+                        }
+                        closeAddIPv6MappingModal();
+                        loadIPv6MappingBindings();
+                    } else {
+                        showToast('error', result.msg || '创建规则失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '创建规则失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function deleteIPv6Mapping(idsStr) {
+            if (!confirm('确定要删除此端口映射规则吗？\n\n删除后将移除所有关联的NAT规则。')) return;
+
+            const ids = idsStr.split(',').map(id => parseInt(id));
+            let successCount = 0;
+            let failCount = 0;
+            
+            const deletePromises = ids.map(id => {
+                return $.ajax({
+                    url: '/api/container/port-mapping/release?version=v6',
+                    type: 'POST',
+                    headers: headers,
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: [id] })
+                }).then(
+                    result => { successCount++; },
+                    error => { failCount++; }
+                );
+            });
+            
+            Promise.all(deletePromises).finally(() => {
+                if (successCount > 0) {
+                    showToast('success', `成功删除${successCount}条规则`);
+                    loadIPv6MappingBindings();
+                }
+                if (failCount > 0) {
+                    showToast('error', `${failCount}条规则删除失败`);
+                }
+            });
+        }
+
+        function showAddIPv4PoolModal() {
+            document.getElementById('addIPv4PoolModal').showModal();
+        }
+
+        function closeAddIPv4PoolModal() {
+            document.getElementById('addIPv4PoolModal').close();
+            $('#addIPv4PoolForm')[0].reset();
+        }
+
+        function submitAddIPv4Pool() {
+            const data = {
+                name: containerName,
+                count: 1
+            };
+
+            $.ajax({
+                url: '/api/container/ip/allocate?version=v4',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', 'IPv4分配成功');
+                        closeAddIPv4PoolModal();
+                        loadIPv4PoolBindings();
+                    } else {
+                        showToast('error', result.msg || 'IPv4分配失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : 'IPv4分配失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function deleteIPv4Pool(ipv4Encoded) {
+            const ip = decodeURIComponent(ipv4Encoded);
+            if (!confirm(`确定要释放此IPv4地址吗？\n${ip}\n\n释放后将删除相关的NAT规则。`)) return;
+            
+            const data = {
+                name: containerName,
+                ip: ip
+            };
+            
+            $.ajax({
+                url: '/api/container/ip/release?version=v4',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', 'IPv4释放成功');
+                        loadIPv4PoolBindings();
+                    } else {
+                        showToast('error', result.msg || 'IPv4释放失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', 'IPv4释放失败');
+                }
+            });
+        }
+
+        function showAddIPv6PoolModal() {
+            document.getElementById('addIPv6PoolModal').showModal();
+        }
+
+        function closeAddIPv6PoolModal() {
+            document.getElementById('addIPv6PoolModal').close();
+            $('#addIPv6PoolForm')[0].reset();
+        }
+
+        function submitAddIPv6Pool() {
+            const data = {
+                name: containerName,
+                count: 1
+            };
+
+            $.ajax({
+                url: '/api/container/ip/allocate?version=v6',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', 'IPv6分配成功');
+                        closeAddIPv6PoolModal();
+                        loadIPv6PoolBindings();
+                    } else {
+                        showToast('error', result.msg || 'IPv6分配失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : 'IPv6分配失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function deleteIPv6Pool(ipv6Encoded) {
+            const ip = decodeURIComponent(ipv6Encoded);
+            if (!confirm(`确定要释放此IPv6地址吗？\n${ip}\n\n释放后将删除相关的NAT规则。`)) return;
+            
+            const data = {
+                name: containerName,
+                ip: ip
+            };
+            
+            $.ajax({
+                url: '/api/container/ip/release?version=v6',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', 'IPv6释放成功');
+                        loadIPv6PoolBindings();
+                    } else {
+                        showToast('error', result.msg || 'IPv6释放失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    showToast('error', 'IPv6释放失败');
+                }
+            });
+        }
+
+        function loadReverseProxyRules() {
+            $.ajax({
+                url: `/api/container/nginx/proxies`,
+                type: 'GET',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        renderReverseProxyRules(result.data || []);
+                    } else {
+                        $('#reverseProxyList').html('<p class="text-center text-gray-500 py-4 text-xs">加载失败</p>');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                }
+            });
+        }
+
+        function renderReverseProxyRules(rules) {
+            $('#reverseProxyCount').text(rules.length);
+            if (rules.length === 0) {
+                $('#reverseProxyList').html('<p class="text-center text-gray-500 py-4 text-xs">暂无反向代理规则</p>');
+                return;
+            }
+
+            let html = '<div class="overflow-x-auto"><table class="table table-xs"><thead><tr class="bg-gray-50"><th class="text-xs text-gray-600">域名</th><th class="text-xs text-gray-600">协议</th><th class="text-xs text-gray-600">容器端口</th><th class="text-xs text-gray-600">SSL</th><th class="text-xs text-gray-600">状态</th><th class="text-xs text-gray-600">操作</th></tr></thead><tbody>';
+            rules.forEach(r => {
+                const protocol = r.protocol || 'http';
+                const protocolBadge = protocol === 'https' 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded">HTTPS</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded">HTTP</span>';
+                const sslBadge = r.enable_ssl 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">已启用</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">未启用</span>';
+                const statusBadge = r.status === 'active'
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">激活</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">禁用</span>';
+                
+                html += `<tr class="hover">
+                    <td><code class="text-xs font-mono text-gray-700">${r.domain}</code></td>
+                    <td>${protocolBadge}</td>
+                    <td><span class="text-xs text-gray-700">${r.target_port}</span></td>
+                    <td>${sslBadge}</td>
+                    <td>${statusBadge}</td>
+                    <td><button onclick="deleteReverseProxy(${r.id})" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button></td>
+                </tr>`;
+            });
+            html += '</tbody></table></div>';
+            $('#reverseProxyList').html(html);
+        }
+
+        function showAddReverseProxyModal() {
+            document.getElementById('addReverseProxyModal').showModal();
+        }
+
+        function closeAddReverseProxyModal() {
+            document.getElementById('addReverseProxyModal').close();
+            $('#addReverseProxyForm')[0].reset();
+            $('#reverseProxySSLOptions').hide();
+            $('#reverseProxyCustomCertFields').hide();
+        }
+
+        function submitAddReverseProxy() {
+            const sslEnabled = $('#reverseProxySSLEnabled').is(':checked');
+            const sslType = $('#reverseProxySSLType').val();
+
+            if (sslEnabled && sslType === 'custom') {
+                const cert = $('#reverseProxySSLCert').val().trim();
+                const key = $('#reverseProxySSLKey').val().trim();
+                if (!cert || !key) {
+                    showToast('error', '启用自定义SSL证书时，必须提供证书和私钥内容');
+                    return;
+                }
+            }
+
+            const data = {
+                container_name: containerName,
+                protocol: sslEnabled ? 'https' : 'http',
+                domain: $('#reverseProxyDomain').val(),
+                target_port: parseInt($('#reverseProxyTargetPort').val()),
+                description: $('#reverseProxyDescription').val(),
+                enable_ssl: sslEnabled,
+                status: 'active'
+            };
+
+            if (sslEnabled && sslType === 'custom') {
+                data.ssl_cert = $('#reverseProxySSLCert').val();
+                data.ssl_key = $('#reverseProxySSLKey').val();
+            }
+
+            $.ajax({
+                url: '/api/container/nginx/proxies',
+                type: 'POST',
+                headers: headers,
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '反向代理规则添加成功');
+                        closeAddReverseProxyModal();
+                        loadReverseProxyRules();
+                    } else {
+                        showToast('error', result.msg || '添加失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '添加失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+        function deleteReverseProxy(id) {
+            if (!confirm('确定要删除此反向代理规则吗？')) return;
+            
+            $.ajax({
+                url: `/api/container/nginx/proxies/${id}`,
+                type: 'DELETE',
+                headers: headers,
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '反向代理规则删除成功');
+                        loadReverseProxyRules();
+                    } else {
+                        showToast('error', result.msg || '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    handleAuthError(xhr);
+                    const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '删除失败';
+                    showToast('error', msg);
+                }
+            });
+        }
+
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "container/container_footer.html" .}}
+    
+    {{if .UseLocalCDN}}
+    <script src="/static/js/marked.min.js"></script>
+    <script src="/static/js/dompurify.min.js"></script>
+    {{else}}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    {{end}}
+
+    <script>
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        function showNotice(content) {
+            const dirtyHTML = marked.parse(content);
+            const cleanHTML = DOMPurify.sanitize(dirtyHTML, {
+                ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'hr'],
+                ALLOWED_ATTR: ['href', 'title', 'target']
+            });
+            
+            $('#noticeContent').html(cleanHTML);
+            
+            $('#noticeContent a').css({
+                color: '#3b82f6',
+                textDecoration: 'underline'
+            }).attr('target', '_blank');
+            
+            $('#noticeContent code').css({
+                backgroundColor: '#f3f4f6',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontFamily: 'monospace'
+            });
+            
+            $('#noticeContent pre').css({
+                backgroundColor: '#f3f4f6',
+                padding: '12px',
+                borderRadius: '6px',
+                overflow: 'auto',
+                marginTop: '8px',
+                marginBottom: '8px'
+            });
+            
+            $('#noticeContent blockquote').css({
+                borderLeft: '3px solid #3b82f6',
+                paddingLeft: '12px',
+                color: '#6b7280',
+                fontStyle: 'italic',
+                marginTop: '8px',
+                marginBottom: '8px'
+            });
+
+            $('#noticeFloat').slideDown(400);
+        }
+
+        function closeNotice() {
+            $('#noticeFloat').slideUp(300);
+            localStorage.setItem('containerNoticeClosedAt', Date.now());
+        }
+
+        function loadBrandSettings() {
+            $.ajax({
+                url: '/api/public/brand-settings',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        if (result.data.footer_text) {
+                            $('#brandFooterText').text(result.data.footer_text);
+                        }
+                        
+                        if (result.data.container_notice) {
+                            const notice = result.data.container_notice.trim();
+                            if (notice) {
+                                const closedAt = localStorage.getItem('containerNoticeClosedAt');
+                                const now = Date.now();
+                                const thirtyMinutes = 30 * 60 * 1000;
+                                
+                                if (!closedAt || (now - parseInt(closedAt)) > thirtyMinutes) {
+                                    setTimeout(() => showNotice(notice), 500);
+                                }
+                            }
+                        }
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            loadBrandSettings();
+        });
+    </script>
+</body>
+</html>

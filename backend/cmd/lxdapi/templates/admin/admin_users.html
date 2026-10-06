@@ -1,0 +1,878 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 用户管理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+            <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <span class="iconify text-blue-600" data-icon="mdi:account-group" data-width="28"></span>
+                    用户管理
+                </h1>
+                <p class="text-sm lg:text-base text-gray-600 mt-1">管理系统用户和API密钥</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="showCreateModal()" class="px-3 py-2 text-xs lg:text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span class="hidden sm:inline">创建用户</span>
+                    <span class="sm:hidden">创建</span>
+                </button>
+                <button id="btnSelectAll" onclick="toggleSelectAllBtn()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button onclick="refreshUsers()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">每页显示:</span>
+                    <select id="pageSize" onchange="changePageSize()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="10">10 条</option>
+                        <option value="25" selected>25 条</option>
+                        <option value="50">50 条</option>
+                        <option value="100">100 条</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-xs text-gray-600">
+                共 <span id="totalCount" class="font-bold text-gray-800">0</span> 个用户
+                <span id="pageInfo" class="ml-2"></span>
+            </div>
+        </div>
+
+
+        <div id="batchOperationBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-red-900">已选择 <span id="selectedCount">0</span> 个用户</span>
+                    <button onclick="clearSelection()" class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="batchDelete()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded transition">批量删除</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 mb-4">
+            <div class="overflow-x-auto">
+                <table class="table table-xs">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="w-10">
+                                <label>
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="checkbox checkbox-xs" />
+                                </label>
+                            </th>
+                            <th class="text-xs text-gray-600">ID</th>
+                            <th class="text-xs text-gray-600">用户名</th>
+                            <th class="text-xs text-gray-600">容器</th>
+                            <th class="text-xs text-gray-600">CPU</th>
+                            <th class="text-xs text-gray-600">内存</th>
+                            <th class="text-xs text-gray-600">磁盘</th>
+                            <th class="text-xs text-gray-600">状态</th>
+                            <th class="text-xs text-gray-600">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="userTable">
+                        <tr>
+                            <td colspan="9" class="text-center py-8">
+                                <span class="loading loading-spinner loading-md"></span>
+                            </td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+        
+
+        <div id="paginationContainer" class="flex justify-center" style="display: none;">
+            <div class="join">
+                <button id="prevPage" onclick="goToPage(currentPage - 1)" class="join-item btn btn-sm content-box">«</button>
+                <button class="join-item btn btn-sm content-box">第 <span id="currentPageNum">1</span> 页</button>
+                <button id="nextPage" onclick="goToPage(currentPage + 1)" class="join-item btn btn-sm content-box">»</button>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 class="text-xl font-bold text-gray-800">创建用户</h2>
+                    <button onclick="hideCreateModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="createForm" class="p-6 space-y-4">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">用户名 <span class="text-red-500">*</span></label>
+                        <input type="text" name="username" required class="input input-bordered input-sm w-full" placeholder="请输入用户名">
+                        <p class="text-xs text-gray-500 mt-1">系统将自动生成密码</p>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">可分配配额</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">CPU核心</label>
+                                <input type="number" name="cpu_quota" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">单容器最大CPU</label>
+                                <input type="number" name="max_cpu_per_container" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">内存(MB)</label>
+                                <input type="number" name="memory_quota" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">磁盘(MB)</label>
+                                <input type="number" name="disk_quota" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">全局限制</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">流量(GB)</label>
+                                <input type="number" name="traffic_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv4地址池</label>
+                                <input type="number" name="ipv4_pool_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv4映射</label>
+                                <input type="number" name="ipv4_mapping_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv6地址池</label>
+                                <input type="number" name="ipv6_pool_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv6映射</label>
+                                <input type="number" name="ipv6_mapping_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">反向代理</label>
+                                <input type="number" name="reverse_proxy_limit" min="0" value="0" class="input input-bordered input-sm w-full">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">0 表示无配额</p>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">容器默认配置 <span class="text-xs text-gray-500 font-normal">(用户创建容器时自动应用)</span></h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">入站带宽(Mbit)</label>
+                                <input type="number" name="ingress" min="0" value="100" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">出站带宽(Mbit)</label>
+                                <input type="number" name="egress" min="0" value="100" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">CPU限制(%)</label>
+                                <input type="number" name="cpu_allowance" min="0" max="100" value="50" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">进程数限制</label>
+                                <input type="number" name="processes_limit" min="0" value="512" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IO读取(MB/s)</label>
+                                <input type="number" name="io_read" min="0" value="100" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IO写入(MB/s)</label>
+                                <input type="number" name="io_write" min="0" value="100" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div class="flex items-center gap-2 pt-4">
+                                <input type="checkbox" name="allow_nesting" value="true" checked class="checkbox checkbox-sm">
+                                <label class="text-xs text-gray-600">嵌套虚拟化</label>
+                            </div>
+                            <div class="flex items-center gap-2 pt-4">
+                                <input type="checkbox" name="memory_swap" value="true" checked class="checkbox checkbox-sm">
+                                <label class="text-xs text-gray-600">Swap内存</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" onclick="hideCreateModal()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">创建</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+
+    <div id="apiKeyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="border-b border-gray-200 px-6 py-4">
+                    <h2 class="text-xl font-bold text-gray-800">密码</h2>
+                </div>
+                
+                <div class="p-6">
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-xs text-gray-600 mb-1">用户名</p>
+                        <p id="apiKeyUsername" class="font-mono text-sm font-medium text-gray-800 mb-3"></p>
+                        <p class="text-xs text-gray-600 mb-1">密码</p>
+                        <p id="apiKeyValue" class="font-mono text-xs text-gray-800 break-all select-all"></p>
+                    </div>
+                    <button onclick="hideApiKeyModal()" class="w-full px-4 py-2 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <div id="editModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-2xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="border-b border-gray-200 px-6 py-4 flex justify-between items-center sticky top-0 bg-white">
+                    <h2 class="text-xl font-bold text-gray-800">编辑用户 - <span id="editUsername" class="text-blue-600"></span></h2>
+                    <button onclick="hideEditModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="editForm" class="p-6 space-y-4">
+                    <input type="hidden" id="editUserId" value="">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-2">状态</label>
+                        <select name="status" class="select select-bordered select-sm w-full">
+                            <option value="active">正常</option>
+                            <option value="disabled">禁用</option>
+                        </select>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">可分配配额</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">CPU核心</label>
+                                <input type="number" name="cpu_quota" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">单容器最大CPU</label>
+                                <input type="number" name="max_cpu_per_container" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">内存(MB)</label>
+                                <input type="number" name="memory_quota" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">磁盘(MB)</label>
+                                <input type="number" name="disk_quota" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                        </div>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">全局限制</h3>
+                        <div class="grid grid-cols-3 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">流量(GB)</label>
+                                <input type="number" name="traffic_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv4地址池</label>
+                                <input type="number" name="ipv4_pool_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv4映射</label>
+                                <input type="number" name="ipv4_mapping_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv6地址池</label>
+                                <input type="number" name="ipv6_pool_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IPv6映射</label>
+                                <input type="number" name="ipv6_mapping_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">反向代理</label>
+                                <input type="number" name="reverse_proxy_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">0 表示无配额</p>
+                    </div>
+                    <div class="border-t pt-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3">容器默认配置</h3>
+                        <div class="grid grid-cols-4 gap-3">
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">入站带宽(Mbit)</label>
+                                <input type="number" name="ingress" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">出站带宽(Mbit)</label>
+                                <input type="number" name="egress" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">CPU限制(%)</label>
+                                <input type="number" name="cpu_allowance" min="0" max="100" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">进程数限制</label>
+                                <input type="number" name="processes_limit" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IO读取(MB/s)</label>
+                                <input type="number" name="io_read" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div>
+                                <label class="block text-xs text-gray-600 mb-1">IO写入(MB/s)</label>
+                                <input type="number" name="io_write" min="0" class="input input-bordered input-sm w-full">
+                            </div>
+                            <div class="flex items-center gap-2 pt-4">
+                                <input type="checkbox" name="allow_nesting" value="true" class="checkbox checkbox-sm">
+                                <label class="text-xs text-gray-600">嵌套虚拟化</label>
+                            </div>
+                            <div class="flex items-center gap-2 pt-4">
+                                <input type="checkbox" name="memory_swap" value="true" class="checkbox checkbox-sm">
+                                <label class="text-xs text-gray-600">Swap内存</label>
+                            </div>
+                        </div>
+                    </div>
+                    <div class="flex justify-end gap-3 pt-2">
+                        <button type="button" onclick="hideEditModal()" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+                        <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">保存</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let usersData = [];
+        let pageSize = 25;
+        let currentPage = 1;
+        let totalPages = 1;
+
+        $(document).ready(function() {
+            loadUsers();
+        });
+
+        function loadUsers() {
+            $('#userTable').html('<tr><td colspan="9" class="text-center py-8"><span class="loading loading-spinner loading-md"></span></td></tr>');
+            
+            $.ajax({
+                url: '/api/admin/users',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        usersData = result.data.users || [];
+                        applyPagination();
+                        renderUsers();
+                    } else {
+                        showToast('error', result.msg || '加载用户失败');
+                        $('#userTable').html('<tr><td colspan="9" class="text-center py-8 text-red-500">加载失败</td></tr>');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '加载用户失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                    $('#userTable').html('<tr><td colspan="9" class="text-center py-8 text-red-500">加载失败</td></tr>');
+                }
+            });
+        }
+
+        function applyPagination() {
+            $('#totalCount').text(usersData.length);
+            
+            if (pageSize === 'all') {
+                totalPages = 1;
+                currentPage = 1;
+                $('#paginationContainer').hide();
+                $('#pageInfo').text('');
+            } else {
+                const size = parseInt(pageSize);
+                totalPages = Math.ceil(usersData.length / size);
+                if (currentPage > totalPages) currentPage = totalPages || 1;
+                $('#paginationContainer').show();
+                updatePaginationInfo();
+            }
+        }
+
+        function updatePaginationInfo() {
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size + 1;
+            const end = Math.min(currentPage * size, usersData.length);
+            $('#pageInfo').text(`(显示 ${start}-${end})`);
+            $('#currentPageNum').text(currentPage);
+            
+            $('#prevPage').prop('disabled', currentPage === 1);
+            $('#nextPage').prop('disabled', currentPage === totalPages);
+        }
+
+        function getPageData() {
+            if (pageSize === 'all') {
+                return usersData;
+            }
+            
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size;
+            const end = start + size;
+            return usersData.slice(start, end);
+        }
+
+        function renderUsers() {
+            const users = getPageData();
+            
+            if (users.length === 0) {
+                $('#userTable').html('<tr><td colspan="9" class="text-center py-8 text-gray-500">暂无用户</td></tr>');
+                return;
+            }
+            
+            let html = '';
+            users.forEach(user => {
+                const containerCount = user.container_count || 0;
+                const statusBadge = user.Status === 'active' 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">正常</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-red-700 bg-red-100 rounded-full">禁用</span>';
+                
+                const usedCPU = user.used_cpu || 0;
+                const usedMem = user.used_memory || 0;
+                const usedDisk = user.used_disk || 0;
+                const cpuQuota = user.CPUQuota || 0;
+                const memQuota = user.MemoryQuota || 0;
+                const diskQuota = user.DiskQuota || 0;
+                
+                html += `
+                    <tr class="hover">
+                        <td>
+                            <label>
+                                <input type="checkbox" class="checkbox checkbox-xs user-checkbox" data-user-id="${user.ID}" data-username="${user.Username}" data-container-count="${containerCount}" onchange="updateSelection()" />
+                            </label>
+                        </td>
+                        <td class="text-xs text-gray-700">${user.ID}</td>
+                        <td><span class="font-medium text-gray-800">${user.Username}</span></td>
+                        <td><span class="text-xs">${containerCount} 个</span></td>
+                        <td class="text-xs text-gray-600">${usedCPU} / ${cpuQuota}</td>
+                        <td class="text-xs text-gray-600">${usedMem} / ${memQuota} MB</td>
+                        <td class="text-xs text-gray-600">${usedDisk} / ${diskQuota} MB</td>
+                        <td>${statusBadge}</td>
+                        <td>
+                            <div class="flex gap-1">
+                                <a href="/admin/users/${user.ID}" class="px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded transition">详情</a>
+                                <button onclick="showEditModal(${user.ID})" class="px-2 py-1 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded transition">编辑</button>
+                                <button onclick="deleteUser(${user.ID}, '${user.Username}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+            $('#userTable').html(html);
+        }
+
+        function changePageSize() {
+            pageSize = $('#pageSize').val();
+            currentPage = 1;
+            applyPagination();
+            renderUsers();
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderUsers();
+            updatePaginationInfo();
+        }
+
+        function refreshUsers() {
+            loadUsers();
+        }
+
+        function toggleSelectAll() {
+            const selectAll = $('#selectAll').is(':checked');
+            $('.user-checkbox').prop('checked', selectAll);
+            updateSelection();
+        }
+
+        function toggleSelectAllBtn() {
+            const totalCheckboxes = $('.user-checkbox').length;
+            const selectedCheckboxes = $('.user-checkbox:checked').length;
+            
+            if (selectedCheckboxes === totalCheckboxes && totalCheckboxes > 0) {
+                $('.user-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+            } else {
+                $('.user-checkbox').prop('checked', true);
+                $('#selectAll').prop('checked', true);
+            }
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const selectedCheckboxes = $('.user-checkbox:checked');
+            const count = selectedCheckboxes.length;
+            
+            $('#selectedCount').text(count);
+            
+            if (count > 0) {
+                $('#batchOperationBar').slideDown(200);
+            } else {
+                $('#batchOperationBar').slideUp(200);
+            }
+            
+            const totalCheckboxes = $('.user-checkbox').length;
+            $('#selectAll').prop('checked', count === totalCheckboxes && count > 0);
+            
+            if (count === totalCheckboxes && count > 0) {
+                $('#selectAllText').text('取消全选');
+            } else {
+                $('#selectAllText').text('全选');
+            }
+        }
+
+        function clearSelection() {
+            $('.user-checkbox').prop('checked', false);
+            $('#selectAll').prop('checked', false);
+            updateSelection();
+        }
+
+        function getSelectedUsers() {
+            const selected = [];
+            $('.user-checkbox:checked').each(function() {
+                selected.push({
+                    id: $(this).data('user-id'),
+                    username: $(this).data('username'),
+                    containerCount: $(this).data('container-count')
+                });
+            });
+            return selected;
+        }
+
+        async function batchDelete() {
+            const users = getSelectedUsers();
+            if (users.length === 0) return;
+            
+            const hasContainers = users.some(u => u.containerCount > 0);
+            let confirmMsg = `确定要删除选中的 ${users.length} 个用户吗？此操作不可恢复！`;
+            
+            if (hasContainers) {
+                const usersWithContainers = users.filter(u => u.containerCount > 0);
+                confirmMsg += `\n\n警告：其中 ${usersWithContainers.length} 个用户拥有容器，这些用户将无法删除。`;
+            }
+            
+            if (!confirm(confirmMsg)) return;
+            
+            const userIDs = users.map(u => String(u.id));
+            showToast('info', `正在删除 ${users.length} 个用户...`);
+
+            try {
+                const result = await $.ajax({
+                    url: '/api/admin/users/batch-delete',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({user_ids: userIDs})
+                });
+                if (result.code === 200) {
+                    showToast('success', `批量删除完成: 成功${result.data.deleted}个，跳过${result.data.skipped}个`);
+                } else {
+                    showToast('error', result.msg || '批量删除失败');
+                }
+            } catch (e) {
+                showToast('error', '批量删除失败');
+            }
+
+            clearSelection();
+            loadUsers();
+        }
+
+        function showCreateModal() {
+            $('#createModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+        }
+
+        function hideCreateModal() {
+            $('#createModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+            $('#createForm')[0].reset();
+        }
+
+        function showApiKeyModal(username, apiKey) {
+            $('#apiKeyUsername').text(username);
+            $('#apiKeyValue').text(apiKey);
+            $('#apiKeyModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+        }
+
+        function hideApiKeyModal() {
+            $('#apiKeyModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+        }
+
+        function showEditModal(userId) {
+            const user = usersData.find(u => u.ID === userId);
+            if (!user) return;
+            $('#editUserId').val(user.ID);
+            $('#editUsername').text(user.Username);
+            $('#editForm select[name="status"]').val(user.Status || 'active');
+            $('#editForm input[name="cpu_quota"]').val(user.CPUQuota || 0);
+            $('#editForm input[name="max_cpu_per_container"]').val(user.MaxCPUPerContainer || 0);
+            $('#editForm input[name="memory_quota"]').val(user.MemoryQuota || 0);
+            $('#editForm input[name="disk_quota"]').val(user.DiskQuota || 0);
+            $('#editForm input[name="traffic_limit"]').val(user.TrafficLimit || 0);
+            $('#editForm input[name="ipv4_pool_limit"]').val(user.IPv4PoolLimit || 0);
+            $('#editForm input[name="ipv4_mapping_limit"]').val(user.IPv4MappingLimit || 0);
+            $('#editForm input[name="ipv6_pool_limit"]').val(user.IPv6PoolLimit || 0);
+            $('#editForm input[name="ipv6_mapping_limit"]').val(user.IPv6MappingLimit || 0);
+            $('#editForm input[name="reverse_proxy_limit"]').val(user.ReverseProxyLimit || 0);
+            $('#editForm input[name="ingress"]').val(user.Ingress || 0);
+            $('#editForm input[name="egress"]').val(user.Egress || 0);
+            $('#editForm input[name="cpu_allowance"]').val(user.CPUAllowance || 0);
+            $('#editForm input[name="io_read"]').val(user.IORead || 0);
+            $('#editForm input[name="io_write"]').val(user.IOWrite || 0);
+            $('#editForm input[name="processes_limit"]').val(user.ProcessesLimit || 0);
+            $('#editForm input[name="allow_nesting"]').prop('checked', user.AllowNesting || false);
+            $('#editForm input[name="memory_swap"]').prop('checked', user.MemorySwap || false);
+            $('#editModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+        }
+
+        function hideEditModal() {
+            $('#editModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+            $('#editForm')[0].reset();
+            $('#editUserId').val('');
+        }
+
+        $('#createModal').on('click', function(e) {
+            if (e.target === this) {
+                hideCreateModal();
+            }
+        });
+
+        $('#apiKeyModal').on('click', function(e) {
+            if (e.target === this) {
+                hideApiKeyModal();
+            }
+        });
+
+        $('#editModal').on('click', function(e) {
+            if (e.target === this) {
+                hideEditModal();
+            }
+        });
+
+        $(document).on('keydown', function(e) {
+            if (e.key === 'Escape') {
+                if (!$('#createModal').hasClass('hidden')) {
+                    hideCreateModal();
+                }
+                if (!$('#apiKeyModal').hasClass('hidden')) {
+                    hideApiKeyModal();
+                }
+                if (!$('#editModal').hasClass('hidden')) {
+                    hideEditModal();
+                }
+            }
+        });
+
+        $('#editForm').on('submit', function(e) {
+            e.preventDefault();
+            const userId = $('#editUserId').val();
+            if (!userId) return;
+            const formData = {
+                status: $('#editForm select[name="status"]').val(),
+                cpu_quota: parseInt($('#editForm input[name="cpu_quota"]').val()) || 0,
+                max_cpu_per_container: parseInt($('#editForm input[name="max_cpu_per_container"]').val()) || 0,
+                memory_quota: parseInt($('#editForm input[name="memory_quota"]').val()) || 0,
+                disk_quota: parseInt($('#editForm input[name="disk_quota"]').val()) || 0,
+                traffic_limit: parseInt($('#editForm input[name="traffic_limit"]').val()) || 0,
+                ipv4_pool_limit: parseInt($('#editForm input[name="ipv4_pool_limit"]').val()) || 0,
+                ipv4_mapping_limit: parseInt($('#editForm input[name="ipv4_mapping_limit"]').val()) || 0,
+                ipv6_pool_limit: parseInt($('#editForm input[name="ipv6_pool_limit"]').val()) || 0,
+                ipv6_mapping_limit: parseInt($('#editForm input[name="ipv6_mapping_limit"]').val()) || 0,
+                reverse_proxy_limit: parseInt($('#editForm input[name="reverse_proxy_limit"]').val()) || 0,
+                ingress: parseInt($('#editForm input[name="ingress"]').val()) || 0,
+                egress: parseInt($('#editForm input[name="egress"]').val()) || 0,
+                cpu_allowance: parseInt($('#editForm input[name="cpu_allowance"]').val()) || 0,
+                io_read: parseInt($('#editForm input[name="io_read"]').val()) || 0,
+                io_write: parseInt($('#editForm input[name="io_write"]').val()) || 0,
+                processes_limit: parseInt($('#editForm input[name="processes_limit"]').val()) || 0,
+                allow_nesting: $('#editForm input[name="allow_nesting"]').is(':checked'),
+                memory_swap: $('#editForm input[name="memory_swap"]').is(':checked')
+            };
+            $.ajax({
+                url: `/api/admin/users/${userId}`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(result) {
+                    if (result.code === 200) {
+                        hideEditModal();
+                        showToast('success', '用户更新成功');
+                        loadUsers();
+                    } else {
+                        showToast('error', result.msg || '更新失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '更新失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        });
+
+        $('#createForm').on('submit', function(e) {
+            e.preventDefault();
+            const formData = {
+                max_cpu_per_container: parseInt($('#createForm input[name="max_cpu_per_container"]').val()) || 0,
+                username: $('#createForm input[name="username"]').val(),
+                cpu_quota: parseInt($('#createForm input[name="cpu_quota"]').val()) || 0,
+                memory_quota: parseInt($('#createForm input[name="memory_quota"]').val()) || 0,
+                disk_quota: parseInt($('#createForm input[name="disk_quota"]').val()) || 0,
+                traffic_limit: parseInt($('#createForm input[name="traffic_limit"]').val()) || 0,
+                ipv4_pool_limit: parseInt($('#createForm input[name="ipv4_pool_limit"]').val()) || 0,
+                ipv4_mapping_limit: parseInt($('#createForm input[name="ipv4_mapping_limit"]').val()) || 0,
+                ipv6_pool_limit: parseInt($('#createForm input[name="ipv6_pool_limit"]').val()) || 0,
+                ipv6_mapping_limit: parseInt($('#createForm input[name="ipv6_mapping_limit"]').val()) || 0,
+                reverse_proxy_limit: parseInt($('#createForm input[name="reverse_proxy_limit"]').val()) || 0,
+                ingress: parseInt($('#createForm input[name="ingress"]').val()) || 0,
+                egress: parseInt($('#createForm input[name="egress"]').val()) || 0,
+                cpu_allowance: parseInt($('#createForm input[name="cpu_allowance"]').val()) || 0,
+                io_read: parseInt($('#createForm input[name="io_read"]').val()) || 0,
+                io_write: parseInt($('#createForm input[name="io_write"]').val()) || 0,
+                processes_limit: parseInt($('#createForm input[name="processes_limit"]').val()) || 0,
+                allow_nesting: $('#createForm input[name="allow_nesting"]').is(':checked'),
+                memory_swap: $('#createForm input[name="memory_swap"]').is(':checked')
+            };
+
+            $.ajax({
+                url: '/api/admin/users',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(formData),
+                success: function(result) {
+                    if (result.code === 200) {
+                        hideCreateModal();
+                        showApiKeyModal(result.data.user.Username, result.data.password);
+                        showToast('success', '用户创建成功');
+                        loadUsers();
+                    } else {
+                        showToast('error', result.msg || '创建失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '创建失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        });
+
+        function regenerateKey(userId) {
+            if (!confirm('确定要重新生成密码吗？旧的密码将失效。')) return;
+            
+            $.ajax({
+                url: `/api/admin/users/${userId}/regenerate-key`,
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showApiKeyModal(result.data.user.Username, result.data.password);
+                        showToast('success', '密码重新生成成功');
+                        loadUsers();
+                    } else {
+                        showToast('error', result.msg || '重新生成失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '重新生成失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function deleteUser(userId, username) {
+            if (!confirm(`确定要删除用户"${username}"吗？此操作不可恢复！\n\n注意：如果用户有容器，将无法删除。`)) return;
+            
+            $.ajax({
+                url: `/api/admin/users/${userId}`,
+                type: 'DELETE',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '用户删除成功');
+                        loadUsers();
+                    } else {
+                        showToast('error', result.msg || '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '删除失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>
+

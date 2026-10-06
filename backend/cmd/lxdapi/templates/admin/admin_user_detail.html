@@ -1,0 +1,446 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 用户详情</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12 max-w-7xl">
+        <div class="mb-4 lg:mb-6">
+            <div class="flex items-center text-xs lg:text-sm text-gray-600 mb-3 lg:mb-4">
+                <a href="/admin/users" class="hover:text-blue-600">用户管理</a>
+                <svg class="w-3 lg:w-4 h-3 lg:h-4 mx-1 lg:mx-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 5l7 7-7 7"></path>
+                </svg>
+                <span class="text-gray-900 font-medium truncate max-w-[150px] sm:max-w-none" id="userName">加载中...</span>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-4 text-sm">
+                    <div><span class="text-gray-500">用户名:</span> <span class="font-semibold text-gray-800" id="username">-</span></div>
+                    <div><span class="text-gray-500">密码:</span> <code class="text-xs bg-gray-100 px-2 py-1 rounded font-mono" id="apiKey">-</code></div>
+                    <div><span class="text-gray-500">状态:</span> <span id="userStatus">-</span> <button id="toggleStatusBtn" onclick="toggleUserStatus()" class="ml-2 px-2 py-0.5 text-xs font-medium rounded transition">-</button></div>
+                </div>
+                <button onclick="regenerateAPIKey()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">重置密码</button>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <h3 class="text-sm font-bold text-gray-800 mb-3">用户配额 (已用 / 限制)</h3>
+            <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <div><span class="text-gray-500">CPU:</span> <span class="font-medium" id="cpuUsed">0</span> / <span class="font-medium" id="cpuQuota">0</span></div>
+                <div><span class="text-gray-500">单容器最大CPU:</span> <span class="font-medium" id="maxCpuPerContainer">0</span></div>
+                <div><span class="text-gray-500">内存:</span> <span class="font-medium" id="memUsed">0</span> / <span class="font-medium" id="memoryQuota">0</span> MB</div>
+                <div><span class="text-gray-500">磁盘:</span> <span class="font-medium" id="diskUsed">0</span> / <span class="font-medium" id="diskQuota">0</span> MB</div>
+                <div><span class="text-gray-500">流量:</span> <span class="font-medium" id="trafficUsed">0</span> / <span class="font-medium" id="trafficLimit">0</span> GB</div>
+                <div><span class="text-gray-500">IPv4池:</span> <span class="font-medium" id="ipv4PoolUsed">0</span> / <span class="font-medium" id="ipv4PoolLimit">0</span></div>
+                <div><span class="text-gray-500">IPv4映射:</span> <span class="font-medium" id="ipv4MapUsed">0</span> / <span class="font-medium" id="ipv4MappingLimit">0</span></div>
+                <div><span class="text-gray-500">IPv6池:</span> <span class="font-medium" id="ipv6PoolUsed">0</span> / <span class="font-medium" id="ipv6PoolLimit">0</span></div>
+                <div><span class="text-gray-500">IPv6映射:</span> <span class="font-medium" id="ipv6MapUsed">0</span> / <span class="font-medium" id="ipv6MappingLimit">0</span></div>
+                <div><span class="text-gray-500">反代:</span> <span class="font-medium" id="proxyUsed">0</span> / <span class="font-medium" id="reverseProxyLimit">0</span></div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-3 lg:p-4 mb-4">
+            <div class="flex flex-col sm:flex-row sm:items-center sm:justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-3">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">每页:</span>
+                        <select id="pageSize" onchange="changePageSize()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="10">10</option>
+                            <option value="25" selected>25</option>
+                            <option value="50">50</option>
+                            <option value="all">全部</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">排序:</span>
+                        <select id="sortField" onchange="changeSorting()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">默认</option>
+                            <option value="cpu">CPU</option>
+                            <option value="memory">内存</option>
+                            <option value="disk">磁盘</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2" id="sortOrderContainer" style="display: none;">
+                        <button onclick="toggleSortOrder()" id="sortOrderBtn" class="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition flex items-center gap-1 whitespace-nowrap">
+                            <svg id="sortOrderIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                                <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>
+                            </svg>
+                            <span id="sortOrderText">升序</span>
+                        </button>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600">
+                    共 <span id="containerTotal" class="font-bold text-gray-800">0</span> 个容器
+                    <span id="pageInfo" class="ml-2"></span>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 overflow-hidden mb-4">
+            <div class="overflow-x-auto">
+                <table class="table table-xs">
+                    <thead>
+                        <tr class="bg-gray-50">
+                            <th class="text-xs text-gray-600">主机名</th>
+                            <th class="text-xs text-gray-600">状态</th>
+                            <th class="text-xs text-gray-600">CPU</th>
+                            <th class="text-xs text-gray-600">内存</th>
+                            <th class="text-xs text-gray-600">磁盘</th>
+                            <th class="text-xs text-gray-600">流量</th>
+                            <th class="text-xs text-gray-600">操作</th>
+                        </tr>
+                    </thead>
+                    <tbody id="containerList">
+                        <tr>
+                            <td colspan="7" class="px-4 py-8 text-center text-gray-500 text-xs">加载中...</td>
+                        </tr>
+                    </tbody>
+                </table>
+            </div>
+        </div>
+
+        <div id="paginationContainer" class="flex justify-center" style="display: none;">
+            <div class="join">
+                <button id="prevPage" onclick="goToPage(currentPage - 1)" class="join-item btn btn-sm content-box">«</button>
+                <button class="join-item btn btn-sm content-box">第 <span id="currentPageNum">1</span> 页</button>
+                <button id="nextPage" onclick="goToPage(currentPage + 1)" class="join-item btn btn-sm content-box">»</button>
+            </div>
+        </div>
+    </div>
+
+    <div id="apiKeyModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50" onclick="if(event.target === this) closeApiKeyModal()">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-md w-full">
+                <div class="border-b border-gray-200 px-6 py-4">
+                    <h2 class="text-xl font-bold text-gray-800">密码</h2>
+                </div>
+                
+                <div class="p-6">
+                    <div class="bg-gray-50 p-4 rounded-lg mb-4">
+                        <p class="text-xs text-gray-600 mb-1">用户名</p>
+                        <p id="apiKeyUsername" class="font-mono text-sm font-medium text-gray-800 mb-3"></p>
+                        <p class="text-xs text-gray-600 mb-1">密码</p>
+                        <p id="newApiKey" class="font-mono text-xs text-gray-800 break-all select-all"></p>
+                    </div>
+                    <button onclick="closeApiKeyModal()" class="w-full px-4 py-2 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg">确定</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        const userId = "{{ .user_id }}";
+        let containersData = [];
+        let currentPage = 1;
+        let pageSize = 25;
+        let totalPages = 1;
+        let sortField = '';
+        let sortOrder = 'asc';
+
+        let currentUserStatus = 'active';
+
+        $(document).ready(function() {
+            loadUserInfo();
+        });
+
+        function updateToggleBtn() {
+            const btn = $('#toggleStatusBtn');
+            if (currentUserStatus === 'active') {
+                btn.text('禁用').removeClass('text-green-700 bg-green-50 border-green-200').addClass('text-red-700 bg-red-50 border-red-200 border');
+            } else {
+                btn.text('启用').removeClass('text-red-700 bg-red-50 border-red-200').addClass('text-green-700 bg-green-50 border-green-200 border');
+            }
+        }
+
+        function toggleUserStatus() {
+            const newStatus = currentUserStatus === 'active' ? 'disabled' : 'active';
+            const action = newStatus === 'active' ? '启用' : '禁用';
+            if (!confirm(`确定要${action}该用户吗？`)) return;
+            
+            $.ajax({
+                url: `/api/admin/users/${userId}`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ status: newStatus }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', `用户已${action}`);
+                        loadUserInfo();
+                    } else {
+                        showToast('error', result.msg || '操作失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '操作失败');
+                }
+            });
+        }
+
+        function loadUserInfo() {
+            $.ajax({
+                url: `/api/admin/users?id=${userId}`,
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const user = result.data.user;
+                        containersData = result.data.containers || [];
+                        
+                        $('#username').text(user.Username);
+                        $('#apiKey').text(user.APIKey);
+                        $('#userName').text(user.Username);
+                        
+                        const statusBadge = user.Status === 'active' 
+                            ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">正常</span>'
+                            : '<span class="px-2 py-0.5 text-xs font-medium text-red-700 bg-red-100 rounded-full">禁用</span>';
+                        $('#userStatus').html(statusBadge);
+                        
+                        currentUserStatus = user.Status;
+                        updateToggleBtn();
+                        
+                        const stats = result.data.stats || {};
+                        
+                        $('#cpuUsed').text(stats.used_cpu || 0);
+                        $('#cpuQuota').text(user.CPUQuota || 0);
+                        $('#maxCpuPerContainer').text(user.MaxCPUPerContainer || 0);
+                        $('#memUsed').text(stats.used_memory || 0);
+                        $('#memoryQuota').text(user.MemoryQuota || 0);
+                        $('#diskUsed').text(stats.used_disk || 0);
+                        $('#diskQuota').text(user.DiskQuota || 0);
+                        $('#trafficUsed').text(formatTrafficGB(stats.used_traffic || 0));
+                        $('#trafficLimit').text(user.TrafficLimit || 0);
+                        $('#ipv4PoolUsed').text(stats.used_ipv4_pool || 0);
+                        $('#ipv4PoolLimit').text(user.IPv4PoolLimit || 0);
+                        $('#ipv4MapUsed').text(stats.used_ipv4_map || 0);
+                        $('#ipv4MappingLimit').text(user.IPv4MappingLimit || 0);
+                        $('#ipv6PoolUsed').text(stats.used_ipv6_pool || 0);
+                        $('#ipv6PoolLimit').text(user.IPv6PoolLimit || 0);
+                        $('#ipv6MapUsed').text(stats.used_ipv6_map || 0);
+                        $('#ipv6MappingLimit').text(user.IPv6MappingLimit || 0);
+                        $('#proxyUsed').text(stats.used_proxy || 0);
+                        $('#reverseProxyLimit').text(user.ReverseProxyLimit || 0);
+                        
+                        $('#containerTotal').text(containersData.length);
+                        applyPagination();
+                        renderContainers();
+                    } else {
+                        showToast('error', '加载失败: ' + result.msg);
+                    }
+                },
+                error: function() {
+                    showToast('error', '加载用户信息失败');
+                }
+            });
+        }
+
+        function applyPagination() {
+            const size = $('#pageSize').val();
+            if (size === 'all') {
+                pageSize = containersData.length || 1;
+                totalPages = 1;
+            } else {
+                pageSize = parseInt(size);
+                totalPages = Math.ceil(containersData.length / pageSize) || 1;
+            }
+            if (currentPage > totalPages) currentPage = totalPages;
+            updatePaginationInfo();
+        }
+
+        function updatePaginationInfo() {
+            if (totalPages > 1) {
+                $('#paginationContainer').show();
+                $('#currentPageNum').text(currentPage);
+                $('#prevPage').prop('disabled', currentPage <= 1);
+                $('#nextPage').prop('disabled', currentPage >= totalPages);
+            } else {
+                $('#paginationContainer').hide();
+            }
+            
+            const start = (currentPage - 1) * pageSize + 1;
+            const end = Math.min(currentPage * pageSize, containersData.length);
+            if (containersData.length > 0) {
+                $('#pageInfo').text(`(${start}-${end})`);
+            } else {
+                $('#pageInfo').text('');
+            }
+        }
+
+        function getPageData() {
+            let data = [...containersData];
+            
+            if (sortField) {
+                data.sort((a, b) => {
+                    let valA, valB;
+                    switch(sortField) {
+                        case 'cpu': valA = a.CPU || 0; valB = b.CPU || 0; break;
+                        case 'memory': valA = a.Memory || 0; valB = b.Memory || 0; break;
+                        case 'disk': valA = a.Disk || 0; valB = b.Disk || 0; break;
+                        default: return 0;
+                    }
+                    return sortOrder === 'asc' ? valA - valB : valB - valA;
+                });
+            }
+            
+            const start = (currentPage - 1) * pageSize;
+            return data.slice(start, start + pageSize);
+        }
+
+        function renderContainers() {
+            const containers = getPageData();
+            
+            if (containers.length === 0) {
+                $('#containerList').html('<tr><td colspan="7" class="px-4 py-8 text-center text-gray-500 text-xs">该用户暂无容器</td></tr>');
+                return;
+            }
+            
+            let html = '';
+            containers.forEach(c => {
+                const status = (c.Status || '').toLowerCase();
+                const statusBadge = status === 'running' ? 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>在线</span>' : 
+                    status === 'stopped' ?
+                    '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">离线</span>' :
+                    '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">其他</span>';
+                
+                const trafficIn = c.TrafficIn || 0;
+                const trafficOut = c.TrafficOut || 0;
+                const trafficDisplay = formatTraffic(trafficIn) + ' / ' + formatTraffic(trafficOut);
+                
+                html += `
+                    <tr class="hover">
+                        <td><span class="font-semibold text-gray-800 text-xs">${c.Name}</span></td>
+                        <td>${statusBadge}</td>
+                        <td class="text-xs text-gray-700">${c.CPU || 1}核</td>
+                        <td class="text-xs text-gray-700">${formatMB(c.Memory)}</td>
+                        <td class="text-xs text-gray-700">${formatMB(c.Disk)}</td>
+                        <td class="text-xs text-gray-700">${trafficDisplay}</td>
+                        <td>
+                            <a href="/admin/containers/${c.Name}" class="px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded transition">详情</a>
+                        </td>
+                    </tr>
+                `;
+            });
+            $('#containerList').html(html);
+        }
+
+        function changePageSize() {
+            currentPage = 1;
+            applyPagination();
+            renderContainers();
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderContainers();
+            updatePaginationInfo();
+        }
+
+        function changeSorting() {
+            sortField = $('#sortField').val();
+            if (sortField) {
+                $('#sortOrderContainer').show();
+            } else {
+                $('#sortOrderContainer').hide();
+            }
+            currentPage = 1;
+            applyPagination();
+            renderContainers();
+        }
+
+        function toggleSortOrder() {
+            sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            $('#sortOrderText').text(sortOrder === 'asc' ? '升序' : '降序');
+            if (sortOrder === 'asc') {
+                $('#sortOrderIcon').html('<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>');
+            } else {
+                $('#sortOrderIcon').html('<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m4 0l4-4m0 0l4 4m-4-4v12"></path>');
+            }
+            renderContainers();
+        }
+
+        function formatMB(mb) {
+            if (!mb || mb === 0) return '-';
+            if (mb < 1024) return mb + ' MB';
+            else return (mb / 1024).toFixed(1) + ' GB';
+        }
+
+        function formatTraffic(bytes) {
+            if (!bytes || bytes === 0) return '0';
+            const gb = bytes / (1024 * 1024 * 1024);
+            if (gb >= 1) return gb.toFixed(2) + ' GB';
+            const mb = bytes / (1024 * 1024);
+            if (mb >= 1) return mb.toFixed(1) + ' MB';
+            const kb = bytes / 1024;
+            return kb.toFixed(0) + ' KB';
+        }
+
+        function formatTrafficGB(bytes) {
+            if (!bytes || bytes === 0) return '0';
+            const gb = bytes / (1024 * 1024 * 1024);
+            return gb.toFixed(2);
+        }
+
+        function regenerateAPIKey() {
+            if (!confirm('确定要重新生成密码吗？旧的密码将立即失效！')) return;
+            
+            $.ajax({
+                url: `/api/admin/users/${userId}/regenerate-key`,
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        $('#apiKeyUsername').text($('#username').text());
+                        $('#newApiKey').text(result.data.password);
+                        $('#apiKeyModal').removeClass('hidden');
+                        showToast('success', '密码已重新生成');
+                    } else {
+                        showToast('error', '操作失败: ' + result.msg);
+                    }
+                },
+                error: function() {
+                    showToast('error', '重新生成失败');
+                }
+            });
+        }
+
+        function closeApiKeyModal() {
+            $('#apiKeyModal').addClass('hidden');
+            loadUserInfo();
+        }
+
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>
+

@@ -1,0 +1,112 @@
+# 系统配置
+system:
+  # 服务器配置
+  server:
+    # 监听地址
+    host: "0.0.0.0"
+    # 监听端口
+    port: __SERVER_PORT__
+    # 运行模式: debug/release
+    mode: "release"
+    # TLS/HTTPS配置
+    tls:
+      # 启用HTTPS
+      enabled: true
+      # 证书文件路径
+      cert_file: "certs/server.crt"
+      # 私钥文件路径
+      key_file: "certs/server.key"
+      # 自动生成自签名证书(当证书不存在时)
+      auto_generate: true
+  
+  # 安全配置
+  security:
+    # 系统级API密钥
+    api_hash: "__API_HASH__"
+  
+  # 日志配置
+  logger:
+    # 日志级别: debug/release
+    level: "release"
+    # 启用彩色输出
+    colorful: true
+  
+  # 数据库配置
+  database:
+    # 数据库类型: sqlite/mysql/postgres
+    type: "__DB_TYPE__"
+    # SQLite配置
+    sqlite:
+      path: "lxdapi.db"
+    # MySQL/MariaDB配置
+    mysql:
+      host: "__MYSQL_HOST__"
+      port: __MYSQL_PORT__
+      user: "__MYSQL_USER__"
+      password: "__MYSQL_PASSWORD__"
+      database: "__MYSQL_DATABASE__"
+    # PostgreSQL配置
+    postgres:
+      host: "__POSTGRES_HOST__"
+      port: __POSTGRES_PORT__
+      user: "__POSTGRES_USER__"
+      password: "__POSTGRES_PASSWORD__"
+      database: "__POSTGRES_DATABASE__"
+      sslmode: "__POSTGRES_SSLMODE__"
+
+# LXC配置
+lxc:
+  # LXD Socket路径
+  socket: "/var/snap/lxd/common/lxd/unix.socket"
+  # 命令超时(秒)
+  timeout: 300
+  # 默认存储池
+  default_storage: "default"
+
+# 流量监控配置
+traffic:
+  # 启用流量监控
+  enabled: true
+  # 采集间隔(秒)
+  interval: __TRAFFIC_INTERVAL__
+  # 批量更新数量
+  batch_size: __TRAFFIC_BATCH_SIZE__
+
+# 异步任务配置
+task:
+  # 启用异步任务
+  enabled: true
+  # 任务队列后端: memory/redis
+  backend: "__TASK_BACKEND__"
+  # Worker数量
+  workers: 4
+  # 队列大小
+  queue_size: 1000
+  # 任务超时(秒)
+  timeout: 600
+  # 自动清理已完成任务(天数, 0表示不清理)
+  auto_cleanup_days: 7
+  # Redis配置(backend为redis时使用)
+  redis:
+    host: "__REDIS_HOST__"
+    port: __REDIS_PORT__
+    password: "__REDIS_PASSWORD__"
+    db: __REDIS_DB__
+
+# 管理员配置
+admin:
+  # 启用管理面板
+  enabled: true
+  # 管理员用户名
+  username: "__ADMIN_USER__"
+  # 管理员密码(首次使用请修改)
+  password: "__ADMIN_PASS__"
+  # Session密钥(请修改为随机字符串)
+  session_secret: "__SESSION_SECRET__"
+
+# 插件配置
+plugins:
+  # Nginx反向代理插件
+  nginx:
+    enabled: __NGINX_ENABLED__
+

@@ -1,0 +1,468 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 系统设置</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        .custom-tab-active {
+            background-color: #2563eb !important;
+            color: white !important;
+            border: 1px solid #2563eb !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+        .custom-tab-inactive {
+            background-color: transparent !important;
+            color: #374151 !important;
+            border: 1px solid #9ca3af !important;
+            box-shadow: 0 1px 2px rgba(0, 0, 0, 0.05) !important;
+        }
+        .custom-tab-inactive:hover {
+            background-color: #e5e7eb !important;
+            border: 1px solid #9ca3af !important;
+            box-shadow: 0 1px 3px rgba(0, 0, 0, 0.1) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+        <div class="mb-4 lg:mb-6 inline-block px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+            <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                <span class="iconify text-blue-600" data-icon="mdi:cog" data-width="28"></span>
+                系统设置
+            </h1>
+            <p class="text-sm lg:text-base text-gray-600 mt-1">配置系统名称、主题外观和公告信息</p>
+        </div>
+
+        <div class="flex gap-1 lg:gap-2 content-box rounded-lg p-1 mb-4 lg:mb-6 overflow-x-auto w-fit">
+            <a id="appearanceTabBtn" class="custom-tab-active px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('appearance')">外观设置</a>
+            <a id="noticeTabBtn" class="custom-tab-inactive px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('notice')">公告设置</a>
+            <a id="generalTabBtn" class="custom-tab-inactive px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('general')">通用设置</a>
+            <a id="templateTabBtn" class="custom-tab-inactive px-3 py-1.5 text-xs font-medium rounded cursor-pointer transition whitespace-nowrap" onclick="switchTab('template')">模板设置</a>
+        </div>
+
+        <form id="brandForm">
+            <div id="tabContent">
+                <div id="appearanceTab" class="tab-pane" style="display: block;">
+                    <div class="grid grid-cols-1 lg:grid-cols-3 gap-4 mb-6">
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:shield-account" data-width="18"></span>
+                                管理后台
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">系统名称</label>
+                                    <input type="text" id="adminSystemName" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="LXD API - 管理后台" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">浏览器标题</label>
+                                    <input type="text" id="adminSystemTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="管理后台" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">登录标题</label>
+                                    <input type="text" id="adminLoginTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="管理员登录" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景图片URL</label>
+                                    <input type="text" id="adminBgImage" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="https://example.com/bg.jpg" maxlength="500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景透明度 <span class="text-gray-500" id="adminOpacityValue">75%</span></label>
+                                    <input type="range" id="adminBgOpacity" min="0" max="100" value="75" class="w-full" oninput="document.getElementById('adminOpacityValue').textContent = this.value + '%'">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">盒子透明度 <span class="text-gray-500" id="adminContentOpacityValue">85%</span></label>
+                                    <input type="range" id="adminContentOpacity" min="0" max="100" value="85" class="w-full" oninput="document.getElementById('adminContentOpacityValue').textContent = this.value + '%'">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:account-group" data-width="18"></span>
+                                用户中心
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">系统名称</label>
+                                    <input type="text" id="userSystemName" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="LXD API - 用户中心" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">浏览器标题</label>
+                                    <input type="text" id="userSystemTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="用户中心" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">登录标题</label>
+                                    <input type="text" id="userLoginTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="用户登录" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景图片URL</label>
+                                    <input type="text" id="userBgImage" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="https://example.com/bg.jpg" maxlength="500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景透明度 <span class="text-gray-500" id="userOpacityValue">75%</span></label>
+                                    <input type="range" id="userBgOpacity" min="0" max="100" value="75" class="w-full" oninput="document.getElementById('userOpacityValue').textContent = this.value + '%'">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">盒子透明度 <span class="text-gray-500" id="userContentOpacityValue">85%</span></label>
+                                    <input type="range" id="userContentOpacity" min="0" max="100" value="85" class="w-full" oninput="document.getElementById('userContentOpacityValue').textContent = this.value + '%'">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:console" data-width="18"></span>
+                                容器面板
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">系统名称</label>
+                                    <input type="text" id="containerSystemName" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="容器控制面板" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">浏览器标题</label>
+                                    <input type="text" id="containerSystemTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="容器管理" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">登录标题</label>
+                                    <input type="text" id="containerLoginTitle" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="容器登录" maxlength="100" required>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景图片URL</label>
+                                    <input type="text" id="containerBgImage" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="https://example.com/bg.jpg" maxlength="500">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">背景透明度 <span class="text-gray-500" id="containerOpacityValue">75%</span></label>
+                                    <input type="range" id="containerBgOpacity" min="0" max="100" value="75" class="w-full" oninput="document.getElementById('containerOpacityValue').textContent = this.value + '%'">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">盒子透明度 <span class="text-gray-500" id="containerContentOpacityValue">85%</span></label>
+                                    <input type="range" id="containerContentOpacity" min="0" max="100" value="85" class="w-full" oninput="document.getElementById('containerContentOpacityValue').textContent = this.value + '%'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="noticeTab" class="tab-pane" style="display: none;">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:bullhorn" data-width="18"></span>
+                                用户中心公告
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">公告内容</label>
+                                    <textarea id="userNotice" rows="6" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="支持Markdown：**粗体** *斜体* [链接](url) - 列表等"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">公告透明度 <span class="text-gray-500" id="userNoticeOpacityValue">85%</span></label>
+                                    <input type="range" id="userNoticeOpacity" min="0" max="100" value="85" class="w-full" oninput="document.getElementById('userNoticeOpacityValue').textContent = this.value + '%'">
+                                </div>
+                            </div>
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:bullhorn-outline" data-width="18"></span>
+                                容器面板公告
+                            </h3>
+                            <div class="space-y-3">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">公告内容</label>
+                                    <textarea id="containerNotice" rows="6" class="w-full px-2 py-1.5 text-sm border border-gray-300 rounded focus:ring-1 focus:ring-blue-500" placeholder="支持Markdown：**粗体** *斜体* [链接](url) - 列表等"></textarea>
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">公告透明度 <span class="text-gray-500" id="containerNoticeOpacityValue">85%</span></label>
+                                    <input type="range" id="containerNoticeOpacity" min="0" max="100" value="85" class="w-full" oninput="document.getElementById('containerNoticeOpacityValue').textContent = this.value + '%'">
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="generalTab" class="tab-pane" style="display: none;">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:image" data-width="18"></span>
+                                Favicon图标
+                            </h3>
+                            <input type="text" id="faviconUrl" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="https://example.com/favicon.ico" maxlength="500">
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:text" data-width="18"></span>
+                                页脚文字
+                            </h3>
+                            <input type="text" id="footerText" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500" placeholder="LXD API 容器管理平台" maxlength="200">
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:cloud-download" data-width="18"></span>
+                                资源加载
+                            </h3>
+                            <label class="flex items-center gap-3 cursor-pointer">
+                                <input type="checkbox" id="useLocalCDN" class="toggle toggle-sm">
+                                <span class="text-sm text-gray-700">使用本地资源</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm mb-4">
+                        <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                            <span class="iconify" data-icon="mdi:certificate" data-width="18"></span>
+                            HTTPS证书配置
+                        </h3>
+                        <div class="text-xs text-gray-600 mb-3 p-2 bg-orange-50 border border-orange-200 rounded">
+                            <p class="text-orange-700 font-medium">修改证书后需要执行命令重启服务：systemctl restart lxdapi</p>
+                        </div>
+                        <div class="space-y-3">
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">SSL证书内容 (server.crt)</label>
+                                <textarea id="tlsCertContent" rows="8" class="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono" placeholder="-----BEGIN CERTIFICATE-----&#10;证书内容...&#10;-----END CERTIFICATE-----"></textarea>
+                            </div>
+                            <div>
+                                <label class="block text-xs font-medium text-gray-700 mb-1">SSL私钥内容 (server.key)</label>
+                                <textarea id="tlsKeyContent" rows="8" class="w-full px-3 py-2 text-xs border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 font-mono" placeholder="-----BEGIN PRIVATE KEY-----&#10;私钥内容...&#10;-----END PRIVATE KEY-----"></textarea>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <div id="templateTab" class="tab-pane" style="display: none;">
+                    <div class="grid grid-cols-1 lg:grid-cols-2 gap-4 mb-6">
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:file-document-outline" data-width="18"></span>
+                                Lite 模板
+                            </h3>
+                            <div class="space-y-2">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">选择模板文件</label>
+                                <select id="containerLiteTemplate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="lite">lite</option>
+                                </select>
+                            </div>
+                        </div>
+
+                        <div class="content-box border border-gray-200 rounded-lg p-4 shadow-sm">
+                            <h3 class="text-sm font-semibold text-gray-800 mb-3 flex items-center gap-1.5">
+                                <span class="iconify" data-icon="mdi:file-document-outline" data-width="18"></span>
+                                Base 模板
+                            </h3>
+                            <div class="space-y-2">
+                                <label class="block text-xs font-medium text-gray-700 mb-1">选择模板文件</label>
+                                <select id="containerBaseTemplate" class="w-full px-3 py-2 text-sm border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500">
+                                    <option value="base">base</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-3">
+                <button type="submit" class="px-6 py-2 content-box text-gray-700 border border-gray-200 rounded-lg hover:bg-gray-50">
+                    保存设置
+                </button>
+                <button type="button" onclick="resetToDefault()" class="px-6 py-2 content-box text-gray-700 border border-gray-300 rounded-lg hover:bg-gray-50">
+                    恢复默认
+                </button>
+            </div>
+        </form>
+    </div>
+    
+    <script>
+        function switchTab(tabName) {
+            $('#appearanceTab, #noticeTab, #generalTab, #templateTab').hide();
+            $('#appearanceTabBtn, #noticeTabBtn, #generalTabBtn, #templateTabBtn').removeClass('custom-tab-active').addClass('custom-tab-inactive');
+            
+            if (tabName === 'appearance') {
+                $('#appearanceTab').show();
+                $('#appearanceTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'notice') {
+                $('#noticeTab').show();
+                $('#noticeTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'general') {
+                $('#generalTab').show();
+                $('#generalTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            } else if (tabName === 'template') {
+                $('#templateTab').show();
+                $('#templateTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            }
+        }
+
+        $(document).ready(function() {
+            loadTemplateOptions();
+            loadSettings();
+        });
+
+        function loadTemplateOptions() {
+            $.get('/api/admin/container-templates', function(result) {
+                if (result.code === 200 && result.data) {
+                    const liteSelect = $('#containerLiteTemplate');
+                    const baseSelect = $('#containerBaseTemplate');
+                    
+                    liteSelect.empty();
+                    result.data.lite.forEach(function(t) {
+                        liteSelect.append($('<option>').val(t).text(t));
+                    });
+                    
+                    baseSelect.empty();
+                    result.data.base.forEach(function(t) {
+                        baseSelect.append($('<option>').val(t).text(t));
+                    });
+                }
+            });
+        }
+
+        function loadSettings() {
+            $.ajax({
+                url: '/api/admin/brand-settings',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200 && result.data) {
+                        $('#adminSystemName').val(result.data.admin_system_name);
+                        $('#adminSystemTitle').val(result.data.admin_system_title);
+                        $('#adminLoginTitle').val(result.data.admin_login_title);
+                        $('#adminBgImage').val(result.data.admin_bg_image || '');
+                        $('#adminBgOpacity').val(result.data.admin_bg_opacity || 75);
+                        $('#adminOpacityValue').text((result.data.admin_bg_opacity || 75) + '%');
+                        $('#adminContentOpacity').val(result.data.admin_content_opacity || 85);
+                        $('#adminContentOpacityValue').text((result.data.admin_content_opacity || 85) + '%');
+                        $('#userSystemName').val(result.data.user_system_name);
+                        $('#userSystemTitle').val(result.data.user_system_title);
+                        $('#userLoginTitle').val(result.data.user_login_title);
+                        $('#userBgImage').val(result.data.user_bg_image || '');
+                        $('#userBgOpacity').val(result.data.user_bg_opacity || 75);
+                        $('#userOpacityValue').text((result.data.user_bg_opacity || 75) + '%');
+                        $('#userContentOpacity').val(result.data.user_content_opacity || 85);
+                        $('#userContentOpacityValue').text((result.data.user_content_opacity || 85) + '%');
+                        $('#userNotice').val(result.data.user_notice || '');
+                        $('#userNoticeOpacity').val(result.data.user_notice_opacity || 85);
+                        $('#userNoticeOpacityValue').text((result.data.user_notice_opacity || 85) + '%');
+                        $('#containerSystemName').val(result.data.container_system_name);
+                        $('#containerSystemTitle').val(result.data.container_system_title);
+                        $('#containerLoginTitle').val(result.data.container_login_title);
+                        $('#containerBgImage').val(result.data.container_bg_image || '');
+                        $('#containerBgOpacity').val(result.data.container_bg_opacity || 75);
+                        $('#containerOpacityValue').text((result.data.container_bg_opacity || 75) + '%');
+                        $('#containerContentOpacity').val(result.data.container_content_opacity || 85);
+                        $('#containerContentOpacityValue').text((result.data.container_content_opacity || 85) + '%');
+                        $('#containerNotice').val(result.data.container_notice || '');
+                        $('#containerNoticeOpacity').val(result.data.container_notice_opacity || 85);
+                        $('#containerNoticeOpacityValue').text((result.data.container_notice_opacity || 85) + '%');
+                        $('#faviconUrl').val(result.data.favicon_url || '');
+                        $('#footerText').val(result.data.footer_text);
+                        $('#useLocalCDN').prop('checked', result.data.use_local_cdn || false);
+                        $('#containerLiteTemplate').val(result.data.container_lite_template || 'lite');
+                        $('#containerBaseTemplate').val(result.data.container_base_template || 'base');
+                        $('#tlsCertContent').val(result.data.tls_cert_content || '');
+                        $('#tlsKeyContent').val(result.data.tls_key_content || '');
+                    }
+                }
+            });
+        }
+
+        $('#brandForm').submit(function(e) {
+            e.preventDefault();
+            $.ajax({
+                url: '/api/admin/brand-settings',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    admin_system_name: $('#adminSystemName').val().trim(),
+                    admin_system_title: $('#adminSystemTitle').val().trim(),
+                    admin_login_title: $('#adminLoginTitle').val().trim(),
+                    admin_bg_image: $('#adminBgImage').val().trim(),
+                    admin_bg_opacity: parseInt($('#adminBgOpacity').val()),
+                    admin_content_opacity: parseInt($('#adminContentOpacity').val()),
+                    user_system_name: $('#userSystemName').val().trim(),
+                    user_system_title: $('#userSystemTitle').val().trim(),
+                    user_login_title: $('#userLoginTitle').val().trim(),
+                    user_bg_image: $('#userBgImage').val().trim(),
+                    user_bg_opacity: parseInt($('#userBgOpacity').val()),
+                    user_content_opacity: parseInt($('#userContentOpacity').val()),
+                    container_system_name: $('#containerSystemName').val().trim(),
+                    container_system_title: $('#containerSystemTitle').val().trim(),
+                    container_login_title: $('#containerLoginTitle').val().trim(),
+                    container_bg_image: $('#containerBgImage').val().trim(),
+                    container_bg_opacity: parseInt($('#containerBgOpacity').val()),
+                    container_content_opacity: parseInt($('#containerContentOpacity').val()),
+                    user_notice: $('#userNotice').val().trim(),
+                    user_notice_opacity: parseInt($('#userNoticeOpacity').val()),
+                    container_notice: $('#containerNotice').val().trim(),
+                    container_notice_opacity: parseInt($('#containerNoticeOpacity').val()),
+                    favicon_url: $('#faviconUrl').val().trim(),
+                    footer_text: $('#footerText').val().trim(),
+                    use_local_cdn: $('#useLocalCDN').is(':checked'),
+                    container_lite_template: $('#containerLiteTemplate').val().trim() || 'lite',
+                    container_base_template: $('#containerBaseTemplate').val().trim() || 'base',
+                    tls_cert_content: $('#tlsCertContent').val().trim(),
+                    tls_key_content: $('#tlsKeyContent').val().trim()
+                }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const certContent = $('#tlsCertContent').val().trim();
+                        const keyContent = $('#tlsKeyContent').val().trim();
+                        
+                        if (certContent && keyContent) {
+                            alert('保存成功！证书已更新，请执行以下命令重启服务：\n\nsystemctl restart lxdapi');
+                        } else {
+                            alert('保存成功！');
+                        }
+                        location.reload();
+                    } else {
+                        alert('保存失败: ' + (result.msg || '未知错误'));
+                    }
+                }
+            });
+        });
+
+        function resetToDefault() {
+            if (!confirm('确定要恢复默认设置吗？')) return;
+            $.ajax({
+                url: '/api/admin/brand-settings?reset=true',
+                type: 'POST',
+                success: function(result) {
+                    alert(result.code === 200 ? '已恢复默认' : '重置失败');
+                    if (result.code === 200) location.reload();
+                }
+            });
+        }
+
+
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>

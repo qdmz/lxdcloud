@@ -1,0 +1,911 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 独立IPv6管理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        /* 覆盖DaisyUI的tab样式 */
+        .custom-tab-active {
+            background-color: #2563eb !important;
+            color: white !important;
+        }
+        .custom-tab-inactive {
+            background-color: transparent !important;
+            color: #374151 !important;
+        }
+        .custom-tab-inactive:hover {
+            background-color: #e5e7eb !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+            <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <span class="iconify text-blue-600" data-icon="mdi:ip" data-width="28"></span>
+                    独立IPv6管理
+                </h1>
+                <p class="text-sm lg:text-base text-gray-600 mt-1">管理独立公网IPv6地址的分配与绑定</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="showAddModal()" class="px-3 py-2 text-xs lg:text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span class="hidden sm:inline">单个添加</span>
+                    <span class="sm:hidden">单个</span>
+                </button>
+                <button onclick="showBatchAddModal()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    <span class="hidden sm:inline">批量添加</span>
+                    <span class="sm:hidden">批量</span>
+                </button>
+                <button id="btnSelectAll" onclick="toggleSelectAll()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button onclick="showSettingsModal()" class="px-3 py-2 text-xs lg:text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z"></path>
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                    </svg>
+                    <span class="hidden sm:inline">分配设置</span>
+                </button>
+            </div>
+        </div>
+
+        <div class="flex gap-2 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
+            <a id="poolTabBtn" class="custom-tab-active px-4 py-2 text-sm font-medium rounded-md cursor-pointer transition" onclick="switchTab('pool')">地址池</a>
+            <a id="bindingsTabBtn" class="custom-tab-inactive px-4 py-2 text-sm font-medium rounded-md cursor-pointer transition" onclick="switchTab('bindings')">已分配</a>
+        </div>
+
+        <div id="poolTab" class="tab-content" style="display: block;">
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">每页显示:</span>
+                        <select id="poolPageSize" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="changePoolPageSize()">
+                            <option value="10">10 条</option>
+                            <option value="20" selected>20 条</option>
+                            <option value="50">50 条</option>
+                            <option value="100">100 条</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600">
+                    共 <span id="poolTotalCount" class="font-bold text-gray-800">0</span> 个地址
+                    <span id="poolPageInfo" class="ml-2"></span>
+                </div>
+            </div>
+
+
+            <div id="batchDeleteBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-red-900">已选择 <span id="selectedPoolCount">0</span> 个地址</span>
+                        <button onclick="clearPoolSelection()" class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="batchDeleteSelected()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded transition">批量删除</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200">
+                <div id="poolTable">
+                    <p class="text-center text-gray-500 py-8">加载中...</p>
+                </div>
+            </div>
+            
+            <div id="poolPagination" class="mt-4 flex justify-center" style="display: none;">
+                <div class="join">
+                    <button id="prevPoolPage" onclick="gotoPoolPage(poolCurrentPage - 1)" class="join-item btn btn-sm content-box">«</button>
+                    <button class="join-item btn btn-sm content-box">第 <span id="poolPageNum">1</span> 页</button>
+                    <button id="nextPoolPage" onclick="gotoPoolPage(poolCurrentPage + 1)" class="join-item btn btn-sm content-box">»</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="bindingsTab" class="tab-content" style="display:none;">
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">每页显示:</span>
+                        <select id="bindingsPageSize" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500" onchange="changeBindingsPageSize()">
+                            <option value="10">10 条</option>
+                            <option value="20" selected>20 条</option>
+                            <option value="50">50 条</option>
+                            <option value="100">100 条</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600">
+                    共 <span id="bindingsTotalCount" class="font-bold text-gray-800">0</span> 个已分配
+                    <span id="bindingsPageInfo" class="ml-2"></span>
+                </div>
+            </div>
+
+
+            <div id="batchReleaseBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-red-900">已选择 <span id="selectedBindingsCount">0</span> 个绑定</span>
+                        <button onclick="clearBindingsSelection()" class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="batchReleaseSelected()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded transition">批量释放</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200">
+                <div id="bindingsTable">
+                    <p class="text-center text-gray-500 py-8">加载中...</p>
+                </div>
+            </div>
+            
+            <div id="bindingsPagination" class="mt-4 flex justify-center" style="display: none;">
+                <div class="join">
+                    <button id="prevBindingsPage" onclick="gotoBindingsPage(bindingsCurrentPage - 1)" class="join-item btn btn-sm content-box">«</button>
+                    <button class="join-item btn btn-sm content-box">第 <span id="bindingsPageNum">1</span> 页</button>
+                    <button id="nextBindingsPage" onclick="gotoBindingsPage(bindingsCurrentPage + 1)" class="join-item btn btn-sm content-box">»</button>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <dialog id="addModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">添加IPv6到地址池</h3>
+            <form id="addForm" class="space-y-3">
+                <div class="form-control">
+                    <label class="label"><span class="label-text">IPv6地址列表 *</span></label>
+                    <textarea id="ipAddresses" placeholder="一行一个IPv6" class="textarea textarea-bordered h-24 text-xs font-mono" required></textarea>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">网卡接口 *</span></label>
+                    <input type="text" id="interface" placeholder="ens18" class="input input-bordered input-sm" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">备注</span></label>
+                    <input type="text" id="note" placeholder="可选" class="input input-bordered input-sm">
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeAddModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">添加</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="batchAddModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">批量添加IPv6</h3>
+            <form id="batchAddForm" class="space-y-3">
+                <div class="flex items-start gap-3 p-3 bg-blue-50 border border-blue-200 rounded-lg">
+                    <svg xmlns="http://www.w3.org/2000/svg" fill="none" viewBox="0 0 24 24" class="w-5 h-5 text-blue-600 flex-shrink-0 mt-0.5"><path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z"></path></svg>
+                    <span class="text-sm text-blue-800">从起始IPv6开始连续添加指定数量的地址</span>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">起始IPv6 *</span></label>
+                    <input type="text" id="startIP" placeholder="2001:db8::1" class="input input-bordered input-sm" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">数量 *</span></label>
+                    <input type="number" id="count" placeholder="10" min="1" max="10000" class="input input-bordered input-sm" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">网卡接口 *</span></label>
+                    <input type="text" id="batchInterface" placeholder="ens18" class="input input-bordered input-sm" required>
+                </div>
+                <div class="form-control">
+                    <label class="label"><span class="label-text">备注</span></label>
+                    <input type="text" id="batchNote" placeholder="可选" class="input input-bordered input-sm">
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeBatchAddModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                    <button type="submit" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">批量添加</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="settingsModal" class="modal">
+        <div class="modal-box max-w-md">
+            <h3 class="font-bold text-lg mb-4">IPv6 分配设置</h3>
+            <div class="space-y-4">
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <div class="font-medium text-sm">随机分配IP</div>
+                        <div class="text-xs text-gray-500">开启后分配IP时随机选择，关闭则按顺序分配</div>
+                    </div>
+                    <input type="checkbox" id="settingRandomAssign" class="toggle toggle-primary">
+                </div>
+                <div class="flex items-center justify-between p-3 bg-gray-50 rounded-lg">
+                    <div>
+                        <div class="font-medium text-sm">创建时自动分配</div>
+                        <div class="text-xs text-gray-500">开启后创建容器时自动分配独立IP</div>
+                    </div>
+                    <input type="checkbox" id="settingAutoAssign" class="toggle toggle-primary">
+                </div>
+                <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                        <div class="font-medium text-sm">允许用户层级释放IPv6</div>
+                        <div class="text-xs text-gray-500">用户可在用户中心释放容器的IPv6地址</div>
+                    </div>
+                    <input type="checkbox" id="settingAllowUserReleaseIPv6" class="toggle toggle-primary">
+                </div>
+                <div class="flex items-center justify-between p-3 bg-blue-50 rounded-lg">
+                    <div>
+                        <div class="font-medium text-sm">允许容器层级释放IPv6</div>
+                        <div class="text-xs text-gray-500">容器独立面板可释放IPv6地址</div>
+                    </div>
+                    <input type="checkbox" id="settingAllowContainerReleaseIPv6" class="toggle toggle-primary">
+                </div>
+            </div>
+            <div class="modal-action">
+                <button type="button" onclick="closeSettingsModal()" class="px-3 py-1.5 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg transition">取消</button>
+                <button type="button" onclick="saveSettings()" class="px-3 py-1.5 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition">保存</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <script>
+        let currentTab = 'pool';
+        let allPools = [];
+        let allBindings = [];
+        let selectedPools = new Set();
+        let selectedBindings = new Set();
+        let poolPageSize = 20;
+        let bindingsPageSize = 20;
+        let poolCurrentPage = 1;
+        let bindingsCurrentPage = 1;
+
+        $(document).ready(function() {
+            setTimeout(() => {
+                loadPoolData();
+                loadBindingsData();
+            }, 100);
+
+            $('#addForm').submit(function(e) {
+                e.preventDefault();
+                addIPToPool();
+            });
+
+            $('#batchAddForm').submit(function(e) {
+                e.preventDefault();
+                batchAddIP();
+            });
+        });
+
+        function switchTab(tab) {
+            currentTab = tab;
+            
+            if (tab === 'pool') {
+                $('#poolTab').show();
+                $('#bindingsTab').hide();
+                $('#poolTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+                $('#bindingsTabBtn').removeClass('custom-tab-active').addClass('custom-tab-inactive');
+            } else {
+                $('#poolTab').hide();
+                $('#bindingsTab').show();
+                $('#poolTabBtn').removeClass('custom-tab-active').addClass('custom-tab-inactive');
+                $('#bindingsTabBtn').removeClass('custom-tab-inactive').addClass('custom-tab-active');
+            }
+
+            updateSelectAllButton();
+        }
+
+
+        function toggleSelectAll() {
+            if (currentTab === 'pool') {
+                toggleSelectAllPool();
+            } else {
+                toggleSelectAllBindings();
+            }
+        }
+
+
+        function updateSelectAllButton() {
+            if (currentTab === 'pool') {
+                if (selectedPools.size > 0) {
+                    $('#selectAllText').text('取消全选');
+                } else {
+                    $('#selectAllText').text('全选');
+                }
+            } else {
+                if (selectedBindings.size > 0) {
+                    $('#selectAllText').text('取消全选');
+                } else {
+                    $('#selectAllText').text('全选');
+                }
+            }
+        }
+
+        async function loadPoolData() {
+            try {
+                const response = await fetch('/api/admin/ip/pool?version=v6');
+                const result = await response.json();
+                if (result.code === 200 && result.data) {
+                    allPools = result.data.pools || [];
+                    selectedPools.clear();
+                    poolCurrentPage = 1;
+                    renderPoolTable();
+                } else {
+                    $('#poolTable').html('<p class="text-center text-gray-500 py-4">加载失败</p>');
+                }
+            } catch (error) {
+                $('#poolTable').html('<p class="text-center text-gray-500 py-4">加载失败</p>');
+            }
+        }
+
+        function renderPoolTable() {
+            $('#poolTotalCount').text(allPools.length);
+            
+            if (allPools.length === 0) {
+                $('#poolTable').html('<p class="text-center text-gray-500 py-4">暂无IP地址，请先添加</p>');
+                $('#poolPagination').hide();
+                $('#poolPageInfo').text('');
+                return;
+            }
+
+            const totalPages = Math.ceil(allPools.length / poolPageSize);
+            const start = (poolCurrentPage - 1) * poolPageSize;
+            const end = start + poolPageSize;
+            const pageData = allPools.slice(start, end);
+
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th width="40"><input type="checkbox" class="checkbox checkbox-xs" ${selectedPools.size === allPools.filter(p => p.Status === 'available').length && selectedPools.size > 0 ? 'checked' : ''} onclick="toggleSelectAllPool()"></th>
+                                <th>IP地址</th>
+                                <th>网卡接口</th>
+                                <th>状态</th>
+                                <th>备注</th>
+                                <th>添加时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            pageData.forEach(pool => {
+                const statusBadge = pool.Status === 'available' 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">可用</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-orange-700 bg-orange-100 rounded-full">使用中</span>';
+                const createdAt = pool.CreatedAt ? new Date(pool.CreatedAt).toLocaleString('zh-CN') : '-';
+                const checked = selectedPools.has(pool.IPAddress) ? 'checked' : '';
+                const disabled = pool.Status !== 'available' ? 'disabled' : '';
+
+                html += `
+                    <tr class="hover">
+                        <td><input type="checkbox" class="checkbox checkbox-xs pool-checkbox" value="${pool.IPAddress}" ${checked} ${disabled} onchange="togglePoolSelect('${pool.IPAddress}')"></td>
+                        <td><code class="text-xs font-mono text-blue-600">${pool.IPAddress}</code></td>
+                        <td><span class="px-2 py-0.5 text-xs font-medium text-gray-700 bg-gray-100 rounded border border-gray-200">${pool.Interface}</span></td>
+                        <td>${statusBadge}</td>
+                        <td class="text-xs text-gray-600">${pool.Note || '-'}</td>
+                        <td class="text-xs text-gray-500">${createdAt}</td>
+                        <td>
+                            ${pool.Status === 'available' 
+                                ? `<button onclick="deleteIP('${pool.IPAddress}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>`
+                                : '<span class="text-xs text-gray-400">使用中</span>'
+                            }
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            $('#poolTable').html(html);
+            
+            renderPoolPagination(totalPages);
+            updatePoolBatchButton();
+        }
+
+        function renderPoolPagination(totalPages) {
+            const start = (poolCurrentPage - 1) * poolPageSize + 1;
+            const end = Math.min(poolCurrentPage * poolPageSize, allPools.length);
+            $('#poolPageInfo').text(`(显示 ${start}-${end})`);
+            
+            $('#poolPageNum').text(poolCurrentPage);
+            $('#prevPoolPage').prop('disabled', poolCurrentPage === 1);
+            $('#nextPoolPage').prop('disabled', poolCurrentPage === totalPages);
+            $('#poolPagination').show();
+        }
+
+        function gotoPoolPage(page) {
+            poolCurrentPage = page;
+            renderPoolTable();
+        }
+
+        function changePoolPageSize() {
+            poolPageSize = parseInt($('#poolPageSize').val());
+            poolCurrentPage = 1;
+            renderPoolTable();
+        }
+
+        function togglePoolSelect(ip) {
+            if (selectedPools.has(ip)) {
+                selectedPools.delete(ip);
+            } else {
+                selectedPools.add(ip);
+            }
+            updatePoolBatchButton();
+        }
+
+        function toggleSelectAllPool() {
+            const isSelectAll = selectedPools.size === 0 || selectedPools.size < allPools.filter(p => p.Status === 'available').length;
+            
+            if (isSelectAll) {
+
+                allPools.forEach(p => {
+                    if (p.Status === 'available') {
+                        selectedPools.add(p.IPAddress);
+                    }
+                });
+            } else {
+
+                clearPoolSelection();
+                return;
+            }
+            updatePoolBatchButton();
+            renderPoolTable();
+        }
+
+        function clearPoolSelection() {
+            selectedPools.clear();
+            updatePoolBatchButton();
+            updateSelectAllButton();
+            renderPoolTable();
+        }
+
+        function updatePoolBatchButton() {
+            $('#selectedPoolCount').text(selectedPools.size);
+            if (selectedPools.size > 0) {
+                $('#batchDeleteBar').show();
+            } else {
+                $('#batchDeleteBar').hide();
+            }
+            updateSelectAllButton();
+        }
+
+        async function batchDeleteSelected() {
+            if (selectedPools.size === 0) return;
+            
+            if (!confirm(`确定要删除选中的 ${selectedPools.size} 个IP吗？`)) return;
+
+            const ips = Array.from(selectedPools);
+            showToast('info', `正在删除 ${ips.length} 个IP...`);
+
+            try {
+                const response = await fetch('/api/admin/ip/pool/batch-delete?version=v6', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ip_addresses: ips})
+                });
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast('success', `批量删除完成: 成功${result.data.deleted}个，跳过${result.data.skipped}个`);
+                } else {
+                    showToast('error', result.msg || '批量删除失败');
+                }
+            } catch (error) {
+                showToast('error', '批量删除失败');
+            }
+
+            clearPoolSelection();
+            loadPoolData();
+        }
+
+        async function loadBindingsData() {
+            try {
+                const response = await fetch('/api/admin/ip?version=v6');
+                const result = await response.json();
+                if (result.code === 200 && result.data) {
+                    allBindings = result.data.v6 || [];
+                    selectedBindings.clear();
+                    bindingsCurrentPage = 1;
+                    renderBindingsTable();
+                } else {
+                    $('#bindingsTable').html('<p class="text-center text-gray-500 py-4">加载失败</p>');
+                }
+            } catch (error) {
+                $('#bindingsTable').html('<p class="text-center text-gray-500 py-4">加载失败</p>');
+            }
+        }
+
+        function renderBindingsTable() {
+            $('#bindingsTotalCount').text(allBindings.length);
+            
+            if (allBindings.length === 0) {
+                $('#bindingsTable').html('<p class="text-center text-gray-500 py-4">暂无已分配的IP</p>');
+                $('#bindingsPagination').hide();
+                $('#bindingsPageInfo').text('');
+                return;
+            }
+
+            const totalPages = Math.ceil(allBindings.length / bindingsPageSize);
+            const start = (bindingsCurrentPage - 1) * bindingsPageSize;
+            const end = start + bindingsPageSize;
+            const pageData = allBindings.slice(start, end);
+
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th width="40"><input type="checkbox" class="checkbox checkbox-xs" ${selectedBindings.size === allBindings.length && selectedBindings.size > 0 ? 'checked' : ''} onclick="toggleSelectAllBindings()"></th>
+                                <th>容器名称</th>
+                                <th>公网IPv6</th>
+                                <th>用户ID</th>
+                                <th>状态</th>
+                                <th>分配时间</th>
+                                <th>操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            pageData.forEach(b => {
+                const containerName = b.ContainerName || b.container_name || '-';
+                const ipAddress = b.IPAddress || b.ip_address || '-';
+                const userID = b.UserID || b.user_id || '-';
+                const status = b.Status || b.status || 'unknown';
+                const createdAt = b.CreatedAt || b.created_at;
+                const bindingKey = `${containerName}:${ipAddress}`;
+                const checked = selectedBindings.has(bindingKey) ? 'checked' : '';
+                
+                const statusBadge = status === 'bound'
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">已绑定</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">已分配</span>';
+                const createTime = createdAt ? new Date(createdAt).toLocaleString('zh-CN') : '-';
+
+                html += `
+                    <tr class="hover">
+                        <td><input type="checkbox" class="checkbox checkbox-xs binding-checkbox" value="${bindingKey}" ${checked} onchange="toggleBindingSelect('${containerName}', '${ipAddress}')"></td>
+                        <td><a href="/admin/containers/${containerName}" class="link link-primary text-xs">${containerName}</a></td>
+                        <td><code class="text-xs font-mono text-blue-600">${ipAddress}</code></td>
+                        <td class="text-xs text-gray-600">${userID}</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-xs text-gray-500">${createTime}</td>
+                        <td>
+                            <button onclick="releaseBinding('${containerName}', '${ipAddress}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">释放</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            $('#bindingsTable').html(html);
+            
+            renderBindingsPagination(totalPages);
+            updateBindingsBatchButton();
+        }
+
+        function renderBindingsPagination(totalPages) {
+            const start = (bindingsCurrentPage - 1) * bindingsPageSize + 1;
+            const end = Math.min(bindingsCurrentPage * bindingsPageSize, allBindings.length);
+            $('#bindingsPageInfo').text(`(显示 ${start}-${end})`);
+            
+            $('#bindingsPageNum').text(bindingsCurrentPage);
+            $('#prevBindingsPage').prop('disabled', bindingsCurrentPage === 1);
+            $('#nextBindingsPage').prop('disabled', bindingsCurrentPage === totalPages);
+            $('#bindingsPagination').show();
+        }
+
+        function gotoBindingsPage(page) {
+            bindingsCurrentPage = page;
+            renderBindingsTable();
+        }
+
+        function changeBindingsPageSize() {
+            bindingsPageSize = parseInt($('#bindingsPageSize').val());
+            bindingsCurrentPage = 1;
+            renderBindingsTable();
+        }
+
+        function toggleBindingSelect(container, ip) {
+            const key = `${container}:${ip}`;
+            if (selectedBindings.has(key)) {
+                selectedBindings.delete(key);
+            } else {
+                selectedBindings.add(key);
+            }
+            updateBindingsBatchButton();
+        }
+
+        function toggleSelectAllBindings() {
+            const isSelectAll = selectedBindings.size === 0 || selectedBindings.size < allBindings.length;
+            
+            if (isSelectAll) {
+
+                allBindings.forEach(b => {
+                    const containerName = b.ContainerName || b.container_name;
+                    const ipAddress = b.IPAddress || b.ip_address;
+                    selectedBindings.add(`${containerName}:${ipAddress}`);
+                });
+            } else {
+
+                clearBindingsSelection();
+                return;
+            }
+            updateBindingsBatchButton();
+            renderBindingsTable();
+        }
+
+        function clearBindingsSelection() {
+            selectedBindings.clear();
+            updateBindingsBatchButton();
+            updateSelectAllButton();
+            renderBindingsTable();
+        }
+
+        function updateBindingsBatchButton() {
+            $('#selectedBindingsCount').text(selectedBindings.size);
+            if (selectedBindings.size > 0) {
+                $('#batchReleaseBar').show();
+            } else {
+                $('#batchReleaseBar').hide();
+            }
+            updateSelectAllButton();
+        }
+
+        async function batchReleaseSelected() {
+            if (selectedBindings.size === 0) return;
+            
+            if (!confirm(`确定要释放选中的 ${selectedBindings.size} 个IP绑定吗？`)) return;
+
+            const bindings = Array.from(selectedBindings);
+            let successCount = 0;
+            let failCount = 0;
+            const total = bindings.length;
+
+            for (let i = 0; i < bindings.length; i++) {
+                const [container, ip] = bindings[i].split(':');
+                showToast('info', `释放中 (${i+1}/${total}): ${ip}`);
+                try {
+                    const response = await fetch('/api/admin/ip/release?version=v6', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify({name: container, ip: ip})
+                    });
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    failCount++;
+                }
+            }
+
+            showToast(failCount > 0 ? 'warning' : 'success', `批量释放完成: 成功${successCount}个，失败${failCount}个`);
+            clearBindingsSelection();
+            loadBindingsData();
+            loadPoolData();
+        }
+
+        function showAddModal() {
+            document.getElementById('addModal').showModal();
+        }
+
+        function closeAddModal() {
+            document.getElementById('addModal').close();
+            $('#addForm')[0].reset();
+        }
+
+        function showBatchAddModal() {
+            document.getElementById('batchAddModal').showModal();
+        }
+
+        function closeBatchAddModal() {
+            document.getElementById('batchAddModal').close();
+            $('#batchAddForm')[0].reset();
+        }
+
+        async function addIPToPool() {
+            const ipList = $('#ipAddresses').val().trim().split('\n').filter(ip => ip.trim());
+            const interface = $('#interface').val().trim();
+            const note = $('#note').val().trim();
+
+            if (ipList.length === 0) {
+                showToast('error', '请输入IPv6地址');
+                return;
+            }
+
+            let successCount = 0;
+            let failCount = 0;
+
+            for (const ip of ipList) {
+                const data = {
+                    ip_address: ip.trim(),
+                    interface: interface,
+                    note: note
+                };
+
+                try {
+                    const response = await fetch('/api/admin/ip/pool?version=v6', {
+                        method: 'POST',
+                        headers: {'Content-Type': 'application/json'},
+                        body: JSON.stringify(data)
+                    });
+
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (error) {
+                    failCount++;
+                }
+            }
+
+            if (successCount > 0) {
+                showToast('success', `成功添加${successCount}个IPv6${failCount > 0 ? `，失败${failCount}个` : ''}`);
+                closeAddModal();
+                loadPoolData();
+            } else {
+                showToast('error', '所有IPv6添加失败');
+            }
+        }
+
+        async function batchAddIP() {
+            const data = {
+                start_ip: $('#startIP').val().trim(),
+                count: parseInt($('#count').val()),
+                interface: $('#batchInterface').val().trim(),
+                note: $('#batchNote').val().trim()
+            };
+
+            try {
+                const response = await fetch('/api/admin/ip/pool/batch?version=v6', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast('success', `批量添加成功: ${result.data.added}个，跳过${result.data.skipped}个`);
+                    closeBatchAddModal();
+                    loadPoolData();
+                } else {
+                    showToast('error', result.msg || '批量添加失败');
+                }
+            } catch (error) {
+                showToast('error', '请求失败');
+            }
+        }
+
+        async function deleteIP(ip) {
+            if (!confirm(`确定要删除IP ${ip} 吗？`)) return;
+
+            try {
+                const response = await fetch('/api/admin/ip/pool?version=v6', {
+                    method: 'DELETE',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({ip_address: ip})
+                });
+
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast('success', 'IP删除成功');
+                    loadPoolData();
+                } else {
+                    showToast('error', result.msg || 'IP删除失败');
+                }
+            } catch (error) {
+                showToast('error', '请求失败');
+            }
+        }
+
+        async function releaseBinding(container, ip) {
+            if (!confirm(`确定要释放容器 ${container} 的IP ${ip} 吗？`)) return;
+
+            try {
+                const response = await fetch('/api/admin/ip/release?version=v6', {
+                    method: 'POST',
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify({name: container, ip: ip})
+                });
+
+                const result = await response.json();
+                if (result.code === 200) {
+                    showToast('success', 'IP释放成功');
+                    loadBindingsData();
+                    loadPoolData();
+                } else {
+                    showToast('error', result.msg || 'IP释放失败');
+                }
+            } catch (error) {
+                showToast('error', '请求失败');
+            }
+        }
+
+        function showSettingsModal() {
+            $.get('/api/admin/ip-pool/settings', function(result) {
+                if (result.code === 200) {
+                    $('#settingRandomAssign').prop('checked', result.data.random_assign);
+                    $('#settingAutoAssign').prop('checked', result.data.auto_assign);
+                    $('#settingAllowUserReleaseIPv6').prop('checked', result.data.allow_user_release_ipv6);
+                    $('#settingAllowContainerReleaseIPv6').prop('checked', result.data.allow_container_release_ipv6);
+                }
+                document.getElementById('settingsModal').showModal();
+            });
+        }
+
+        function closeSettingsModal() {
+            document.getElementById('settingsModal').close();
+        }
+
+        function saveSettings() {
+            const data = {
+                random_assign: $('#settingRandomAssign').is(':checked'),
+                auto_assign: $('#settingAutoAssign').is(':checked'),
+                allow_user_release_ipv6: $('#settingAllowUserReleaseIPv6').is(':checked'),
+                allow_container_release_ipv6: $('#settingAllowContainerReleaseIPv6').is(':checked')
+            };
+            $.ajax({
+                url: '/api/admin/ip-pool/settings',
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '设置已保存');
+                        closeSettingsModal();
+                    } else {
+                        showToast('error', result.msg || '保存失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '保存失败');
+                }
+            });
+        }
+
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>

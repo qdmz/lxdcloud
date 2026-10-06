@@ -1,0 +1,260 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="utf-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1">
+    <title>Shell 控制台</title>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+    {{if .UseLocalCDN}}
+    <script src="/static/js/tailwindcss.js"></script>
+    <link rel="stylesheet" href="/static/css/xterm.css">
+    {{else}}
+    <script src="https://cdn.tailwindcss.com"></script>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+    {{end}}
+    <style>
+        body { font-family: 'Inter', sans-serif; }
+        #terminal-container {
+            flex: 1;
+            overflow: hidden;
+            background: #000000;
+            position: relative;
+            padding-bottom: 20px;
+        }
+        #terminal {
+            width: 100%;
+            height: 100%;
+            padding: 15px;
+        }
+        .xterm-viewport {
+            overflow-y: auto !important;
+        }
+        .xterm-screen {
+            padding-bottom: 30px !important;
+        }
+        .status-dot {
+            width: 8px;
+            height: 8px;
+            border-radius: 50%;
+            background: #d1d5db;
+        }
+        .status-dot.connected {
+            background: #10b981;
+            animation: pulse 2s infinite;
+        }
+        .status-dot.connecting {
+            background: #f59e0b;
+            animation: blink 1s infinite;
+        }
+        @keyframes pulse {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.5; }
+        }
+        @keyframes blink {
+            0%, 100% { opacity: 1; }
+            50% { opacity: 0.3; }
+        }
+    </style>
+</head>
+<body class="bg-black overflow-hidden h-screen flex flex-col">
+    <div class="bg-white px-3 lg:px-6 py-2 lg:py-3.5 flex flex-col lg:flex-row lg:justify-between lg:items-center gap-3 shadow-md border-b border-gray-200 flex-shrink-0">
+        <div>
+            <h1 class="text-base lg:text-lg font-semibold text-gray-800 mb-0.5">Shell 控制台</h1>
+            <p class="text-xs lg:text-sm text-gray-600">容器: {{.hostname}} | 镜像: {{.image}}</p>
+        </div>
+        <div class="flex flex-wrap items-center gap-2 lg:gap-3">
+            <div class="flex items-center gap-1 lg:gap-1.5">
+                <button class="bg-white border border-gray-300 rounded-md px-2 lg:px-3 py-1 lg:py-1.5 text-xs lg:text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all font-medium" id="font-decrease" title="减小字体">字体 -</button>
+                <button class="bg-white border border-gray-300 rounded-md px-2 lg:px-3 py-1 lg:py-1.5 text-xs lg:text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all font-medium" id="font-increase" title="增大字体">字体 +</button>
+                <button class="bg-white border border-gray-300 rounded-md px-2 lg:px-3 py-1 lg:py-1.5 text-xs lg:text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all font-medium" id="clear-terminal" title="清屏">清屏</button>
+                <button class="bg-white border border-gray-300 rounded-md px-2 lg:px-3 py-1 lg:py-1.5 text-xs lg:text-sm text-gray-700 hover:bg-gray-50 hover:border-gray-400 transition-all font-medium" id="fullscreen" title="全屏">全屏</button>
+            </div>
+            <div class="flex items-center gap-1.5 lg:gap-2 bg-gray-50 px-2 lg:px-3 py-1 lg:py-1.5 rounded-full border border-gray-200">
+                <div class="status-dot" id="status-dot"></div>
+                <span class="text-xs lg:text-sm font-medium text-gray-700" id="status-text">未连接</span>
+            </div>
+            <button class="bg-green-500 hover:bg-green-600 text-white px-3 lg:px-4 py-1 lg:py-1.5 rounded-md text-xs lg:text-sm font-semibold transition-all" id="connect-btn">连接</button>
+        </div>
+    </div>
+    <div id="terminal-container">
+        <div id="terminal"></div>
+    </div>
+    
+    <div class="hidden fixed inset-0 bg-gradient-to-br from-blue-50 via-indigo-50 to-purple-50 items-center justify-center z-50" id="disconnect-overlay">
+        <div class="bg-white rounded-lg border border-gray-200 shadow-lg p-8 w-full max-w-md">
+            <div class="text-center">
+                <div class="flex justify-center mb-4">
+                    <div class="w-16 h-16 bg-red-100 rounded-full flex items-center justify-center">
+                        <svg class="w-8 h-8 text-red-500" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 9v2m0 4h.01m-6.938 4h13.856c1.54 0 2.502-1.667 1.732-3L13.732 4c-.77-1.333-2.694-1.333-3.464 0L3.34 16c-.77 1.333.192 3 1.732 3z"></path>
+                        </svg>
+                    </div>
+                </div>
+                <h1 class="text-2xl font-bold text-gray-800 mb-3">连接已断开</h1>
+                <p class="text-gray-600 mb-6">会话已结束，令牌已失效。<br>请关闭此窗口，返回管理页面重新打开控制台。</p>
+            </div>
+        </div>
+    </div>
+
+    {{if .UseLocalCDN}}
+    <script src="/static/js/xterm.js"></script>
+    <script src="/static/js/xterm-addon-fit.js"></script>
+    {{else}}
+    <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+    {{end}}
+    <script>
+        const urlParams = new URLSearchParams(window.location.search);
+        const token = urlParams.get('token');
+
+        if (!token) {
+            alert('缺少访问令牌');
+            window.close();
+        }
+
+        const term = new Terminal({
+            cursorBlink: true,
+            cursorStyle: 'block',
+            fontSize: 14,
+            fontFamily: 'Consolas, Monaco, "Courier New", monospace',
+            scrollback: 999999999,
+            convertEol: false,
+            allowProposedApi: true,
+            drawBoldTextInBrightColors: true,
+            allowTransparency: false,
+            theme: {
+                background: '#000000',
+                foreground: '#ffffff',
+                cursor: '#ffffff',
+                cursorAccent: '#000000',
+                selection: 'rgba(255, 255, 255, 0.3)',
+            },
+            windowsMode: false,
+            fastScrollModifier: 'shift',
+            fastScrollSensitivity: 5,
+            scrollSensitivity: 1,
+            smoothScrollDuration: 0,
+        });
+        const fitAddon = new FitAddon.FitAddon();
+        term.loadAddon(fitAddon);
+        term.open(document.getElementById('terminal'));
+        fitAddon.fit();
+        
+        const statusDot = document.getElementById('status-dot');
+        const statusText = document.getElementById('status-text');
+        const connectBtn = document.getElementById('connect-btn');
+        const disconnectOverlay = document.getElementById('disconnect-overlay');
+        
+        let ws = null;
+        let currentFontSize = 14;
+        let tokenUsed = false;
+        
+        function connect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                return;
+            }
+            
+            if (tokenUsed) {
+                alert('令牌已使用，无法重新连接。请关闭窗口并重新打开控制台。');
+                return;
+            }
+            
+            statusDot.className = 'status-dot connecting';
+            statusText.textContent = '连接中...';
+            connectBtn.textContent = '连接中...';
+            connectBtn.disabled = true;
+            disconnectOverlay.classList.remove('flex');
+            disconnectOverlay.classList.add('hidden');
+            
+            const protocol = window.location.protocol === 'https:' ? 'wss:' : 'ws:';
+            const wsUrl = `${protocol}//${window.location.host}/ws/console?token=${token}`;
+            
+            ws = new WebSocket(wsUrl);
+            
+            ws.onopen = () => {
+                tokenUsed = true;
+                statusDot.className = 'status-dot connected';
+                statusText.textContent = '已连接';
+                connectBtn.textContent = '断开';
+                connectBtn.className = 'bg-red-500 hover:bg-red-600 text-white px-4 py-1.5 rounded-md text-sm font-semibold transition-all';
+                connectBtn.disabled = false;
+            };
+            
+            ws.onmessage = (event) => {
+                term.write(event.data);
+            };
+            
+            ws.onclose = () => {
+                statusDot.className = 'status-dot';
+                statusText.textContent = '已断开';
+                connectBtn.textContent = '已失效';
+                connectBtn.className = 'bg-gray-400 text-white px-4 py-1.5 rounded-md text-sm font-semibold cursor-not-allowed';
+                connectBtn.disabled = true;
+                disconnectOverlay.classList.remove('hidden');
+                disconnectOverlay.classList.add('flex');
+            };
+            
+            ws.onerror = (error) => {
+                console.error('WebSocket 错误:', error);
+            };
+        }
+        
+        function disconnect() {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.close();
+            }
+        }
+        
+        connectBtn.addEventListener('click', () => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                disconnect();
+            } else {
+                connect();
+            }
+        });
+        
+        term.onData((data) => {
+            if (ws && ws.readyState === WebSocket.OPEN) {
+                ws.send(JSON.stringify({
+                    type: 'input',
+                    data: data
+                }));
+            }
+        });
+        
+        document.getElementById('font-decrease').addEventListener('click', () => {
+            if (currentFontSize > 10) {
+                currentFontSize--;
+                term.options.fontSize = currentFontSize;
+                fitAddon.fit();
+            }
+        });
+        
+        document.getElementById('font-increase').addEventListener('click', () => {
+            if (currentFontSize < 24) {
+                currentFontSize++;
+                term.options.fontSize = currentFontSize;
+                fitAddon.fit();
+            }
+        });
+        
+        document.getElementById('clear-terminal').addEventListener('click', () => {
+            term.clear();
+        });
+        
+        document.getElementById('fullscreen').addEventListener('click', () => {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+            } else {
+                document.exitFullscreen();
+            }
+        });
+        
+        window.addEventListener('resize', () => {
+            fitAddon.fit();
+        });
+        
+        connect();
+    </script>
+</body>
+</html>

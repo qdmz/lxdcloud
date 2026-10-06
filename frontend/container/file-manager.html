@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>在线文件管理 - LXD 容器面板</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+
+  <!-- 顶部导航 -->
+  <header class="topbar">
+    <div class="container topbar-inner">
+      <div class="brand">
+        <div class="brand-logo" id="brandLogo">L</div>
+        <div style="min-width:0">
+          <div class="brand-name" id="brandName">LXD 容器面板</div>
+          <div class="brand-sub">在线文件管理</div>
+        </div>
+      </div>
+      <div class="topbar-right">
+        <button class="btn btn-ghost btn-sm" id="backBtn">← 仪表盘</button>
+        <button class="btn btn-ghost btn-sm" id="refreshBtn">↻ 刷新</button>
+        <button class="btn btn-ghost btn-sm" id="logoutBtn">退出</button>
+      </div>
+    </div>
+  </header>
+
+  <main class="container page">
+    <div class="card" style="padding:12px 14px;margin-bottom:16px">
+      <div class="toolbar" style="gap:8px;flex-wrap:wrap">
+        <button class="btn btn-ghost btn-sm" id="fmMkdir">＋ 新建目录</button>
+        <label class="btn btn-primary btn-sm" style="cursor:pointer">⇧ 上传文件<input type="file" id="fmUpload" multiple style="display:none"></label>
+        <span class="grow"></span>
+        <span id="fmPathLabel" class="mono" style="font-size:13px;color:var(--text-2);word-break:break-all">/</span>
+      </div>
+    </div>
+    <div class="card" style="padding:14px" id="fmArea"></div>
+  </main>
+
+  <script src="../js/app.js"></script>
+  <script src="./js/file-manager.js"></script>
+</body>
+</html>

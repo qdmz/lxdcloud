@@ -1,0 +1,757 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - IPv4NAT管理</title>
+    {{if .FaviconUrl}}
+    <link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+    <style>
+        :root {
+            --content-opacity: {
+                    {
+                    if .ContentOpacity
+                }
+            }
+
+                {
+                    {
+                    .ContentOpacity
+                }
+            }
+
+                {
+                    {
+                    else
+                }
+            }
+
+            85 {
+                    {
+                    end
+                }
+            }
+
+            ;
+        }
+
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+
+    <div class="flex-1 relative"
+        style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;">
+        </div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+            <div class="flex flex-col lg:flex-row lg:items-center lg:justify-between gap-4 mb-6">
+                <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <span class="iconify text-blue-600" data-icon="mdi:ethernet" data-width="28"></span>
+                        IPv4NAT管理
+                    </h1>
+                    <p class="text-sm lg:text-base text-gray-600 mt-1">管理容器的IPv4端口转发与NAT规则</p>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="showNATSwitchSettings()"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M8 9l4-4 4 4m0 6l-4 4-4-4"></path>
+                        </svg>
+                        nat开关设置
+                    </button>
+                    <button onclick="showPortRangeSettings()"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M12 6V4m0 2a2 2 0 100 4m0-4a2 2 0 110 4m-6 8a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4m6 6v10m6-2a2 2 0 100-4m0 4a2 2 0 110-4m0 4v2m0-6V4">
+                            </path>
+                        </svg>
+                        端口范围设置
+                    </button>
+                    <button onclick="showIPPoolSettings()"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M10.325 4.317c.426-1.756 2.924-1.756 3.35 0a1.724 1.724 0 002.573 1.066c1.543-.94 3.31.826 2.37 2.37a1.724 1.724 0 001.065 2.572c1.756.426 1.756 2.924 0 3.35a1.724 1.724 0 00-1.066 2.573c.94 1.543-.826 3.31-2.37 2.37a1.724 1.724 0 00-2.572 1.065c-.426 1.756-2.924 1.756-3.35 0a1.724 1.724 0 00-2.573-1.066c-1.543.94-3.31-.826-2.37-2.37a1.724 1.724 0 00-1.065-2.572c-1.756-.426-1.756-2.924 0-3.35a1.724 1.724 0 001.066-2.573c-.94-1.543.826-3.31 2.37-2.37.996.608 2.296.07 2.572-1.065z">
+                            </path>
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M15 12a3 3 0 11-6 0 3 3 0 016 0z"></path>
+                        </svg>
+                        转发公网设置
+                    </button>
+                    <button id="btnSelectAll" onclick="toggleSelectAllBtn()"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                        </svg>
+                        <span id="selectAllText">全选</span>
+                    </button>
+                    <button onclick="window.location.reload()"
+                        class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2"
+                                d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15">
+                            </path>
+                        </svg>
+                        刷新
+                    </button>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">容器:</span>
+                        <input type="text" id="containerFilter" placeholder="输入容器名称" onkeyup="filterMappings()"
+                            class="input input-bordered input-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">协议:</span>
+                        <select id="protocolFilter" onchange="filterMappings()"
+                            class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="">全部</option>
+                            <option value="tcp">TCP</option>
+                            <option value="udp">UDP</option>
+                            <option value="both">TCP/UDP</option>
+                        </select>
+                    </div>
+                    <div class="flex items-center gap-2">
+                        <span class="text-xs text-gray-600">每页显示:</span>
+                        <select id="pageSize" onchange="changePageSize()"
+                            class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                            <option value="25">25 条</option>
+                            <option value="50">50 条</option>
+                            <option value="100">100 条</option>
+                            <option value="all">全部</option>
+                        </select>
+                    </div>
+                </div>
+                <div class="text-xs text-gray-600">
+                    <span id="pageInfo"></span>
+                </div>
+            </div>
+
+            <div id="batchOpsBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-2">
+                        <span class="text-sm font-medium text-red-900">已选择 <span id="selectedCount">0</span> 个规则</span>
+                        <button onclick="clearSelection()"
+                            class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                    </div>
+                    <div class="flex gap-2">
+                        <button onclick="batchDeleteMappings()"
+                            class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">批量删除</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200" id="mappingTable">
+                <div class="p-8 text-center text-gray-500">
+                    <span class="iconify animate-pulse" data-icon="mdi:loading" data-width="24"></span>
+                    <p>加载中...</p>
+                </div>
+            </div>
+
+            <div id="paginationContainer" class="mt-4 flex justify-center" style="display: none;">
+                <div class="join">
+                    <button id="prevPage" onclick="goToPage(currentPage - 1)" class="join-item btn btn-sm content-box"
+                        style="border-color: #d1d5db;">«</button>
+                    <button class="join-item btn btn-sm content-box" style="border-color: #d1d5db;">第 <span
+                            id="currentPageNum">1</span> 页</button>
+                    <button id="nextPage" onclick="goToPage(currentPage + 1)" class="join-item btn btn-sm content-box"
+                        style="border-color: #d1d5db;">»</button>
+                </div>
+            </div>
+        </div>
+
+        <script>
+            let allMappings = [];
+            let filteredData = [];
+            let pageSize = 25;
+            let currentPage = 1;
+            let totalPages = 1;
+
+            $(document).ready(function () {
+                loadMappings();
+            });
+
+            async function loadMappings() {
+                try {
+                    const response = await fetch('/api/admin/port-mapping?version=v4');
+                    const result = await response.json();
+                    if (result.code === 200 && result.data && result.data.ipv4) {
+                        allMappings = result.data.ipv4;
+                        filterMappings();
+                    } else {
+                        $('#mappingTable').html('<div class="p-8 text-center text-gray-500">暂无端口映射规则</div>');
+                    }
+                } catch (error) {
+                    console.error('加载失败:', error);
+                    $('#mappingTable').html('<div class="p-8 text-center text-red-500">加载失败</div>');
+                }
+            }
+
+            function filterMappings() {
+                const containerFilter = $('#containerFilter').val().toLowerCase();
+                const protocolFilter = $('#protocolFilter').val();
+
+                filteredData = allMappings;
+                if (containerFilter) {
+                    filteredData = filteredData.filter(m => m.container_name.toLowerCase().includes(containerFilter));
+                }
+                if (protocolFilter) {
+                    filteredData = filteredData.filter(m => m.protocol === protocolFilter);
+                }
+
+                currentPage = 1;
+                renderMappings();
+            }
+
+            function getPageData() {
+                if (pageSize === 'all') return filteredData;
+                const size = parseInt(pageSize);
+                const start = (currentPage - 1) * size;
+                return filteredData.slice(start, start + size);
+            }
+
+            function updatePaginationInfo() {
+                if (pageSize === 'all') {
+                    $('#paginationContainer').hide();
+                    $('#pageInfo').text(`共 ${filteredData.length} 条`);
+                    return;
+                }
+
+                const size = parseInt(pageSize);
+                totalPages = Math.ceil(filteredData.length / size);
+                if (currentPage > totalPages) currentPage = totalPages || 1;
+
+                const start = (currentPage - 1) * size + 1;
+                const end = Math.min(currentPage * size, filteredData.length);
+
+                $('#pageInfo').text(`共 ${filteredData.length} 条 (显示 ${start}-${end})`);
+                $('#currentPageNum').text(currentPage);
+                $('#prevPage').prop('disabled', currentPage === 1);
+                $('#nextPage').prop('disabled', currentPage === totalPages);
+                $('#paginationContainer').show();
+            }
+
+            function changePageSize() {
+                pageSize = $('#pageSize').val();
+                currentPage = 1;
+                renderMappings();
+            }
+
+            function goToPage(page) {
+                if (page < 1 || page > totalPages) return;
+                currentPage = page;
+                renderMappings();
+                updatePaginationInfo();
+            }
+
+            function renderMappings() {
+                if (!filteredData || filteredData.length === 0) {
+                    $('#mappingTable').html('<div class="p-8 text-center text-gray-500">暂无端口映射规则</div>');
+                    $('#paginationContainer').hide();
+                    return;
+                }
+
+                const pageData = getPageData();
+
+                let html = `
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="text-xs text-gray-600">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="checkbox checkbox-xs">
+                                </th>
+                                <th class="text-xs text-gray-600">ID</th>
+                                <th class="text-xs text-gray-600">容器</th>
+                                <th class="text-xs text-gray-600">公网地址</th>
+                                <th class="text-xs text-gray-600">容器地址</th>
+                                <th class="text-xs text-gray-600">协议</th>
+                                <th class="text-xs text-gray-600">网卡</th>
+                                <th class="text-xs text-gray-600">描述</th>
+                                <th class="text-xs text-gray-600">创建时间</th>
+                                <th class="text-xs text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+                pageData.forEach(mapping => {
+                    const protocolBadge = {
+                        'tcp': '<span class="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">TCP</span>',
+                        'udp': '<span class="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded">UDP</span>',
+                        'both': '<span class="px-2 py-1 text-xs font-medium text-purple-700 bg-purple-100 rounded">TCP/UDP</span>'
+                    }[mapping.protocol] || mapping.protocol;
+
+                    html += `
+                    <tr class="hover">
+                        <td>
+                            <input type="checkbox" class="mapping-checkbox checkbox checkbox-xs" value="${mapping.id}" onchange="updateBatchButtons()">
+                        </td>
+                        <td class="font-mono text-gray-500">#${mapping.id}</td>
+                        <td class="font-medium text-gray-900">${mapping.container_name || '-'}</td>
+                        <td class="font-mono text-gray-700">${mapping.public_ip}:${mapping.public_port}</td>
+                        <td class="font-mono text-gray-700">${mapping.container_ip}:${mapping.container_port}</td>
+                        <td>${protocolBadge}</td>
+                        <td class="text-gray-600">${mapping.interface || '-'}</td>
+                        <td class="text-gray-600">${mapping.description || '-'}</td>
+                        <td class="text-gray-500">${mapping.created_at ? new Date(mapping.created_at).toLocaleString('zh-CN') : '-'}</td>
+                        <td>
+                            <button onclick="deleteMapping(${mapping.id})" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                        </td>
+                    </tr>
+                `;
+                });
+
+                html += '</tbody></table></div>';
+                $('#mappingTable').html(html);
+                updatePaginationInfo();
+            }
+
+            function toggleSelectAllBtn() {
+                const allChecked = $('.mapping-checkbox').length > 0 && $('.mapping-checkbox:checked').length === $('.mapping-checkbox').length;
+                if (allChecked) {
+                    $('.mapping-checkbox').prop('checked', false);
+                    $('#selectAllText').text('全选');
+                } else {
+                    $('.mapping-checkbox').prop('checked', true);
+                    $('#selectAllText').text('取消全选');
+                }
+                $('#selectAll').prop('checked', !allChecked);
+                updateBatchButtons();
+            }
+
+            function toggleSelectAll() {
+                const selectAll = $('#selectAll').prop('checked');
+                $('.mapping-checkbox').prop('checked', selectAll);
+                $('#selectAllText').text(selectAll ? '取消全选' : '全选');
+                updateBatchButtons();
+            }
+
+            function updateBatchButtons() {
+                const selected = $('.mapping-checkbox:checked').length;
+                $('#selectedCount').text(selected);
+
+                if (selected > 0) {
+                    $('#batchOpsBar').show();
+                    const allChecked = $('.mapping-checkbox').length > 0 && selected === $('.mapping-checkbox').length;
+                    $('#selectAllText').text(allChecked ? '取消全选' : '全选');
+                } else {
+                    $('#batchOpsBar').hide();
+                    $('#selectAllText').text('全选');
+                }
+            }
+
+            function clearSelection() {
+                $('.mapping-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+                updateBatchButtons();
+            }
+
+            function deleteMapping(id) {
+                if (!confirm('确定要删除这个端口映射规则吗？')) return;
+
+                $.ajax({
+                    url: '/api/admin/port-mapping/release?version=v4',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ id: id }),
+                    success: function (result) {
+                        if (result.code === 200) {
+                            alert('删除成功');
+                            loadMappings();
+                        } else {
+                            alert(result.msg || '删除失败');
+                        }
+                    },
+                    error: function (xhr) {
+                        const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '删除失败';
+                        alert(msg);
+                    }
+                });
+            }
+
+            function batchDeleteMappings() {
+                const selected = $('.mapping-checkbox:checked').map(function () {
+                    return parseInt($(this).val());
+                }).get();
+
+                if (selected.length === 0) return;
+
+                if (!confirm(`确定要删除选中的 ${selected.length} 个端口映射规则吗？`)) return;
+
+                $.ajax({
+                    url: '/api/admin/port-mapping/release?version=v4',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ ids: selected }),
+                    success: function (result) {
+                        if (result.code === 200) {
+                            alert(`批量删除完成`);
+                            clearSelection();
+                            loadMappings();
+                        } else {
+                            alert(result.msg || '批量删除失败');
+                        }
+                    },
+                    error: function (xhr) {
+                        const msg = xhr.responseJSON && xhr.responseJSON.msg ? xhr.responseJSON.msg : '批量删除失败';
+                        alert(msg);
+                    }
+                });
+            }
+
+            let ipPoolData = [];
+
+            function showIPPoolSettings() {
+                document.getElementById('ipPoolModal').showModal();
+                loadIPPoolSettings();
+            }
+
+            async function loadIPPoolSettings() {
+                try {
+                    const response = await fetch('/api/admin/nat-config?version=v4');
+                    const result = await response.json();
+                    if (result.code === 200 && result.data) {
+                        ipPoolData = result.data.configs || [];
+                        renderIPPoolList();
+                    }
+                } catch (error) {
+                    console.error('加载配置失败:', error);
+                    ipPoolData = [];
+                    renderIPPoolList();
+                }
+            }
+
+            function renderIPPoolList() {
+                const tbody = document.getElementById('ipPoolList');
+                if (ipPoolData.length === 0) {
+                    tbody.innerHTML = '<tr><td colspan="5" class="text-center text-gray-500 text-xs py-4">暂无配置</td></tr>';
+                    return;
+                }
+
+                let html = '';
+                ipPoolData.forEach((item, index) => {
+                    const protocolText = item.protocol === 'tcp' ? 'TCP' : item.protocol === 'udp' ? 'UDP' : 'TCP/UDP';
+                    html += `
+                    <tr>
+                        <td class="text-xs">${item.interface}</td>
+                        <td class="text-xs font-mono">${item.ip}</td>
+                        <td class="text-xs font-mono">${item.display_ip}</td>
+                        <td class="text-xs">${protocolText}</td>
+                        <td class="text-right">
+                            <button onclick="removeIPPoolItem(${index})" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                        </td>
+                    </tr>
+                `;
+                });
+                tbody.innerHTML = html;
+            }
+
+            function addIPPoolItem() {
+                const iface = document.getElementById('newInterface').value.trim();
+                const ip = document.getElementById('newIP').value.trim();
+                const displayIP = document.getElementById('newDisplayIP').value.trim();
+                const protocol = document.getElementById('newProtocol').value;
+
+                if (!iface || !ip || !displayIP) {
+                    alert('请填写网卡接口、转发IP和公示IP/域名');
+                    return;
+                }
+
+                ipPoolData.push({ interface: iface, ip: ip, display_ip: displayIP, protocol: protocol });
+                renderIPPoolList();
+
+                document.getElementById('newInterface').value = '';
+                document.getElementById('newIP').value = '';
+                document.getElementById('newDisplayIP').value = '';
+                document.getElementById('newProtocol').value = 'tcp';
+            }
+
+            function removeIPPoolItem(index) {
+                if (confirm('确定要删除这条配置吗？')) {
+                    ipPoolData.splice(index, 1);
+                    renderIPPoolList();
+                }
+            }
+
+            async function saveIPPoolSettings() {
+                try {
+                    const response = await fetch('/api/admin/nat-config?version=v4', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify(ipPoolData)
+                    });
+
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        alert('保存成功');
+                        document.getElementById('ipPoolModal').close();
+                    } else {
+                        alert(result.msg || '保存失败');
+                    }
+                } catch (error) {
+                    console.error('保存失败:', error);
+                    alert('保存失败: ' + error.message);
+                }
+            }
+
+            let portRangeConfig = { v4_port_start: 10000, v4_port_end: 65535 };
+
+            function showPortRangeSettings() {
+                document.getElementById('portRangeModal').showModal();
+                loadPortRangeSettings();
+            }
+
+            async function loadPortRangeSettings() {
+                try {
+                    const response = await fetch('/api/admin/port-range/config');
+                    const result = await response.json();
+                    if (result.code === 200 && result.data) {
+                        portRangeConfig = result.data;
+                        document.getElementById('v4PortStart').value = portRangeConfig.v4_port_start || 10000;
+                        document.getElementById('v4PortEnd').value = portRangeConfig.v4_port_end || 65535;
+                        document.getElementById('v4AutoAllocate22').checked = portRangeConfig.v4_auto_allocate_22 || false;
+                    }
+                } catch (error) {
+                    console.error('加载端口范围配置失败:', error);
+                }
+            }
+
+            async function savePortRangeSettings() {
+                const v4Start = parseInt(document.getElementById('v4PortStart').value);
+                const v4End = parseInt(document.getElementById('v4PortEnd').value);
+                const v4AutoAllocate22 = document.getElementById('v4AutoAllocate22').checked;
+
+                if (v4Start < 1 || v4Start > 65535 || v4End < 1 || v4End > 65535) {
+                    alert('端口范围必须在 1-65535 之间');
+                    return;
+                }
+
+                if (v4Start >= v4End) {
+                    alert('起始端口必须小于结束端口');
+                    return;
+                }
+
+                try {
+                    const response = await fetch('/api/admin/port-range/config', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            v4_port_start: v4Start,
+                            v4_port_end: v4End,
+                            v4_auto_allocate_22: v4AutoAllocate22,
+                            v6_port_start: portRangeConfig.v6_port_start || 10000,
+                            v6_port_end: portRangeConfig.v6_port_end || 65535,
+                            v6_auto_allocate_22: portRangeConfig.v6_auto_allocate_22 || false
+                        })
+                    });
+
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        alert('保存成功');
+                        document.getElementById('portRangeModal').close();
+                    } else {
+                        alert(result.msg || '保存失败');
+                    }
+                } catch (error) {
+                    console.error('保存失败:', error);
+                    alert('保存失败: ' + error.message);
+                }
+            }
+
+            function showNATSwitchSettings() {
+                document.getElementById('natSwitchModal').showModal();
+                loadNATSwitchSettings();
+            }
+
+            async function loadNATSwitchSettings() {
+                try {
+                    const response = await fetch('/api/admin/network/nat');
+                    const result = await response.json();
+                    if (result.code === 200 && result.data) {
+                        document.getElementById('ipv4NatSwitch').checked = result.data.ipv4_nat || false;
+                        document.getElementById('ipv6NatSwitch').checked = result.data.ipv6_nat || false;
+                    }
+                } catch (error) {
+                    console.error('加载NAT开关状态失败:', error);
+                }
+            }
+
+            async function saveNATSwitchSettings() {
+                try {
+                    const response = await fetch('/api/admin/network/nat', {
+                        method: 'POST',
+                        headers: { 'Content-Type': 'application/json' },
+                        body: JSON.stringify({
+                            ipv4_nat: document.getElementById('ipv4NatSwitch').checked,
+                            ipv6_nat: document.getElementById('ipv6NatSwitch').checked
+                        })
+                    });
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        alert('保存成功');
+                        document.getElementById('natSwitchModal').close();
+                    } else {
+                        alert(result.msg || '保存失败');
+                    }
+                } catch (error) {
+                    alert('保存失败: ' + error.message);
+                }
+            }
+        </script>
+
+    </div>
+    </div>
+
+    <dialog id="portRangeModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">IPv4 端口范围设置</h3>
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">设置允许分配的IPv4端口范围，用户只能在此范围内分配端口映射</p>
+                <div class="grid grid-cols-2 gap-3">
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">起始端口</label>
+                        <input type="number" id="v4PortStart" min="1" max="65535"
+                            class="input input-bordered input-sm w-full" placeholder="10000">
+                    </div>
+                    <div>
+                        <label class="block text-sm font-medium text-gray-700 mb-1">结束端口</label>
+                        <input type="number" id="v4PortEnd" min="1" max="65535"
+                            class="input input-bordered input-sm w-full" placeholder="65535">
+                    </div>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" id="v4AutoAllocate22" class="checkbox checkbox-sm">
+                        <div>
+                            <span class="label-text font-medium">开机自动分配22端口</span>
+                            <p class="text-xs text-gray-500 mt-0.5">容器创建时自动分配SSH端口映射（需要NAT配额≥1）</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="savePortRangeSettings()"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">保存</button>
+                    <button type="button" onclick="document.getElementById('portRangeModal').close();"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">取消</button>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="ipPoolModal" class="modal">
+        <div class="modal-box max-w-5xl">
+            <h3 class="font-bold text-lg mb-4">IPv4 NAT配置</h3>
+            <div class="space-y-4">
+                <div>
+                    <p class="text-sm text-gray-600 mb-3">配置公网IP和网卡，用户添加端口映射时会为每个配置的IP自动创建NAT规则</p>
+                    <div class="flex gap-2 mb-3">
+                        <input type="text" id="newInterface" class="input input-bordered input-sm flex-1"
+                            placeholder="网卡接口">
+                        <input type="text" id="newIP" class="input input-bordered input-sm flex-1" placeholder="网卡IP">
+                        <input type="text" id="newDisplayIP" class="input input-bordered input-sm flex-1"
+                            placeholder="用户显示IP/域名">
+                        <select id="newProtocol" class="select select-bordered select-sm flex-1">
+                            <option value="tcp">TCP</option>
+                            <option value="udp">UDP</option>
+                            <option value="both">TCP/UDP</option>
+                        </select>
+                        <button type="button" onclick="addIPPoolItem()"
+                            class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">添加</button>
+                    </div>
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">已配置的NAT规则</label>
+                    <div class="overflow-auto max-h-96 border border-gray-200 rounded-lg">
+                        <table class="table table-xs w-full">
+                            <thead class="bg-gray-50 sticky top-0">
+                                <tr>
+                                    <th class="text-xs text-gray-600">网卡接口</th>
+                                    <th class="text-xs text-gray-600">网卡IP</th>
+                                    <th class="text-xs text-gray-600">用户显示IP/域名</th>
+                                    <th class="text-xs text-gray-600">协议</th>
+                                    <th class="text-xs text-gray-600 text-right">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody id="ipPoolList">
+                                <tr>
+                                    <td colspan="5" class="text-center text-gray-500 text-xs py-4">暂无配置</td>
+                                </tr>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="saveIPPoolSettings()"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">保存</button>
+                    <button type="button" onclick="document.getElementById('ipPoolModal').close();"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">取消</button>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="natSwitchModal" class="modal">
+        <div class="modal-box">
+            <h3 class="font-bold text-lg mb-4">NAT开关设置</h3>
+            <div class="space-y-4">
+                <p class="text-sm text-gray-600">控制 lxdbr0 网桥的 NAT 功能开关</p>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" id="ipv4NatSwitch" class="toggle toggle-success">
+                        <div>
+                            <span class="label-text font-medium">IPv4 NAT</span>
+                            <p class="text-xs text-gray-500 mt-0.5">开启后容器可通过 lxdbr0 网桥访问外网 (ipv4.nat)</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="form-control">
+                    <label class="label cursor-pointer justify-start gap-3">
+                        <input type="checkbox" id="ipv6NatSwitch" class="toggle toggle-success">
+                        <div>
+                            <span class="label-text font-medium">IPv6 NAT</span>
+                            <p class="text-xs text-gray-500 mt-0.5">开启后容器可通过 lxdbr0 网桥访问外网 (ipv6.nat)</p>
+                        </div>
+                    </label>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="saveNATSwitchSettings()"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">保存</button>
+                    <button type="button" onclick="document.getElementById('natSwitchModal').close();"
+                        class="btn btn-sm text-gray-700 content-box hover:bg-gray-50 border border-gray-200">取消</button>
+                </div>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+
+</html>

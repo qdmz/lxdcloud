@@ -1,0 +1,171 @@
+<!-- 统一的 Toast 通知组件 -->
+<style>
+    @keyframes slideInRight {
+        from {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+        to {
+            transform: translateX(0);
+            opacity: 1;
+        }
+    }
+    
+    @keyframes slideOutRight {
+        from {
+            transform: translateX(0);
+            opacity: 1;
+        }
+        to {
+            transform: translateX(100%);
+            opacity: 0;
+        }
+    }
+    
+    .toast-container {
+        position: fixed;
+        top: 1rem;
+        right: 1rem;
+        z-index: 99999;
+        display: flex;
+        flex-direction: column;
+        gap: 0.75rem;
+        pointer-events: none;
+    }
+    
+    .toast-item {
+        pointer-events: auto;
+        min-width: 320px;
+        max-width: 480px;
+        padding: 1rem 1.25rem;
+        border-radius: 0.5rem;
+        box-shadow: 0 10px 25px rgba(0, 0, 0, 0.15);
+        display: flex;
+        align-items: center;
+        gap: 0.75rem;
+        animation: slideInRight 0.3s ease-out;
+        backdrop-filter: blur(8px);
+    }
+    
+    .toast-item.toast-hiding {
+        animation: slideOutRight 0.3s ease-out;
+    }
+    
+    .toast-icon {
+        flex-shrink: 0;
+        width: 1.5rem;
+        height: 1.5rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        font-size: 1.25rem;
+        font-weight: bold;
+    }
+    
+    .toast-content {
+        flex: 1;
+        font-size: 0.875rem;
+        line-height: 1.5;
+        color: white;
+    }
+    
+    .toast-close {
+        flex-shrink: 0;
+        width: 1.25rem;
+        height: 1.25rem;
+        display: flex;
+        align-items: center;
+        justify-content: center;
+        cursor: pointer;
+        opacity: 0.7;
+        transition: opacity 0.2s;
+        color: white;
+        font-size: 1.25rem;
+        line-height: 1;
+    }
+    
+    .toast-close:hover {
+        opacity: 1;
+    }
+    
+    .toast-success {
+        background: linear-gradient(135deg, #10b981 0%, #059669 100%);
+    }
+    
+    .toast-error {
+        background: linear-gradient(135deg, #ef4444 0%, #dc2626 100%);
+    }
+    
+    .toast-warning {
+        background: linear-gradient(135deg, #f59e0b 0%, #d97706 100%);
+    }
+    
+    .toast-info {
+        background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
+    }
+</style>
+
+<div id="toastContainer" class="toast-container"></div>
+
+<script>
+    function showToast(type, message) {
+        const icons = {
+            'success': '✓',
+            'error': '✕',
+            'warning': '⚠',
+            'info': 'ℹ'
+        };
+        
+        let container = document.getElementById('toastContainer');
+        if (!container) return;
+        
+        const openModal = document.querySelector('dialog.modal[open]');
+        if (openModal) {
+            const modalBox = openModal.querySelector('.modal-box');
+            if (modalBox) {
+                let modalToastContainer = modalBox.querySelector('.modal-toast-container');
+                if (!modalToastContainer) {
+                    modalToastContainer = document.createElement('div');
+                    modalToastContainer.className = 'modal-toast-container';
+                    modalToastContainer.style.position = 'absolute';
+                    modalToastContainer.style.top = '1rem';
+                    modalToastContainer.style.right = '1rem';
+                    modalToastContainer.style.zIndex = '9999';
+                    modalToastContainer.style.display = 'flex';
+                    modalToastContainer.style.flexDirection = 'column';
+                    modalToastContainer.style.gap = '0.75rem';
+                    modalToastContainer.style.pointerEvents = 'none';
+                    
+                    modalBox.style.position = 'relative';
+                    modalBox.style.overflow = 'visible';
+                    modalBox.appendChild(modalToastContainer);
+                }
+                container = modalToastContainer;
+            }
+        }
+        
+        const toast = document.createElement('div');
+        toast.className = `toast-item toast-${type}`;
+        toast.innerHTML = `
+            <div class="toast-icon">${icons[type] || icons.info}</div>
+            <div class="toast-content">${message}</div>
+            <div class="toast-close" onclick="this.parentElement.remove()">×</div>
+        `;
+        
+        container.appendChild(toast);
+        
+        setTimeout(() => {
+            toast.classList.add('toast-hiding');
+            setTimeout(() => {
+                if (toast.parentElement) {
+                    toast.remove();
+                }
+            }, 300);
+        }, 3000);
+        
+        const toasts = container.querySelectorAll('.toast-item');
+        if (toasts.length > 5) {
+            toasts[0].remove();
+        }
+    }
+</script>

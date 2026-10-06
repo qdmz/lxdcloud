@@ -1,0 +1,565 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 模板管理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+            <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <span class="iconify text-blue-600" data-icon="mdi:image-multiple" data-width="28"></span>
+                    镜像模板管理
+                </h1>
+                <p class="text-sm lg:text-base text-gray-600 mt-1">管理LXD容器镜像模板</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="syncTemplates()" class="px-3 py-2 text-xs lg:text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center justify-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    <span class="hidden sm:inline">同步模板</span>
+                    <span class="sm:hidden">同步</span>
+                </button>
+                <button id="btnSelectAll" onclick="toggleSelectAllBtn()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button onclick="loadTemplates()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">每页显示:</span>
+                    <select id="pageSize" onchange="changePageSize()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="25">25 条</option>
+                        <option value="50">50 条</option>
+                        <option value="100">100 条</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-xs text-gray-600">
+                共 <span id="totalCount" class="font-bold text-gray-800">0</span> 个模板
+                <span id="pageInfo" class="ml-2"></span>
+            </div>
+        </div>
+
+
+        <div id="batchOperationBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-red-900">已选择 <span id="selectedCount">0</span> 个模板</span>
+                    <button onclick="clearSelection()" class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="batchDelete()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded transition">批量删除</button>
+                </div>
+            </div>
+        </div>
+
+
+        <div id="templatesContent">
+            <p class="text-center py-8 text-gray-500">加载中...</p>
+        </div>
+
+
+        <div id="paginationContainer" class="mt-4 flex justify-center" style="display: none;">
+            <div class="join">
+                <button id="prevPage" onclick="goToPage(currentPage - 1)" class="join-item btn btn-sm content-box">«</button>
+                <button class="join-item btn btn-sm content-box">第 <span id="currentPageNum">1</span> 页</button>
+                <button id="nextPage" onclick="goToPage(currentPage + 1)" class="join-item btn btn-sm content-box">»</button>
+            </div>
+        </div>
+    </div>
+
+    <script>
+        let templatesData = [];
+        let filteredData = [];
+        
+        let pageSize = 25;
+        let currentPage = 1;
+        let totalPages = 1;
+
+        $(document).ready(function() {
+            loadTemplates();
+        });
+
+        function loadTemplates() {
+            $('#templatesContent').html('<p class="text-center py-8"><span class="loading loading-spinner loading-md"></span></p>');
+            
+            $.ajax({
+                url: '/api/admin/templates',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        templatesData = result.data.templates || [];
+                        applyFiltersAndSort();
+                        renderTemplates();
+                    } else {
+                        $('#templatesContent').html('<p class="text-center py-8 text-error">加载失败: ' + (result.msg || '未知错误') + '</p>');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '加载失败';
+                    if (xhr.responseJSON && xhr.responseJSON.msg) {
+                        errorMsg = xhr.responseJSON.msg;
+                    }
+                    $('#templatesContent').html('<p class="text-center py-8 text-error">' + errorMsg + '</p>');
+                }
+            });
+        }
+
+        function applyFiltersAndSort() {
+            filteredData = [...templatesData];
+            
+            $('#totalCount').text(filteredData.length);
+            
+            if (pageSize === 'all') {
+                totalPages = 1;
+                currentPage = 1;
+                $('#paginationContainer').hide();
+                $('#pageInfo').text('');
+            } else {
+                const size = parseInt(pageSize);
+                totalPages = Math.ceil(filteredData.length / size);
+                if (currentPage > totalPages) currentPage = totalPages || 1;
+                $('#paginationContainer').show();
+                updatePaginationInfo();
+            }
+        }
+
+        function updatePaginationInfo() {
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size + 1;
+            const end = Math.min(currentPage * size, filteredData.length);
+            $('#pageInfo').text(`(显示 ${start}-${end})`);
+            $('#currentPageNum').text(currentPage);
+            
+            $('#prevPage').prop('disabled', currentPage === 1);
+            $('#nextPage').prop('disabled', currentPage === totalPages);
+        }
+
+        function renderTemplates() {
+            if (filteredData.length === 0) {
+                $('#templatesContent').html('<p class="text-center py-8 text-gray-500">暂无模板，请点击"同步模板"从LXD获取</p>');
+                return;
+            }
+
+            let html = `
+                <div class="content-box rounded-lg border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="w-10">
+                                        <label>
+                                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="checkbox checkbox-xs" />
+                                        </label>
+                                    </th>
+                                    <th class="text-xs text-gray-600">别名</th>
+                                    <th class="text-xs text-gray-600">指纹</th>
+                                    <th class="text-xs text-gray-600">架构</th>
+                                    <th class="text-xs text-gray-600">操作系统</th>
+                                    <th class="text-xs text-gray-600">版本</th>
+                                    <th class="text-xs text-gray-600">大小</th>
+                                    <th class="text-xs text-gray-600">状态</th>
+                                    <th class="text-xs text-gray-600">上传时间</th>
+                                    <th class="text-xs text-gray-600">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            let dataToRender = getPageData();
+            
+            dataToRender.forEach(t => {
+                const publicBadge = t.public 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">公开</span>'
+                    : '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">私有</span>';
+                
+                const autoUpdateBadge = t.auto_update
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full ml-1">自动更新</span>'
+                    : '';
+                
+                const alias = t.alias || '无别名';
+                const os = t.os || '-';
+                const release = t.release || '-';
+                const uploadTime = t.uploaded_at ? new Date(t.uploaded_at).toLocaleString('zh-CN') : '-';
+
+                html += `
+                    <tr class="hover">
+                        <td>
+                            <label>
+                                <input type="checkbox" class="checkbox checkbox-xs template-checkbox" data-fingerprint="${t.fingerprint}" onchange="updateSelection()" />
+                            </label>
+                        </td>
+                        <td><span class="font-semibold text-gray-800 text-xs">${alias}</span></td>
+                        <td><code class="text-xs font-mono text-gray-600">${t.fingerprint.substring(0, 12)}...</code></td>
+                        <td><span class="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">${t.architecture}</span></td>
+                        <td class="text-xs text-gray-700">${os}</td>
+                        <td class="text-xs text-gray-700">${release}</td>
+                        <td class="text-xs text-gray-700">${t.size_human}</td>
+                        <td>${publicBadge}${autoUpdateBadge}</td>
+                        <td class="text-xs text-gray-500">${uploadTime}</td>
+                        <td>
+                            <div class="flex gap-1">
+                                <button onclick="showPermissionModal('${t.fingerprint}', '${alias}')" class="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition">权限</button>
+                                <button onclick="deleteTemplate('${t.fingerprint}', '${alias}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            $('#templatesContent').html(html);
+        }
+
+        function getPageData() {
+            if (pageSize === 'all') {
+                return filteredData;
+            }
+            
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size;
+            const end = start + size;
+            return filteredData.slice(start, end);
+        }
+
+        function changePageSize() {
+            pageSize = $('#pageSize').val();
+            currentPage = 1;
+            applyFiltersAndSort();
+            renderTemplates();
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderTemplates();
+            updatePaginationInfo();
+        }
+
+        function toggleSelectAll() {
+            const selectAll = $('#selectAll').is(':checked');
+            $('.template-checkbox').prop('checked', selectAll);
+            updateSelection();
+        }
+
+        function toggleSelectAllBtn() {
+            const totalCheckboxes = $('.template-checkbox').length;
+            const selectedCheckboxes = $('.template-checkbox:checked').length;
+            
+            if (selectedCheckboxes === totalCheckboxes && totalCheckboxes > 0) {
+                $('.template-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+            } else {
+                $('.template-checkbox').prop('checked', true);
+                $('#selectAll').prop('checked', true);
+            }
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const selectedCheckboxes = $('.template-checkbox:checked');
+            const count = selectedCheckboxes.length;
+            
+            $('#selectedCount').text(count);
+            
+            if (count > 0) {
+                $('#batchOperationBar').slideDown(200);
+            } else {
+                $('#batchOperationBar').slideUp(200);
+            }
+            
+            const totalCheckboxes = $('.template-checkbox').length;
+            $('#selectAll').prop('checked', count === totalCheckboxes && count > 0);
+            
+            if (count === totalCheckboxes && count > 0) {
+                $('#selectAllText').text('取消全选');
+            } else {
+                $('#selectAllText').text('全选');
+            }
+        }
+
+        function clearSelection() {
+            $('.template-checkbox').prop('checked', false);
+            $('#selectAll').prop('checked', false);
+            updateSelection();
+        }
+
+        function getSelectedTemplates() {
+            const selected = [];
+            $('.template-checkbox:checked').each(function() {
+                selected.push($(this).data('fingerprint'));
+            });
+            return selected;
+        }
+
+        function syncTemplates() {
+            if (!confirm('确认要从LXD同步镜像模板吗？这将获取所有本地镜像并更新到数据库。')) return;
+
+            showToast('info', '正在从LXD同步镜像模板...');
+
+            $.ajax({
+                url: '/api/admin/templates/sync',
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const data = result.data || {};
+                        const added = data.added || 0;
+                        const updated = data.updated || 0;
+                        const deleted = data.deleted || 0;
+                        
+                        showToast('success', `同步完成：新增 ${added} 个，更新 ${updated} 个，删除 ${deleted} 个`);
+                        
+                        setTimeout(() => loadTemplates(), 1000);
+                    } else {
+                        showToast('error', result.msg || '同步失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '同步失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {
+                        errorMsg = xhr.statusText || errorMsg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function deleteTemplate(fingerprint, alias) {
+            if (!confirm(`确定要删除模板 "${alias}" 吗？\n\n指纹: ${fingerprint}\n\n此操作不可逆！`)) return;
+
+            showToast('info', `正在删除模板 ${alias}...`);
+
+            $.ajax({
+                url: `/api/admin/templates/${encodeURIComponent(fingerprint)}`,
+                type: 'DELETE',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', `模板 ${alias} 删除成功`);
+                        setTimeout(() => loadTemplates(), 1000);
+                    } else {
+                        showToast('error', result.msg || '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '删除失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {
+                        errorMsg = xhr.statusText || errorMsg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function batchDelete() {
+            const fingerprints = getSelectedTemplates();
+            if (fingerprints.length === 0) return;
+            
+            if (!confirm(`确定要删除选中的 ${fingerprints.length} 个模板吗？\n\n此操作不可逆！`)) return;
+
+            showToast('info', `开始批量删除 ${fingerprints.length} 个模板...`);
+
+            $.ajax({
+                url: '/api/admin/templates/batch-delete',
+                type: 'POST',
+                headers: {
+                    'Content-Type': 'application/json'
+                },
+                data: JSON.stringify({ fingerprints: fingerprints }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const data = result.data || {};
+                        const deletedCount = data.deleted_count || 0;
+                        
+                        showToast('success', `批量删除完成：成功删除 ${deletedCount} 个模板`);
+                        
+                        clearSelection();
+                        setTimeout(() => loadTemplates(), 1000);
+                    } else {
+                        showToast('error', result.msg || '批量删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '批量删除失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {
+                        errorMsg = xhr.statusText || errorMsg;
+                    }
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        let currentPermissionFingerprint = '';
+
+        function showPermissionModal(fingerprint, alias) {
+            currentPermissionFingerprint = fingerprint;
+            $('#permissionTemplateAlias').text(alias);
+            $('input[name="permissionMode"][value="all"]').prop('checked', true);
+            $('#permissionUsers').val('');
+            $('#permissionInputArea').addClass('hidden');
+            $('#permissionModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+            
+            $.ajax({
+                url: `/api/admin/templates/${fingerprint}/permission`,
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const allowedUsers = result.data.allowed_users || [];
+                        if (allowedUsers.length > 0) {
+                            $('input[name="permissionMode"][value="specific"]').prop('checked', true);
+                            $('#permissionUsers').val(allowedUsers.join(','));
+                            $('#permissionInputArea').removeClass('hidden');
+                        }
+                    }
+                }
+            });
+        }
+
+        function setPermissionMode(mode) {
+            if (mode === 'specific') {
+                $('#permissionInputArea').removeClass('hidden');
+            } else {
+                $('#permissionInputArea').addClass('hidden');
+                $('#permissionUsers').val('');
+            }
+        }
+
+        function closePermissionModal() {
+            $('#permissionModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+            currentPermissionFingerprint = '';
+        }
+
+        function saveTemplatePermission() {
+            let allowedUsers = [];
+            const mode = $('input[name="permissionMode"]:checked').val();
+            if (mode === 'specific') {
+                const input = $('#permissionUsers').val().trim();
+                if (input) {
+                    allowedUsers = input.split(',').map(u => u.trim()).filter(u => u);
+                }
+            }
+
+            $.ajax({
+                url: `/api/admin/templates/${currentPermissionFingerprint}/permission`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ allowed_users: allowedUsers }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '权限设置成功');
+                        closePermissionModal();
+                    } else {
+                        showToast('error', result.msg || '设置失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '设置失败');
+                }
+            });
+        }
+
+    </script>
+
+    <div id="permissionModal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background-color: rgba(0,0,0,0.5);">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-md mx-4">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-800">设置镜像权限</h3>
+                <button onclick="closePermissionModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-600 mb-4">镜像：<span id="permissionTemplateAlias" class="font-medium text-gray-800"></span></p>
+                <div class="space-y-3">
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50" onclick="setPermissionMode('all')">
+                        <input type="radio" name="permissionMode" value="all" class="radio radio-sm radio-primary" checked>
+                        <div>
+                            <span class="text-sm font-medium text-gray-700">所有用户可用</span>
+                            <p class="text-xs text-gray-500">任何用户都可以使用此镜像</p>
+                        </div>
+                    </label>
+                    <label class="flex items-center gap-3 p-3 border rounded-lg cursor-pointer hover:bg-gray-50" onclick="setPermissionMode('specific')">
+                        <input type="radio" name="permissionMode" value="specific" class="radio radio-sm radio-primary">
+                        <div>
+                            <span class="text-sm font-medium text-gray-700">指定用户可用</span>
+                            <p class="text-xs text-gray-500">只有指定的用户可以使用此镜像</p>
+                        </div>
+                    </label>
+                </div>
+                <div id="permissionInputArea" class="mt-4 hidden">
+                    <label class="block text-sm font-medium text-gray-700 mb-2">指定用户（多个用逗号分隔）</label>
+                    <input type="text" id="permissionUsers" placeholder="user1,user2,user3" class="input input-bordered input-sm w-full">
+                </div>
+            </div>
+            <div class="flex justify-end gap-2 p-4 border-t bg-gray-50 rounded-b-lg">
+                <button onclick="closePermissionModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg">取消</button>
+                <button onclick="saveTemplatePermission()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">保存</button>
+            </div>
+        </div>
+    </div>
+
+    </div>
+</div>
+    
+{{template "admin/admin_footer.html" .}}
+
+</body>
+</html>

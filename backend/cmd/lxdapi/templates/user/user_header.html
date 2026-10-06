@@ -1,0 +1,93 @@
+{{define "user/user_header.html"}}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{{if .UseLocalCDN}}
+<script src="/static/js/iconify.min.js"></script>
+{{else}}
+<script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+{{end}}
+
+{{template "user/user_toast.html"}}
+
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    @keyframes gentlePulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.85; }
+    }
+    
+    .animate-pulse-slow { animation: gentlePulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    
+    .card-hover {
+        transition: all 0.25s ease;
+    }
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-hover {
+        transition: all 0.25s ease;
+    }
+    .btn-hover:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .btn-hover:active {
+        transform: translateY(0);
+    }
+    
+    .smooth-transition {
+        transition: all 0.25s ease;
+    }
+
+    @media (max-width: 640px) {
+        .nav-username-text {
+            display: none;
+        }
+        .nav-logout-text {
+            display: none;
+        }
+    }
+</style>
+
+<nav class="bg-white shadow-lg sticky top-0 z-50">
+    <div class="container mx-auto px-4">
+        <div class="flex justify-between items-center py-3 md:py-4">
+            <div class="flex items-center">
+                <a href="/user/containers" class="flex items-center space-x-2 smooth-transition hover:scale-105">
+                    <span class="iconify text-blue-600" data-icon="mdi:cloud-outline" data-width="28" data-height="28" class="md:w-8 md:h-8"></span>
+                    <h1 class="text-lg md:text-2xl font-bold text-blue-600">{{ .SystemName }}</h1>
+                </a>
+            </div>
+            <div class="flex items-center space-x-2 md:space-x-3">
+                <div class="flex items-center space-x-2 text-gray-700 bg-gray-50 px-2 md:px-3 py-2 rounded-lg smooth-transition hover:bg-gray-100">
+                    <span class="iconify text-gray-500" data-icon="mdi:account-circle" data-width="18" data-height="18" class="md:w-5 md:h-5"></span>
+                    <span class="nav-username-text text-sm font-medium">{{.username}}</span>
+                </div>
+                <button onclick="logout()" class="bg-red-500 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-medium btn-hover shadow-sm flex items-center gap-2">
+                    <span class="iconify" data-icon="mdi:logout" data-width="16"></span>
+                    <span class="nav-logout-text">退出</span>
+                </button>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+<script>
+function logout() {
+    if (confirm('确定要退出登录吗？')) {
+        $.ajax({
+            url: '/api/user/logout',
+            type: 'POST',
+            success: function() {
+                window.location.href = '/user/login';
+            },
+            error: function() {
+                window.location.href = '/user/login';
+            }
+        });
+    }
+}
+</script>
+{{end}}

@@ -1,0 +1,300 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 仪表盘</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+        <div class="mb-4 lg:mb-6 inline-block px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+            <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                <span class="iconify text-blue-600" data-icon="mdi:view-dashboard" data-width="28"></span>
+                仪表盘
+            </h1>
+            <p class="text-sm lg:text-base text-gray-600 mt-1">系统概览与快速操作</p>
+        </div>
+
+        <div class="grid grid-cols-2 lg:grid-cols-4 gap-3 lg:gap-4 mb-4 lg:mb-6">
+            <div class="content-box rounded-lg border border-gray-200 p-4 lg:p-6 card-hover">
+                <div class="flex items-center justify-between">
+                    <div class="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-purple-500 to-purple-600 rounded-lg flex items-center justify-center shadow-md">
+                        <span class="iconify text-white" data-icon="mdi:cube-outline" data-width="24"></span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs lg:text-sm text-gray-600 font-medium mb-1">容器总数</p>
+                        <p class="text-2xl lg:text-3xl font-bold text-gray-800" id="containerCount">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 lg:p-6 card-hover">
+                <div class="flex items-center justify-between">
+                    <div class="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-green-500 to-green-600 rounded-lg flex items-center justify-center shadow-md">
+                        <span class="iconify text-white" data-icon="mdi:play-circle" data-width="24"></span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs lg:text-sm text-gray-600 font-medium mb-1">运行中</p>
+                        <p class="text-2xl lg:text-3xl font-bold text-gray-800" id="runningCount">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 lg:p-6 card-hover">
+                <div class="flex items-center justify-between">
+                    <div class="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-gray-500 to-gray-600 rounded-lg flex items-center justify-center shadow-md">
+                        <span class="iconify text-white" data-icon="mdi:stop-circle" data-width="24"></span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs lg:text-sm text-gray-600 font-medium mb-1">停止数</p>
+                        <p class="text-2xl lg:text-3xl font-bold text-gray-800" id="stoppedCount">-</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 lg:p-6 card-hover">
+                <div class="flex items-center justify-between">
+                    <div class="w-10 lg:w-12 h-10 lg:h-12 bg-gradient-to-br from-orange-500 to-orange-600 rounded-lg flex items-center justify-center shadow-md">
+                        <span class="iconify text-white" data-icon="mdi:account-group" data-width="24"></span>
+                    </div>
+                    <div class="text-right">
+                        <p class="text-xs lg:text-sm text-gray-600 font-medium mb-1">用户数</p>
+                        <p class="text-2xl lg:text-3xl font-bold text-gray-800" id="userCount">-</p>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="grid grid-cols-1 lg:grid-cols-2 gap-6">
+            <div class="content-box rounded-lg border border-gray-200 card-hover">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-base font-semibold text-gray-800">主机资源与系统信息</h2>
+                </div>
+                <div class="p-4">
+                    <div class="space-y-2" id="systemInfo">
+                        <p class="text-center py-2 text-gray-500 text-sm">加载中...</p>
+                    </div>
+                    <div class="space-y-3 mt-3" id="hostResources">
+                        <p class="text-center py-2 text-gray-500 text-sm">加载中...</p>
+                    </div>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 card-hover">
+                <div class="p-4 border-b border-gray-200">
+                    <h2 class="text-base font-semibold text-gray-800">快速操作</h2>
+                </div>
+                <div class="p-4 space-y-2">
+                    <a href="/admin/containers" class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-blue-300 hover:bg-blue-50 smooth-transition group">
+                        <div class="w-10 h-10 bg-blue-100 rounded-lg flex items-center justify-center group-hover:bg-blue-200 smooth-transition">
+                            <span class="iconify text-blue-600" data-icon="mdi:cube-outline" data-width="20"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">容器管理</p>
+                            <p class="text-xs text-gray-600">管理所有LXD容器</p>
+                        </div>
+                    </a>
+                    <a href="/admin/users" class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-purple-300 hover:bg-purple-50 smooth-transition group">
+                        <div class="w-10 h-10 bg-purple-100 rounded-lg flex items-center justify-center group-hover:bg-purple-200 smooth-transition">
+                            <span class="iconify text-purple-600" data-icon="mdi:account-group" data-width="20"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">用户管理</p>
+                            <p class="text-xs text-gray-600">管理用户和API密钥</p>
+                        </div>
+                    </a>
+                    <a href="/admin/templates" class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-green-300 hover:bg-green-50 smooth-transition group">
+                        <div class="w-10 h-10 bg-green-100 rounded-lg flex items-center justify-center group-hover:bg-green-200 smooth-transition">
+                            <span class="iconify text-green-600" data-icon="mdi:package-variant" data-width="20"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">模板管理</p>
+                            <p class="text-xs text-gray-600">管理容器镜像模板</p>
+                        </div>
+                    </a>
+                    <a href="/admin/tasks" class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-orange-300 hover:bg-orange-50 smooth-transition group">
+                        <div class="w-10 h-10 bg-orange-100 rounded-lg flex items-center justify-center group-hover:bg-orange-200 smooth-transition">
+                            <span class="iconify text-orange-600" data-icon="mdi:clock-outline" data-width="20"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">任务管理</p>
+                            <p class="text-xs text-gray-600">查看后台任务状态</p>
+                        </div>
+                    </a>
+                    <a href="/admin/brand-settings" class="flex items-center gap-3 p-3 border border-gray-200 rounded-lg hover:border-pink-300 hover:bg-pink-50 smooth-transition group">
+                        <div class="w-10 h-10 bg-pink-100 rounded-lg flex items-center justify-center group-hover:bg-pink-200 smooth-transition">
+                            <span class="iconify text-pink-600" data-icon="mdi:palette-outline" data-width="20"></span>
+                        </div>
+                        <div class="flex-1">
+                            <p class="text-sm font-semibold text-gray-800">主题设置</p>
+                            <p class="text-xs text-gray-600">自定义品牌和外观</p>
+                        </div>
+                    </a>
+                </div>
+            </div>
+        </div>
+    
+    <script>
+        $(document).ready(function() {
+            loadDashboard();
+            loadHostStats();
+            setInterval(function() {
+                loadDashboard();
+                loadHostStats();
+            }, 30000);
+        });
+
+        async function loadDashboard() {
+            try {
+                const response = await fetch('/api/admin/dashboard');
+                const result = await response.json();
+                if (result.code === 200) {
+                    const data = result.data;
+                    $('#containerCount').text(data.containers.total);
+                    $('#runningCount').text(data.containers.running);
+                    $('#stoppedCount').text(data.containers.stopped);
+                    $('#userCount').text(data.users || 0);
+                    
+                    let systemHtml = `
+                        <div class="flex justify-between py-1">
+                            <span class="text-xs text-gray-600">系统架构</span>
+                            <span class="text-xs font-medium">${data.system.arch}</span>
+                        </div>
+                        <div class="flex justify-between py-1">
+                            <span class="text-xs text-gray-600">发行版</span>
+                            <span class="text-xs font-medium">${data.system.distribution}</span>
+                        </div>
+                        <div class="flex justify-between py-1">
+                            <span class="text-xs text-gray-600">LXD 版本</span>
+                            <span class="text-xs font-medium">${data.system.lxd_version}</span>
+                        </div>
+                    `;
+                    $('#systemInfo').html(systemHtml);
+                }
+            } catch (error) {
+                console.error('加载数据失败:', error);
+            }
+        }
+
+        async function loadHostStats() {
+            try {
+                const response = await fetch('/api/admin/host/stats');
+                const result = await response.json();
+                if (result.code === 200) {
+                    const data = result.data;
+                    
+                    let resourcesHtml = '';
+                    
+                    // CPU使用率
+                    if (data.cpu) {
+                        const cpuPercent = data.cpu.usage_percent.toFixed(1);
+                        resourcesHtml += `
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-xs font-medium text-gray-700">CPU</span>
+                                    <span class="text-xs font-semibold text-blue-600">${cpuPercent}%</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-blue-600 h-2 rounded-full" style="width: ${cpuPercent}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // 内存使用
+                    if (data.memory) {
+                        const memPercent = data.memory.usage_percent.toFixed(1);
+                        resourcesHtml += `
+                            <div>
+                                <div class="flex justify-between mb-1">
+                                    <span class="text-xs font-medium text-gray-700">内存</span>
+                                    <span class="text-xs font-semibold text-green-600">${data.memory.used_str} / ${data.memory.total_str}</span>
+                                </div>
+                                <div class="w-full bg-gray-200 rounded-full h-2">
+                                    <div class="bg-green-600 h-2 rounded-full" style="width: ${memPercent}%"></div>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    // 硬盘使用（支持多个物理硬盘）
+                    if (data.disks && data.disks.length > 0) {
+                        data.disks.forEach(disk => {
+                            const diskPercent = disk.usage_percent.toFixed(1);
+                            resourcesHtml += `
+                                <div>
+                                    <div class="flex justify-between mb-1">
+                                        <span class="text-xs font-medium text-gray-700">硬盘 ${disk.name}</span>
+                                        <span class="text-xs font-semibold text-orange-600">${disk.used_str} / ${disk.total_str}</span>
+                                    </div>
+                                    <div class="w-full bg-gray-200 rounded-full h-2">
+                                        <div class="bg-orange-600 h-2 rounded-full" style="width: ${diskPercent}%"></div>
+                                    </div>
+                                </div>
+                            `;
+                        });
+                    }
+                    
+                    // 系统负载
+                    if (data.load) {
+                        resourcesHtml += `
+                            <div>
+                                <div class="flex justify-between">
+                                    <span class="text-xs text-gray-600">系统负载</span>
+                                    <span class="text-xs font-medium">${data.load.load1.toFixed(2)} / ${data.load.load5.toFixed(2)} / ${data.load.load15.toFixed(2)}</span>
+                                </div>
+                            </div>
+                        `;
+                    }
+
+                    // 网络统计（横排显示）
+                    if (data.network) {
+                        resourcesHtml += `
+                            <div>
+                                <div class="flex justify-between items-center flex-wrap gap-2">
+                                    <span class="text-xs"><span class="text-gray-600">带宽 </span><span class="font-medium text-blue-600">↓${data.network.rx_speed_str || '0 B/s'}</span><span class="text-gray-400">|</span><span class="font-medium text-green-600">↑${data.network.tx_speed_str || '0 B/s'}</span></span>
+                                    <span class="text-xs"><span class="text-gray-600">流量</span><span class="font-medium"> ↓${data.network.rx_bytes_str} ↑${data.network.tx_bytes_str}</span></span>
+                                </div>
+                            </div>
+                        `;
+                    }
+                    
+                    $('#hostResources').html(resourcesHtml);
+                }
+            } catch (error) {
+                console.error('加载主机统计失败:', error);
+                $('#hostResources').html('<p class="text-center py-2 text-red-500 text-sm">加载失败</p>');
+            }
+        }
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>
+

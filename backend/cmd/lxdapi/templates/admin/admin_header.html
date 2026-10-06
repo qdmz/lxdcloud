@@ -1,0 +1,328 @@
+{{define "admin/admin_header.html"}}
+<link href="https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap" rel="stylesheet">
+{{if .UseLocalCDN}}
+<script src="/static/js/iconify.min.js"></script>
+{{else}}
+<script src="https://code.iconify.design/3/3.1.0/iconify.min.js"></script>
+{{end}}
+
+{{template "admin/admin_toast.html"}}
+
+<style>
+    body { font-family: 'Inter', sans-serif; }
+    @keyframes gentlePulse {
+        0%, 100% { opacity: 1; }
+        50% { opacity: 0.85; }
+    }
+    
+    .animate-pulse-slow { animation: gentlePulse 3s cubic-bezier(0.4, 0, 0.6, 1) infinite; }
+    
+    .card-hover {
+        transition: all 0.25s ease;
+    }
+    .card-hover:hover {
+        transform: translateY(-2px);
+        box-shadow: 0 8px 16px -8px rgba(0, 0, 0, 0.1);
+    }
+    
+    .btn-hover {
+        transition: all 0.25s ease;
+    }
+    .btn-hover:hover {
+        transform: translateY(-1px);
+        box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+    }
+    .btn-hover:active {
+        transform: translateY(0);
+    }
+    
+    .smooth-transition {
+        transition: all 0.25s ease;
+    }
+
+    .mobile-menu {
+        max-height: 0;
+        overflow: hidden;
+        transition: max-height 0.3s ease-in-out;
+    }
+    .mobile-menu.active {
+        max-height: 600px;
+    }
+
+    @media (max-width: 768px) {
+        .nav-username {
+            display: none;
+        }
+    }
+</style>
+
+<nav class="bg-white shadow-lg sticky top-0 z-50">
+    <div class="container mx-auto px-4">
+        <div class="flex justify-between items-center py-3 md:py-4">
+            <div class="flex items-center space-x-2 md:space-x-4">
+                <a href="/admin/dashboard" class="flex items-center space-x-2 smooth-transition hover:scale-105">
+                    <span class="iconify text-blue-600" data-icon="mdi:server-network" data-width="28" data-height="28" class="md:w-8 md:h-8"></span>
+                    <h1 class="text-lg md:text-2xl font-bold text-blue-600">{{ .SystemName }}</h1>
+                </a>
+            </div>
+
+            <div class="hidden lg:flex items-center space-x-2">
+                <a href="/admin/dashboard" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                    <div class="flex items-center gap-2">
+                        <span class="iconify" data-icon="mdi:view-dashboard" data-width="18"></span>
+                        仪表盘
+                    </div>
+                </a>
+                <a href="/admin/containers" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                    <div class="flex items-center gap-2">
+                        <span class="iconify" data-icon="mdi:cube-outline" data-width="18"></span>
+                        容器管理
+                    </div>
+                </a>
+                <div class="dropdown">
+                    <div tabindex="0" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:package-variant" data-width="18"></span>
+                            资源管理
+                            <span class="iconify" data-icon="mdi:chevron-down" data-width="12"></span>
+                        </div>
+                    </div>
+                    <ul tabindex="0" class="dropdown-content menu bg-white rounded-lg shadow-lg border border-gray-200 w-48 mt-2 p-1 z-50">
+                        <li><a href="/admin/templates" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:image-multiple" data-width="18"></span>
+                            镜像模板
+                        </a></li>
+                        <li><a href="/admin/storage-pools" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:database" data-width="18"></span>
+                            存储池
+                        </a></li>
+                    </ul>
+                </div>
+                <a href="/admin/users" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                    <div class="flex items-center gap-2">
+                        <span class="iconify" data-icon="mdi:account-group" data-width="18"></span>
+                        用户管理
+                    </div>
+                </a>
+                <a href="/admin/tasks" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                    <div class="flex items-center gap-2">
+                        <span class="iconify" data-icon="mdi:clipboard-list-outline" data-width="18"></span>
+                        任务管理
+                    </div>
+                </a>
+                <a href="/admin/brand-settings" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition">
+                    <div class="flex items-center gap-2">
+                        <span class="iconify" data-icon="mdi:cog" data-width="18"></span>
+                        系统设置
+                    </div>
+                </a>
+                <div class="dropdown">
+                    <div tabindex="0" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:puzzle" data-width="18"></span>
+                            插件拓展
+                            <span class="iconify" data-icon="mdi:chevron-down" data-width="12"></span>
+                        </div>
+                    </div>
+                    <ul tabindex="0" class="dropdown-content menu bg-white rounded-lg shadow-lg border border-gray-200 w-48 mt-2 p-1 z-50">
+                        <li><a href="/admin/firewall" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:security" data-width="18"></span>
+                            防火墙
+                        </a></li>
+                        <li><a href="/admin/nginx" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:web" data-width="18"></span>
+                            反向代理
+                        </a></li>
+                    </ul>
+                </div>
+                <div class="dropdown">
+                    <div tabindex="0" class="text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-3 py-2 rounded-lg text-sm font-medium smooth-transition cursor-pointer">
+                        <div class="flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:network" data-width="18"></span>
+                            网络配置
+                            <span class="iconify" data-icon="mdi:chevron-down" data-width="12"></span>
+                        </div>
+                    </div>
+                    <ul tabindex="0" class="dropdown-content menu bg-white rounded-lg shadow-lg border border-gray-200 w-48 mt-2 p-1 z-50">
+                        <li><a href="/admin/ip-pool/v4" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:ip-network" data-width="18"></span>
+                            独立IPv4管理
+                        </a></li>
+                        <li><a href="/admin/ip-pool/v6" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:ip-network" data-width="18"></span>
+                            独立IPv6管理
+                        </a></li>
+                        <li><a href="/admin/port-mapping/v4" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:ethernet" data-width="18"></span>
+                            IPv4NAT管理
+                        </a></li>
+                        <li><a href="/admin/port-mapping/v6" class="text-sm flex items-center gap-2">
+                            <span class="iconify" data-icon="mdi:ethernet" data-width="18"></span>
+                            IPv6NAT管理
+                        </a></li>
+                    </ul>
+                </div>
+            </div>
+
+            <div class="flex items-center space-x-2 md:space-x-3">
+                <div class="nav-username flex items-center space-x-2 text-gray-700 bg-gray-50 px-2 md:px-3 py-2 rounded-lg smooth-transition hover:bg-gray-100">
+                    <span class="iconify text-gray-500" data-icon="mdi:account-circle" data-width="18"></span>
+                    <span class="text-sm font-medium">{{.username}}</span>
+                </div>
+                <a href="/admin/logout" class="hidden md:flex bg-red-500 hover:bg-red-600 text-white px-3 md:px-4 py-2 rounded-lg text-sm font-medium btn-hover shadow-sm items-center gap-2">
+                    <span class="iconify" data-icon="mdi:logout" data-width="16"></span>
+                    退出
+                </a>
+                <button id="mobileMenuBtn" class="lg:hidden text-gray-700 hover:text-blue-600 p-2 rounded-lg hover:bg-blue-50 smooth-transition">
+                    <span class="iconify" data-icon="mdi:menu" data-width="24" id="menuIcon"></span>
+                </button>
+            </div>
+        </div>
+
+        <div id="mobileMenu" class="mobile-menu lg:hidden border-t border-gray-100">
+            <div class="py-3 space-y-1">
+                <a href="/admin/dashboard" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                    <span class="iconify" data-icon="mdi:view-dashboard" data-width="20"></span>
+                    仪表盘
+                </a>
+                <a href="/admin/containers" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                    <span class="iconify" data-icon="mdi:cube-outline" data-width="20"></span>
+                    容器管理
+                </a>
+                <div class="mobile-dropdown">
+                    <button onclick="toggleMobileDropdown(this)" class="flex items-center justify-between w-full gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                        <div class="flex items-center gap-3">
+                            <span class="iconify" data-icon="mdi:package-variant" data-width="20"></span>
+                            资源管理
+                        </div>
+                        <span class="iconify chevron-icon smooth-transition" data-icon="mdi:chevron-down" data-width="18"></span>
+                    </button>
+                    <div class="mobile-dropdown-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+                        <div class="pl-4 space-y-1 py-2">
+                            <a href="/admin/templates" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:image-multiple" data-width="20"></span>
+                                镜像模板
+                            </a>
+                            <a href="/admin/storage-pools" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:database" data-width="20"></span>
+                                存储池
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <a href="/admin/users" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                    <span class="iconify" data-icon="mdi:account-group" data-width="20"></span>
+                    用户管理
+                </a>
+                <a href="/admin/tasks" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                    <span class="iconify" data-icon="mdi:clipboard-list-outline" data-width="20"></span>
+                    任务管理
+                </a>
+                <a href="/admin/brand-settings" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                    <span class="iconify" data-icon="mdi:cog" data-width="20"></span>
+                    系统设置
+                </a>
+                <div class="mobile-dropdown">
+                    <button onclick="toggleMobileDropdown(this)" class="flex items-center justify-between w-full gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                        <div class="flex items-center gap-3">
+                            <span class="iconify" data-icon="mdi:puzzle" data-width="20"></span>
+                            插件拓展
+                        </div>
+                        <span class="iconify chevron-icon smooth-transition" data-icon="mdi:chevron-down" data-width="18"></span>
+                    </button>
+                    <div class="mobile-dropdown-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+                        <div class="pl-4 space-y-1 py-2">
+                            <a href="/admin/firewall" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:security" data-width="20"></span>
+                                防火墙
+                            </a>
+                            <a href="/admin/nginx" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:web" data-width="20"></span>
+                                反向代理
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="mobile-dropdown">
+                    <button onclick="toggleMobileDropdown(this)" class="flex items-center justify-between w-full gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                        <div class="flex items-center gap-3">
+                            <span class="iconify" data-icon="mdi:network" data-width="20"></span>
+                            网络配置
+                        </div>
+                        <span class="iconify chevron-icon smooth-transition" data-icon="mdi:chevron-down" data-width="18"></span>
+                    </button>
+                    <div class="mobile-dropdown-content" style="max-height: 0; overflow: hidden; transition: max-height 0.3s ease;">
+                        <div class="pl-4 space-y-1 py-2">
+                            <a href="/admin/ip-pool/v4" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:ip-network" data-width="20"></span>
+                                独立IPv4管理
+                            </a>
+                            <a href="/admin/ip-pool/v6" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:ip-network" data-width="20"></span>
+                                独立IPv6管理
+                            </a>
+                            <a href="/admin/port-mapping/v4" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:ethernet" data-width="20"></span>
+                                IPv4NAT管理
+                            </a>
+                            <a href="/admin/port-mapping/v6" class="flex items-center gap-3 text-gray-700 hover:text-blue-600 hover:bg-blue-50 px-4 py-2 rounded-lg text-sm smooth-transition">
+                                <span class="iconify" data-icon="mdi:ethernet" data-width="20"></span>
+                                IPv6NAT管理
+                            </a>
+                        </div>
+                    </div>
+                </div>
+                <div class="border-t border-gray-100 mt-2 pt-2">
+                    <a href="/admin/logout" class="flex items-center gap-3 text-red-600 hover:bg-red-50 px-4 py-3 rounded-lg text-sm font-medium smooth-transition">
+                        <span class="iconify" data-icon="mdi:logout" data-width="20"></span>
+                        退出登录
+                    </a>
+                </div>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<script>
+    function toggleMobileDropdown(btn) {
+        const content = btn.nextElementSibling;
+        const chevron = btn.querySelector('.chevron-icon');
+        const isOpen = content.style.maxHeight && content.style.maxHeight !== '0px';
+        
+        if (isOpen) {
+            content.style.maxHeight = '0';
+            chevron.style.transform = 'rotate(0deg)';
+        } else {
+            content.style.maxHeight = content.scrollHeight + 'px';
+            chevron.style.transform = 'rotate(180deg)';
+        }
+    }
+
+    document.addEventListener('DOMContentLoaded', function() {
+        const mobileMenuBtn = document.getElementById('mobileMenuBtn');
+        const mobileMenu = document.getElementById('mobileMenu');
+        const menuIcon = document.getElementById('menuIcon');
+        
+        if (mobileMenuBtn && mobileMenu) {
+            mobileMenuBtn.addEventListener('click', function() {
+                mobileMenu.classList.toggle('active');
+                
+                if (mobileMenu.classList.contains('active')) {
+                    menuIcon.setAttribute('data-icon', 'mdi:close');
+                } else {
+                    menuIcon.setAttribute('data-icon', 'mdi:menu');
+                }
+            });
+
+            const mobileLinks = mobileMenu.querySelectorAll('a');
+            mobileLinks.forEach(link => {
+                link.addEventListener('click', function() {
+                    mobileMenu.classList.remove('active');
+                    menuIcon.setAttribute('data-icon', 'mdi:menu');
+                });
+            });
+        }
+    });
+</script>
+{{end}}
+

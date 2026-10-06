@@ -1,0 +1,85 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>LXD Panel - 控制面板入口</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="css/style.css">
+  <style>
+    .home-wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 40px 20px; }
+    .home-brand { text-align: center; }
+    .home-brand h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 700; letter-spacing: 0.06em; margin: 0 0 10px; }
+    .home-brand p { color: var(--muted, #94a3b8); margin: 0; font-size: 0.95rem; }
+    .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; width: 100%; max-width: 860px; }
+    .home-card { display: flex; flex-direction: column; gap: 12px; }
+    .home-card .card-title { display: flex; align-items: center; gap: 10px; }
+    .home-card .card-title .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent, #22d3ee); box-shadow: 0 0 10px var(--accent, #22d3ee); }
+    .home-card .card-title .dot.admin { background: #a78bfa; box-shadow: 0 0 10px #a78bfa; }
+    .home-card .card-title .dot.user { background: #34d399; box-shadow: 0 0 10px #34d399; }
+    .home-card p { color: var(--muted, #94a3b8); font-size: 0.88rem; line-height: 1.6; margin: 0; flex: 1; }
+    .home-card .btn { text-align: center; }
+    .home-footer { color: var(--muted, #94a3b8); font-size: 0.8rem; text-align: center; }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="home-wrap">
+    <div class="home-brand">
+      <h1 id="siteName">LXD Panel</h1>
+      <p id="siteDesc">商业化云面板 · 多节点 / 商店 / 订单 / 工单 / 消息 / 容器控制台</p>
+    </div>
+
+    <div class="home-grid">
+      <div class="card home-card">
+        <div class="card-title">
+          <span class="dot"></span>
+          <strong>容器面板</strong>
+        </div>
+        <p>终端用户入口：资源监控、IP 管理、端口映射、反向代理、DNS 与 Web 终端。使用访问码登录。</p>
+        <a class="btn btn-primary" href="container/login.html">进入容器面板</a>
+      </div>
+
+      <div class="card home-card">
+        <div class="card-title">
+          <span class="dot admin"></span>
+          <strong>管理后台</strong>
+        </div>
+        <p>管理员入口：容器、节点、商品、订单、实例、工单、邮件、支付、模板、存储池、Nginx 与品牌设置。</p>
+        <a class="btn btn-primary" href="admin/login.html">进入管理后台</a>
+      </div>
+
+      <div class="card home-card">
+        <div class="card-title">
+          <span class="dot user"></span>
+          <strong>用户中心</strong>
+        </div>
+        <p>平台用户入口：注册/找回、商店下单、订单支付、我的实例、续费、工单、站内消息、个人资料与容器管理。</p>
+        <a class="btn btn-primary" href="user/login.html">进入用户中心</a>
+      </div>
+    </div>
+
+    <div class="home-footer" id="siteFooter"></div>
+  </div>
+
+  <script src="js/app.js?v=2.4"></script>
+  <script>
+    (function () {
+      if (window.LXD && LXD.loadBrand) {
+        LXD.loadBrand().then(function (b) {
+          if (!b) return;
+          if (b.site_name) document.getElementById('siteName').textContent = b.site_name;
+          if (b.page_title) document.title = b.page_title;
+          if (b.footer_text) document.getElementById('siteFooter').textContent = b.footer_text;
+          if (b.favicon_url) {
+            var icon = document.createElement('link');
+            icon.rel = 'icon';
+            icon.href = b.favicon_url;
+            document.head.appendChild(icon);
+          }
+        }).catch(function () {});
+      }
+    })();
+  </script>
+</body>
+</html>

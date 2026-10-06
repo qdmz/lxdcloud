@@ -1,0 +1,52 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>容器访问 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-logo" id="brandLogo">L</div>
+        <h1 id="brandName">LXD 容器面板</h1>
+        <p>输入访问码验证后进入容器管理</p>
+      </div>
+
+      <form id="loginForm" style="display:flex;flex-direction:column;gap:16px">
+        <div class="field">
+          <label>容器访问码（Hash）</label>
+          <input class="input" id="hashInput" type="text" placeholder="请输入容器访问码" autocomplete="off" spellcheck="false">
+        </div>
+
+        <div class="field">
+          <label>验证码</label>
+          <div class="captcha-row">
+            <input class="input" id="captchaInput" type="text" placeholder="输入验证码" autocomplete="off" maxlength="6">
+            <img class="captcha-img" id="captchaImg" alt="验证码" title="点击刷新验证码">
+          </div>
+        </div>
+
+        <button class="btn btn-primary btn-block" id="submitBtn" type="submit" style="margin-top:4px">
+          进入控制面板
+        </button>
+      </form>
+
+      <div class="login-tip">
+        <span style="flex-shrink:0">ℹ</span>
+        <span>访问码由管理员在开通容器时提供。若提示验证失败，请检查访问码是否正确，或联系管理员重置。</span>
+      </div>
+
+      <p class="footer" id="footerText" style="margin-top:18px;padding:0"></p>
+    </div>
+  </div>
+
+  <script src="../js/app.js"></script>
+  <script src="./js/login.js"></script>
+</body>
+</html>

@@ -1,0 +1,65 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>Shell 控制台 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/xterm@5.3.0/css/xterm.css">
+  <style>
+    body { font-family: var(--font); }
+    .console-body .xterm-viewport { overflow-y: auto !important; }
+    .console-body .xterm-screen { padding-bottom: 30px !important; }
+    .console-body .xterm { padding: 10px 8px; }
+    @media (max-width: 640px) {
+      .console-bar { padding: 8px 10px; gap: 8px; }
+      .console-title { font-size: 13px; }
+      .console-bar .btn { padding: 5px 9px; font-size: 12px; }
+    }
+  </style>
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="console-wrap">
+
+    <!-- 顶部工具栏 -->
+    <div class="console-bar">
+      <div class="console-title">
+        <div class="brand-logo" id="brandLogo" style="width:26px;height:26px;font-size:13px">L</div>
+        <span id="brandName" style="white-space:nowrap">Shell 控制台</span>
+        <span id="containerName" style="color:var(--text-3);font-weight:400;font-size:12px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:140px"></span>
+      </div>
+      <span class="spacer"></span>
+      <button class="btn btn-ghost btn-sm" id="font-decrease" title="减小字体">字体 −</button>
+      <button class="btn btn-ghost btn-sm" id="font-increase" title="增大字体">字体 +</button>
+      <button class="btn btn-ghost btn-sm" id="clear-terminal" title="清屏">清屏</button>
+      <button class="btn btn-ghost btn-sm" id="fullscreen" title="全屏">全屏</button>
+      <button class="btn btn-ghost btn-sm" id="sftp-info" title="SFTP 连接信息">SFTP</button>
+      <div style="display:flex;align-items:center;gap:7px;background:var(--card-strong);border:1px solid var(--border);padding:4px 12px;border-radius:999px">
+        <span class="status-dot" id="status-dot"></span>
+        <span id="status-text" style="font-size:12px;color:var(--text-2);white-space:nowrap">未连接</span>
+      </div>
+      <button class="btn btn-success btn-sm" id="connect-btn">连接</button>
+    </div>
+
+    <!-- 终端区域 -->
+    <div class="console-body">
+      <div id="terminal"></div>
+
+      <!-- 断开遮罩 -->
+      <div class="disconnect-overlay hidden" id="disconnect-overlay">
+        <div style="width:56px;height:56px;border-radius:50%;background:rgba(248,113,113,.12);border:1px solid rgba(248,113,113,.3);display:flex;align-items:center;justify-content:center;font-size:26px;color:var(--red)">!</div>
+        <div style="font-size:18px;font-weight:700;color:var(--text-1)">连接已断开</div>
+        <div style="max-width:320px;line-height:1.7">会话已结束，令牌已失效。请关闭此窗口，返回管理页面重新打开控制台。</div>
+        <button class="btn btn-ghost btn-sm" id="overlay-close" style="margin-top:6px">关闭窗口</button>
+      </div>
+    </div>
+  </div>
+
+  <script src="https://cdn.jsdelivr.net/npm/xterm@5.3.0/lib/xterm.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/xterm-addon-fit@0.8.0/lib/xterm-addon-fit.js"></script>
+  <script src="../js/app.js"></script>
+  <script src="./js/console.js"></script>
+</body>
+</html>

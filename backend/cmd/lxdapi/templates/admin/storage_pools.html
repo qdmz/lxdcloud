@@ -1,0 +1,235 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }}</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root { --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}}; }
+        .content-box { background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important; }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+            <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <svg class="w-7 h-7 text-blue-600" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 7v10c0 2.21 3.582 4 8 4s8-1.79 8-4V7M4 7c0 2.21 3.582 4 8 4s8-1.79 8-4M4 7c0-2.21 3.582-4 8-4s8 1.79 8 4"></path>
+                    </svg>
+                    存储池管理
+                </h1>
+                <p class="text-sm lg:text-base text-gray-600 mt-1">管理LXD存储池，设置创建容器时的优先级</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="syncPools()" class="px-3 py-2 text-xs lg:text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    同步存储池
+                </button>
+                <button onclick="loadPools()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+        <div id="poolsContent">
+            <p class="text-center py-8 text-gray-500">加载中...</p>
+        </div>
+
+    </div>
+    </div>
+
+    <div id="priorityModal" class="fixed inset-0 z-50 flex items-center justify-center hidden" style="background-color: rgba(0,0,0,0.5);">
+        <div class="bg-white rounded-lg shadow-xl w-full max-w-sm mx-4">
+            <div class="flex items-center justify-between p-4 border-b">
+                <h3 class="text-lg font-semibold text-gray-800">设置优先级</h3>
+                <button onclick="closePriorityModal()" class="text-gray-400 hover:text-gray-600">
+                    <svg class="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <p class="text-sm text-gray-600 mb-4">存储池：<span id="priorityPoolName" class="font-medium text-gray-800"></span></p>
+                <label class="block text-sm font-medium text-gray-700 mb-2">优先级 (0=禁用, 1=最高)</label>
+                <input type="number" id="priorityInput" min="0" max="100" class="input input-bordered w-full" placeholder="输入优先级">
+            </div>
+            <div class="flex justify-end gap-2 p-4 border-t bg-gray-50 rounded-b-lg">
+                <button onclick="closePriorityModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-white hover:bg-gray-50 border border-gray-300 rounded-lg">取消</button>
+                <button onclick="savePriority()" class="px-4 py-2 text-sm font-medium text-white bg-blue-600 hover:bg-blue-700 rounded-lg">保存</button>
+            </div>
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+    <script>
+        let poolsData = [];
+        let currentPoolName = '';
+
+        $(document).ready(function() {
+            loadPools();
+        });
+
+        function loadPools() {
+            $('#poolsContent').html('<p class="text-center py-8"><span class="loading loading-spinner loading-md"></span></p>');
+            
+            $.ajax({
+                url: '/api/admin/storage-pools',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        poolsData = result.data.pools || [];
+                        renderPools();
+                    } else {
+                        $('#poolsContent').html('<p class="text-center py-8 text-error">加载失败: ' + (result.msg || '未知错误') + '</p>');
+                    }
+                },
+                error: function(xhr) {
+                    $('#poolsContent').html('<p class="text-center py-8 text-error">加载失败</p>');
+                }
+            });
+        }
+
+        function renderPools() {
+            if (poolsData.length === 0) {
+                $('#poolsContent').html('<p class="text-center py-8 text-gray-500">暂无存储池，请点击"同步存储池"从LXD获取</p>');
+                return;
+            }
+
+            let html = `
+                <div class="content-box rounded-lg border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="text-xs text-gray-600">名称</th>
+                                    <th class="text-xs text-gray-600">驱动</th>
+                                    <th class="text-xs text-gray-600">状态</th>
+                                    <th class="text-xs text-gray-600">使用中</th>
+                                    <th class="text-xs text-gray-600">空间使用</th>
+                                    <th class="text-xs text-gray-600">优先级</th>
+                                    <th class="text-xs text-gray-600">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            poolsData.forEach(p => {
+                const statusBadge = p.status === 'Created' 
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">正常</span>'
+                    : `<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">${p.status}</span>`;
+                
+                const priorityBadge = p.priority === 0
+                    ? '<span class="px-2 py-0.5 text-xs font-medium text-gray-500 bg-gray-100 rounded-full">禁用</span>'
+                    : `<span class="px-2 py-0.5 text-xs font-medium text-blue-700 bg-blue-100 rounded-full">${p.priority}</span>`;
+
+                const usagePercent = p.usage_percent ? p.usage_percent.toFixed(1) : 0;
+                const usageColor = usagePercent > 80 ? 'bg-red-500' : usagePercent > 60 ? 'bg-yellow-500' : 'bg-green-500';
+
+                html += `
+                    <tr class="hover">
+                        <td><span class="font-semibold text-gray-800 text-sm">${p.name}</span></td>
+                        <td><span class="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 rounded">${p.driver}</span></td>
+                        <td>${statusBadge}</td>
+                        <td class="text-xs text-gray-700">${p.used_by} 个容器</td>
+                        <td>
+                            <div class="flex items-center gap-2">
+                                <div class="w-24 bg-gray-200 rounded-full h-2">
+                                    <div class="${usageColor} h-2 rounded-full" style="width: ${usagePercent}%"></div>
+                                </div>
+                                <span class="text-xs text-gray-600">${p.used_space} / ${p.total_space}</span>
+                            </div>
+                        </td>
+                        <td>${priorityBadge}</td>
+                        <td>
+                            <button onclick="showPriorityModal('${p.name}', ${p.priority})" class="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition">设置优先级</button>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div></div>';
+            $('#poolsContent').html(html);
+        }
+
+        function syncPools() {
+            if (!confirm('确认要从LXD同步存储池吗？')) return;
+
+            showToast('info', '正在从LXD同步存储池...');
+
+            $.ajax({
+                url: '/api/admin/storage-pools/sync',
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const data = result.data || {};
+                        showToast('success', `同步完成：新增 ${data.added || 0} 个，更新 ${data.updated || 0} 个，删除 ${data.deleted || 0} 个`);
+                        setTimeout(() => loadPools(), 500);
+                    } else {
+                        showToast('error', result.msg || '同步失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '同步失败');
+                }
+            });
+        }
+
+        function showPriorityModal(name, priority) {
+            currentPoolName = name;
+            $('#priorityPoolName').text(name);
+            $('#priorityInput').val(priority);
+            $('#priorityModal').removeClass('hidden');
+        }
+
+        function closePriorityModal() {
+            $('#priorityModal').addClass('hidden');
+            currentPoolName = '';
+        }
+
+        function savePriority() {
+            const priority = parseInt($('#priorityInput').val()) || 0;
+            
+            $.ajax({
+                url: `/api/admin/storage-pools/${encodeURIComponent(currentPoolName)}/priority`,
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({ priority: priority }),
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '优先级设置成功');
+                        closePriorityModal();
+                        loadPools();
+                    } else {
+                        showToast('error', result.msg || '设置失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '设置失败');
+                }
+            });
+        }
+    </script>
+</body>
+</html>

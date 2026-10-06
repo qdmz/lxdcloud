@@ -1,0 +1,356 @@
+{{define "admin/admin_firewall.html"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 防火墙管理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        .yaml-editor {
+            font-family: 'Monaco', 'Menlo', 'Ubuntu Mono', 'Courier New', monospace;
+            font-size: 13px;
+            line-height: 1.6;
+        }
+        .custom-tab-active {
+            background-color: #2563eb !important;
+            color: white !important;
+        }
+        .custom-tab-inactive {
+            background-color: transparent !important;
+            color: #374151 !important;
+        }
+        .custom-tab-inactive:hover {
+            background-color: #e5e7eb !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+
+            <div class="mb-4 lg:mb-6 flex items-center justify-between">
+                <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                    <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                        <span class="iconify text-blue-600" data-icon="mdi:security" data-width="28"></span>
+                        防火墙管理
+                    </h1>
+                    <p class="text-sm lg:text-base text-gray-600 mt-1">基于 OpenGFW 的流量拦截系统</p>
+                </div>
+            </div>
+
+            <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+                <div class="flex items-center justify-between">
+                    <div class="flex items-center gap-4">
+                        <div>
+                            <h2 class="text-sm font-semibold text-gray-800 mb-1" id="statusText">OpenGFW 加载中...</h2>
+                            <div id="statusDetails" class="text-xs text-gray-600"></div>
+                        </div>
+                    </div>
+                    <div class="flex gap-2">
+                        <button id="btnStart" onclick="startService()" class="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded transition">启动</button>
+                        <button id="btnStop" onclick="stopService()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">停止</button>
+                        <button id="btnRestart" onclick="restartService()" class="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition">重启</button>
+                    </div>
+                </div>
+            </div>
+
+            <div class="flex gap-2 bg-gray-100 rounded-lg p-1 mb-4 w-fit">
+                <a id="tabBtnRules" class="custom-tab-active px-4 py-2 text-sm font-medium rounded-md cursor-pointer transition" onclick="switchTab('rules')">自定义规则</a>
+                <a id="tabBtnLogs" class="custom-tab-inactive px-4 py-2 text-sm font-medium rounded-md cursor-pointer transition" onclick="switchTab('logs')">服务日志</a>
+            </div>
+
+            <div id="tabRules" class="tab-content" style="display: block;">
+                <div class="content-box rounded-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-800">自定义规则</h3>
+                    </div>
+                    <textarea id="rulesEditor" class="yaml-editor w-full px-3 py-2 border border-gray-300 rounded-lg focus:outline-none focus:ring-2 focus:ring-blue-500" rows="20" placeholder="# OpenGFW 规则配置 (YAML格式)&#10;# 示例:&#10;# - name: block example&#10;#   action: block&#10;#   log: true&#10;#   expr: your_expression_here"></textarea>
+                    <a href="https://gfw.dev/zh/docs/rules/" target="_blank" class="text-xs text-blue-600 hover:underline mt-2 inline-block">查看规则文档</a>
+                </div>
+            </div>
+
+            <div id="tabLogs" class="tab-content" style="display:none;">
+                <div class="content-box rounded-lg border border-gray-200 p-4">
+                    <div class="flex items-center justify-between mb-3">
+                        <h3 class="text-sm font-semibold text-gray-800">服务日志</h3>
+                        <div class="flex gap-2">
+                            <button onclick="refreshLogs()" class="px-2 py-1 text-xs text-gray-700 hover:bg-gray-50 border border-gray-200 rounded">刷新</button>
+                            <button onclick="clearLogs()" class="px-2 py-1 text-xs text-red-700 hover:bg-red-50 border border-red-200 rounded">清空</button>
+                        </div>
+                    </div>
+                    <div id="logsContainer" class="bg-gray-900 text-gray-300 rounded p-3 font-mono text-xs overflow-auto whitespace-pre" style="height: 400px; max-height: 400px; line-height: 1.5;">
+                        <div class="text-gray-500">正在加载日志...</div>
+                    </div>
+                </div>
+            </div>
+
+            <div class="mt-6">
+                <button onclick="applyConfig()" class="px-4 py-2 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-2">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M5 13l4 4L19 7"></path>
+                    </svg>
+                    应用规则
+                </button>
+            </div>
+
+        </div>
+    </div>
+
+    {{template "admin/admin_footer.html" .}}
+    {{template "admin/admin_toast.html" .}}
+
+    <script>
+        $(document).ready(function() {
+            loadConfig();
+            loadStatus();
+            setInterval(loadStatus, 5000);
+            
+            refreshLogs();
+            setInterval(function() {
+                if ($('#tabLogs').is(':visible')) {
+                    refreshLogs();
+                }
+            }, 3000);
+        });
+
+        function switchTab(tab) {
+            $('.tab-content').hide();
+            $('[id^=tabBtn]').removeClass('custom-tab-active').addClass('custom-tab-inactive');
+            $('#tab' + tab.charAt(0).toUpperCase() + tab.slice(1)).show();
+            $('#tabBtn' + tab.charAt(0).toUpperCase() + tab.slice(1)).removeClass('custom-tab-inactive').addClass('custom-tab-active');
+        }
+
+        function loadConfig() {
+            $.get('/api/admin/firewall/config', function(res) {
+                if (res.code === 200) {
+                    $('#rulesEditor').val(res.data.rules || '');
+                }
+            });
+        }
+
+        function saveConfig(showNotification = true) {
+            const config = {
+                rules: $('#rulesEditor').val()
+            };
+            
+            return $.ajax({
+                url: '/api/admin/firewall/config',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(config),
+                success: function(res) {
+                    if (showNotification) {
+                        if (res.code === 200) {
+                            showToast('success', '配置已保存');
+                        } else {
+                            showToast('error', res.msg || '保存失败');
+                        }
+                    }
+                },
+                error: function() {
+                    if (showNotification) {
+                        showToast('error', '网络错误，请检查连接');
+                    }
+                }
+            });
+        }
+
+        function applyConfig() {
+            if (typeof showToast !== 'function') {
+                alert('正在保存并应用规则...');
+            } else {
+                showToast('info', '正在保存并应用规则...');
+            }
+            
+            saveConfig(false).done(function(saveRes) {
+                if (saveRes.code !== 200) {
+                    showToast('error', '保存配置失败：' + (saveRes.msg || '未知错误'));
+                    return;
+                }
+                
+                $.ajax({
+                    url: '/api/admin/firewall/apply',
+                    method: 'POST',
+                    success: function(res) {
+                        if (res.code === 200) {
+                            showToast('success', '规则已保存并应用成功');
+                            setTimeout(loadStatus, 500);
+                        } else {
+                            showToast('error', '应用失败：' + (res.msg || '未知错误'));
+                        }
+                    },
+                    error: function() {
+                        showToast('error', '应用失败，请检查服务日志');
+                    }
+                });
+            }).fail(function() {
+                showToast('error', '保存配置失败，请检查网络连接');
+            });
+        }
+
+        function loadStatus() {
+            $.ajax({
+                url: '/api/admin/firewall/status',
+                method: 'GET',
+                success: function(res) {
+                    if (res.code === 200 && res.data) {
+                        updateStatusDisplay(res.data);
+                    } else {
+                        updateStatusDisplay({running: false});
+                    }
+                },
+                error: function() {
+                    updateStatusDisplay({running: false});
+                }
+            });
+        }
+
+        function updateStatusDisplay(status) {
+            const statusText = $('#statusText');
+            const details = $('#statusDetails');
+            
+            if (status && status.running === true) {
+                const version = status.version || '0.4.1';
+                statusText.html(`OpenGFW ${version} 运行中`);
+                statusText.removeClass('text-gray-700').addClass('text-green-700');
+                const rules = status.active_rules || 0;
+                const uptime = status.uptime || '刚启动';
+                details.html(`活跃规则: ${rules} | 运行时间: ${uptime}`);
+            } else {
+                statusText.html('OpenGFW 已停止');
+                statusText.removeClass('text-green-700').addClass('text-gray-700');
+                details.html('服务未运行');
+            }
+        }
+
+        function startService() {
+            if (typeof showToast !== 'function') {
+                alert('正在启动服务...');
+            } else {
+                showToast('info', '正在启动服务...');
+            }
+            $.ajax({
+                url: '/api/admin/firewall/start',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已启动');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.msg || '启动失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '启动失败，请检查日志');
+                }
+            });
+        }
+
+        function stopService() {
+            if (!confirm('确定要停止防火墙服务吗？')) return;
+            if (typeof showToast !== 'function') {
+                alert('正在停止服务...');
+            } else {
+                showToast('info', '正在停止服务...');
+            }
+            $.ajax({
+                url: '/api/admin/firewall/stop',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已停止');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.msg || '停止失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '停止失败，请检查日志');
+                }
+            });
+        }
+
+        function restartService() {
+            showToast('info', '正在重启服务...');
+            $.ajax({
+                url: '/api/admin/firewall/restart',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已重启');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.msg || '重启失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '重启失败，请检查日志');
+                }
+            });
+        }
+
+        function refreshLogs() {
+            $.ajax({
+                url: '/api/admin/firewall/logs?lines=50',
+                method: 'GET',
+                success: function(res) {
+                    if (res.code === 200 && res.data.logs) {
+                        const logs = res.data.logs.trim();
+                        if (logs) {
+                            $('#logsContainer').text(logs);
+                        } else {
+                            $('#logsContainer').html('<div class="text-gray-500">暂无日志</div>');
+                        }
+                        
+                        const container = $('#logsContainer')[0];
+                        if (container) {
+                            container.scrollTop = container.scrollHeight;
+                        }
+                    } else {
+                        $('#logsContainer').html('<div class="text-gray-500">无法加载日志</div>');
+                    }
+                },
+                error: function() {
+                    $('#logsContainer').html('<div class="text-red-500">加载日志失败</div>');
+                }
+            });
+        }
+
+        function clearLogs() {
+            if (!confirm('确定要清空所有日志吗？')) return;
+            $.ajax({
+                url: '/api/admin/firewall/logs',
+                method: 'DELETE',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', '日志已清空');
+                        refreshLogs();
+                    } else {
+                        showToast('error', '清空失败');
+                    }
+                }
+            });
+        }
+    </script>
+</body>
+</html>
+{{end}}

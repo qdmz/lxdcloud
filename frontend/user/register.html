@@ -1,0 +1,39 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>注册账号 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/style.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-logo" id="brandLogo">L</div>
+        <h1 id="brandName">LXD 容器面板</h1>
+        <p>注册账号并邮件激活后即可订购产品</p>
+      </div>
+      <div id="errorMsg" class="login-error hidden"></div>
+      <form id="registerForm" style="display:flex;flex-direction:column;gap:14px">
+        <div class="field"><label>用户名</label>
+          <input class="input" name="username" type="text" placeholder="登录用户名" autocomplete="username" spellcheck="false" required></div>
+        <div class="field"><label>邮箱</label>
+          <input class="input" name="email" type="email" placeholder="用于激活与找回密码" autocomplete="email" required></div>
+        <div class="field"><label>密码</label>
+          <input class="input" name="password" type="password" placeholder="至少 6 位" autocomplete="new-password" minlength="6" required></div>
+        <div class="field"><label>确认密码</label>
+          <input class="input" name="password2" type="password" placeholder="再次输入密码" autocomplete="new-password" minlength="6" required></div>
+        <button class="btn btn-primary btn-block" type="submit" style="margin-top:4px">注 册</button>
+      </form>
+      <div class="login-tip"><span style="flex-shrink:0">ℹ</span>
+        <span>注册后需通过邮箱激活链接完成激活，未激活账号无法登录。若站点未配置 SMTP，将自动直接激活。</span></div>
+      <p class="footer" style="margin-top:14px;padding:0"><a href="login.html" style="color:var(--accent)">已有账号？返回登录</a></p>
+    </div>
+  </div>
+  <script src="../js/app.js?v=2.4"></script>
+  <script src="../js/user-register.js?v=2.4"></script>
+</body>
+</html>

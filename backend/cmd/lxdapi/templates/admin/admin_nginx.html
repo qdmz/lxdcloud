@@ -1,0 +1,838 @@
+{{define "admin/admin_nginx.html"}}
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - Nginx反向代理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet" type="text/css" />
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="min-h-screen flex flex-col">
+    {{template "admin/admin_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12">
+
+        <div class="flex flex-col lg:flex-row lg:justify-between lg:items-center gap-4 mb-6">
+            <div class="px-4 py-3 rounded-lg shadow-sm" style="background-color: rgba(255, 255, 255, 0.85);">
+                <h1 class="text-2xl lg:text-3xl font-bold text-gray-800 flex items-center gap-3">
+                    <span class="iconify text-blue-600" data-icon="mdi:web" data-width="28"></span>
+                    Nginx反向代理
+                </h1>
+                <p class="text-sm lg:text-base text-gray-600 mt-1">HTTP/HTTPS 反向代理规则管理</p>
+            </div>
+            <div class="flex gap-2">
+                <button onclick="showRestrictionsModal()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 15v2m-6 4h12a2 2 0 002-2v-6a2 2 0 00-2-2H6a2 2 0 00-2 2v6a2 2 0 002 2zm10-10V7a4 4 0 00-8 0v4h8z"></path>
+                    </svg>
+                    域名/IP限制设置
+                </button>
+                <button id="btnSelectAll" onclick="toggleSelectAllBtn()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button onclick="window.location.reload()" class="px-3 py-2 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-4">
+                    <div>
+                        <h2 class="text-sm font-semibold text-gray-800 mb-1" id="statusText">Nginx 加载中...</h2>
+                        <div id="statusDetails" class="text-xs text-gray-600"></div>
+                    </div>
+                </div>
+                <div class="flex gap-2">
+                    <button id="btnStart" onclick="startNginx()" class="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded transition">启动</button>
+                    <button id="btnStop" onclick="stopNginx()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">停止</button>
+                    <button id="btnRestart" onclick="restartNginx()" class="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition">重启</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">容器:</span>
+                    <input type="text" id="containerFilter" placeholder="输入容器名称" onkeyup="filterProxies()" class="input input-bordered input-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">协议:</span>
+                    <select id="protocolFilter" onchange="filterProxies()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">全部</option>
+                        <option value="http">HTTP</option>
+                        <option value="https">HTTPS</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">每页显示:</span>
+                    <select id="pageSize" onchange="changePageSize()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="25">25 条</option>
+                        <option value="50">50 条</option>
+                        <option value="100">100 条</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+            </div>
+            <div class="text-xs text-gray-600">
+                <span id="pageInfo"></span>
+            </div>
+        </div>
+
+        <div id="batchOperationBar" class="bg-red-50 rounded-lg border border-red-200 p-3 mb-4" style="display: none;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-red-900">已选择 <span id="selectedCount">0</span> 个规则</span>
+                    <button onclick="clearSelection()" class="text-xs text-red-600 hover:text-red-800 underline">清除选择</button>
+                </div>
+                <div class="flex gap-2">
+                    <button onclick="batchDeleteProxies()" class="px-3 py-1.5 text-xs font-medium text-red-700 bg-red-100 hover:bg-red-200 border border-red-300 rounded transition">批量删除</button>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200" id="proxyTable">
+            <div class="p-8 text-center text-gray-500">
+                <span class="iconify animate-pulse" data-icon="mdi:loading" data-width="24"></span>
+                <p>加载中...</p>
+            </div>
+        </div>
+
+        <div id="paginationContainer" class="mt-4 flex justify-center" style="display: none;">
+            <div class="join">
+                <button id="prevPage" onclick="goToPage(currentPage - 1)" class="join-item btn btn-sm content-box" style="border-color: #d1d5db;">«</button>
+                <button class="join-item btn btn-sm content-box" style="border-color: #d1d5db;">第 <span id="currentPageNum">1</span> 页</button>
+                <button id="nextPage" onclick="goToPage(currentPage + 1)" class="join-item btn btn-sm content-box" style="border-color: #d1d5db;">»</button>
+            </div>
+        </div>
+
+    <dialog id="proxyModal" class="modal">
+        <div class="modal-box max-w-2xl">
+            <h3 class="font-bold text-lg mb-4" id="modalTitle">创建反向代理</h3>
+            <form id="proxyForm" class="space-y-4">
+                <input type="hidden" id="proxyId">
+                
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">域名</span></label>
+                        <input type="text" id="domain" class="input input-bordered input-sm" placeholder="example.com" required>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">协议</span></label>
+                        <select id="protocol" class="select select-bordered select-sm" onchange="toggleSSLFields()" required>
+                            <option value="http">HTTP</option>
+                            <option value="https">HTTPS</option>
+                        </select>
+                    </div>
+                </div>
+
+                <div class="grid grid-cols-2 gap-4">
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">容器名称</span></label>
+                        <input type="text" id="containerName" class="input input-bordered input-sm" placeholder="web-server" required list="containerList" onchange="checkContainerQuota()">
+                        <datalist id="containerList"></datalist>
+                        <div id="quotaInfo" class="text-xs mt-1" style="display: none;"></div>
+                    </div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">目标端口</span></label>
+                        <input type="number" id="targetPort" class="input input-bordered input-sm" placeholder="8080" min="1" max="65535" required>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text">目标IP</span></label>
+                    <input type="text" id="targetIP" class="input input-bordered input-sm" placeholder="留空则自动使用容器内网IP">
+                </div>
+
+                <div id="sslSection" style="display: none;">
+                    <div class="divider">SSL证书配置</div>
+                    
+                    <div class="form-control">
+                        <label class="label"><span class="label-text">证书类型</span></label>
+                        <div class="flex gap-4">
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="certType" value="auto" class="radio radio-sm" checked onchange="toggleCertFields()">
+                                <span class="label-text">自动生成</span>
+                            </label>
+                            <label class="label cursor-pointer gap-2">
+                                <input type="radio" name="certType" value="custom" class="radio radio-sm" onchange="toggleCertFields()">
+                                <span class="label-text">上传证书</span>
+                            </label>
+                        </div>
+                    </div>
+
+                    <div id="customCertFields" style="display: none;">
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">SSL证书</span></label>
+                            <textarea id="sslCert" class="textarea textarea-bordered h-24 font-mono text-xs" placeholder="-----BEGIN CERTIFICATE-----"></textarea>
+                        </div>
+                        
+                        <div class="form-control">
+                            <label class="label"><span class="label-text">SSL私钥</span></label>
+                            <textarea id="sslKey" class="textarea textarea-bordered h-24 font-mono text-xs" placeholder="-----BEGIN PRIVATE KEY-----"></textarea>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="form-control">
+                    <label class="label"><span class="label-text">描述</span></label>
+                    <textarea id="description" class="textarea textarea-bordered h-20" placeholder="规则描述"></textarea>
+                </div>
+
+                <div class="modal-action">
+                    <button type="button" onclick="closeModal()" class="btn btn-sm">取消</button>
+                    <button type="submit" class="btn btn-sm btn-primary">保存</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <dialog id="restrictionsModal" class="modal">
+        <div class="modal-box max-w-lg">
+            <h3 class="font-bold text-lg mb-4">域名/IP限制设置</h3>
+            <div class="mb-4">
+                <textarea id="restrictionsList" class="textarea textarea-bordered w-full h-48 text-xs font-mono" placeholder="一行一个域名或IP"></textarea>
+            </div>
+            <div class="modal-action">
+                <button type="button" onclick="closeRestrictionsModal()" class="btn btn-sm">取消</button>
+                <button type="button" onclick="saveRestrictions()" class="btn btn-sm btn-primary">保存</button>
+            </div>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <script>
+        let allProxies = [];
+        let filteredData = [];
+        let pageSize = 25;
+        let currentPage = 1;
+        let totalPages = 1;
+        let config = null;
+
+        $(document).ready(function() {
+            loadStatus();
+            loadProxies();
+            loadContainers();
+            loadRestrictions();
+            setInterval(loadStatus, 5000);
+        });
+
+        function loadStatus() {
+            $.ajax({
+                url: '/api/admin/nginx/status',
+                method: 'GET',
+                success: function(res) {
+                    if (res.code === 200 && res.data) {
+                        updateStatusDisplay(res.data);
+                    } else {
+                        updateStatusDisplay({running: false});
+                    }
+                },
+                error: function() {
+                    updateStatusDisplay({running: false});
+                }
+            });
+        }
+
+        function updateStatusDisplay(status) {
+            const statusText = $('#statusText');
+            const details = $('#statusDetails');
+            
+            if (status && status.running === true) {
+                const version = status.version || '未知';
+                statusText.html(`Nginx ${version} 运行中`);
+                statusText.removeClass('text-gray-700').addClass('text-green-700');
+                const proxies = status.active_proxies || 0;
+                const uptime = status.uptime || '刚启动';
+                details.html(`活跃规则: ${proxies} | 运行时间: ${uptime}`);
+            } else {
+                statusText.html('Nginx 已停止');
+                statusText.removeClass('text-green-700').addClass('text-gray-700');
+                details.html('服务未运行');
+            }
+        }
+
+        function startNginx() {
+            if (typeof showToast !== 'function') {
+                alert('正在启动服务...');
+            } else {
+                showToast('info', '正在启动服务...');
+            }
+            $.ajax({
+                url: '/api/admin/nginx/start',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已启动');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.message || '启动失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '启动失败，请检查日志');
+                }
+            });
+        }
+
+        function stopNginx() {
+            if (!confirm('确定要停止Nginx服务吗？')) return;
+            if (typeof showToast !== 'function') {
+                alert('正在停止服务...');
+            } else {
+                showToast('info', '正在停止服务...');
+            }
+            $.ajax({
+                url: '/api/admin/nginx/stop',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已停止');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.message || '停止失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '停止失败，请检查日志');
+                }
+            });
+        }
+
+        function restartNginx() {
+            if (typeof showToast !== 'function') {
+                alert('正在重启服务...');
+            } else {
+                showToast('info', '正在重启服务...');
+            }
+            $.ajax({
+                url: '/api/admin/nginx/restart',
+                method: 'POST',
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', res.data.message || '服务已重启');
+                        setTimeout(loadStatus, 500);
+                    } else {
+                        showToast('error', res.message || '重启失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '重启失败，请检查日志');
+                }
+            });
+        }
+
+        async function loadRestrictions() {
+            try {
+                const response = await fetch('/api/admin/nginx/restrictions');
+                const result = await response.json();
+                if (result.code === 200) {
+                    const domains = (result.data.restricted_domains || '').split('\n').filter(x => x.trim());
+                    const ips = (result.data.restricted_ips || '').split('\n').filter(x => x.trim());
+                    $('#restrictionsList').val([...domains, ...ips].join('\n'));
+                }
+            } catch (error) {
+                console.error('加载限制设置失败:', error);
+            }
+        }
+
+        function showRestrictionsModal() {
+            loadRestrictions();
+            document.getElementById('restrictionsModal').showModal();
+        }
+
+        function closeRestrictionsModal() {
+            document.getElementById('restrictionsModal').close();
+        }
+
+        function saveRestrictions() {
+            $.ajax({
+                url: '/api/admin/nginx/restrictions',
+                method: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify({
+                    restricted_domains: $('#restrictionsList').val(),
+                    restricted_ips: ''
+                }),
+                success: function(res) {
+                    if (res.code === 200) {
+                        showToast('success', '保存成功');
+                        closeRestrictionsModal();
+                    } else {
+                        showToast('error', res.message || '保存失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '保存失败');
+                }
+            });
+        }
+
+        async function loadProxies() {
+            try {
+                const response = await fetch('/api/admin/nginx/proxies');
+                const result = await response.json();
+                if (result.code === 200) {
+                    allProxies = result.data || [];
+                    filterProxies();
+                } else {
+                    $('#proxyTable').html('<div class="p-8 text-center text-gray-500">暂无反向代理规则</div>');
+                }
+            } catch (error) {
+                console.error('加载失败:', error);
+                $('#proxyTable').html('<div class="p-8 text-center text-red-500">加载失败</div>');
+            }
+        }
+
+        function filterProxies() {
+            const containerFilter = $('#containerFilter').val().toLowerCase();
+            const protocolFilter = $('#protocolFilter').val();
+            
+            filteredData = allProxies;
+            if (containerFilter) {
+                filteredData = filteredData.filter(p => p.container_name.toLowerCase().includes(containerFilter));
+            }
+            if (protocolFilter) {
+                filteredData = filteredData.filter(p => p.protocol === protocolFilter);
+            }
+            
+            currentPage = 1;
+            renderProxies();
+        }
+
+        function getPageData() {
+            if (pageSize === 'all') return filteredData;
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size;
+            return filteredData.slice(start, start + size);
+        }
+
+        function updatePaginationInfo() {
+            if (pageSize === 'all') {
+                $('#paginationContainer').hide();
+                $('#pageInfo').text(`共 ${filteredData.length} 条`);
+                return;
+            }
+            
+            const size = parseInt(pageSize);
+            totalPages = Math.ceil(filteredData.length / size);
+            if (currentPage > totalPages) currentPage = totalPages || 1;
+            
+            const start = (currentPage - 1) * size + 1;
+            const end = Math.min(currentPage * size, filteredData.length);
+            
+            $('#pageInfo').text(`共 ${filteredData.length} 条 (显示 ${start}-${end})`);
+            $('#currentPageNum').text(currentPage);
+            $('#prevPage').prop('disabled', currentPage === 1);
+            $('#nextPage').prop('disabled', currentPage === totalPages);
+            $('#paginationContainer').show();
+        }
+
+        function changePageSize() {
+            pageSize = $('#pageSize').val();
+            currentPage = 1;
+            renderProxies();
+        }
+
+        function goToPage(page) {
+            if (page < 1 || page > totalPages) return;
+            currentPage = page;
+            renderProxies();
+            updatePaginationInfo();
+        }
+
+        function renderProxies() {
+            if (!filteredData || filteredData.length === 0) {
+                $('#proxyTable').html('<div class="p-8 text-center text-gray-500">暂无反向代理规则</div>');
+                $('#paginationContainer').hide();
+                return;
+            }
+
+            const pageData = getPageData();
+
+            let html = `
+                <div class="overflow-x-auto">
+                    <table class="table table-xs">
+                        <thead>
+                            <tr class="bg-gray-50">
+                                <th class="text-xs text-gray-600">
+                                    <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="checkbox checkbox-xs">
+                                </th>
+                                <th class="text-xs text-gray-600">ID</th>
+                                <th class="text-xs text-gray-600">域名</th>
+                                <th class="text-xs text-gray-600">协议</th>
+                                <th class="text-xs text-gray-600">容器</th>
+                                <th class="text-xs text-gray-600">目标地址</th>
+                                <th class="text-xs text-gray-600">SSL</th>
+                                <th class="text-xs text-gray-600">描述</th>
+                                <th class="text-xs text-gray-600">创建时间</th>
+                                <th class="text-xs text-gray-600">操作</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+            `;
+
+            pageData.forEach(proxy => {
+                const protocolBadge = proxy.protocol === 'https' 
+                    ? '<span class="px-2 py-1 text-xs font-medium text-green-700 bg-green-100 rounded">HTTPS</span>'
+                    : '<span class="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-100 rounded">HTTP</span>';
+                
+                const sslBadge = proxy.enable_ssl 
+                    ? '<span class="text-xs text-green-600">是</span>'
+                    : '<span class="text-xs text-gray-400">否</span>';
+                
+                html += `
+                    <tr class="hover">
+                        <td>
+                            <input type="checkbox" class="proxy-checkbox checkbox checkbox-xs" value="${proxy.id}" onchange="updateBatchButtons()">
+                        </td>
+                        <td class="font-mono text-gray-500">#${proxy.id}</td>
+                        <td class="font-medium text-gray-900">${escapeHtml(proxy.domain)}</td>
+                        <td>${protocolBadge}</td>
+                        <td class="text-gray-700">${escapeHtml(proxy.container_name)}</td>
+                        <td class="font-mono text-gray-700">${escapeHtml(proxy.target_ip)}:${proxy.target_port}</td>
+                        <td>${sslBadge}</td>
+                        <td class="text-gray-600">${escapeHtml(proxy.description || '-')}</td>
+                        <td class="text-gray-500">${proxy.created_at ? new Date(proxy.created_at).toLocaleString('zh-CN') : '-'}</td>
+                        <td>
+                            <div class="flex gap-1">
+                                <button onclick="editProxy(${proxy.id})" class="px-2 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded transition">编辑</button>
+                                <button onclick="deleteProxy(${proxy.id})" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += '</tbody></table></div>';
+            $('#proxyTable').html(html);
+            updatePaginationInfo();
+        }
+
+        function toggleSelectAllBtn() {
+            const allChecked = $('.proxy-checkbox').length > 0 && $('.proxy-checkbox:checked').length === $('.proxy-checkbox').length;
+            if (allChecked) {
+                $('.proxy-checkbox').prop('checked', false);
+                $('#selectAllText').text('全选');
+            } else {
+                $('.proxy-checkbox').prop('checked', true);
+                $('#selectAllText').text('取消全选');
+            }
+            $('#selectAll').prop('checked', !allChecked);
+            updateBatchButtons();
+        }
+
+        function toggleSelectAll() {
+            const selectAll = $('#selectAll').prop('checked');
+            $('.proxy-checkbox').prop('checked', selectAll);
+            $('#selectAllText').text(selectAll ? '取消全选' : '全选');
+            updateBatchButtons();
+        }
+
+        function updateBatchButtons() {
+            const selected = $('.proxy-checkbox:checked').length;
+            $('#selectedCount').text(selected);
+            
+            if (selected > 0) {
+                $('#batchOperationBar').slideDown(200);
+                const allChecked = $('.proxy-checkbox').length > 0 && selected === $('.proxy-checkbox').length;
+                $('#selectAllText').text(allChecked ? '取消全选' : '全选');
+            } else {
+                $('#batchOperationBar').slideUp(200);
+                $('#selectAllText').text('全选');
+            }
+        }
+
+        function clearSelection() {
+            $('.proxy-checkbox').prop('checked', false);
+            $('#selectAll').prop('checked', false);
+            updateBatchButtons();
+        }
+
+        function showCreateModal() {
+            $('#modalTitle').text('创建反向代理');
+            $('#proxyForm')[0].reset();
+            $('#proxyId').val('');
+            $('#sslSection').hide();
+            $('#customCertFields').hide();
+            document.getElementById('proxyModal').showModal();
+        }
+
+        function editProxy(id) {
+            const proxy = allProxies.find(p => p.id === id);
+            if (!proxy) return;
+            
+            $('#modalTitle').text('编辑反向代理');
+            $('#proxyId').val(proxy.id);
+            $('#domain').val(proxy.domain);
+            $('#protocol').val(proxy.protocol);
+            $('#containerName').val(proxy.container_name);
+            $('#targetPort').val(proxy.target_port);
+            $('#targetIP').val(proxy.target_ip);
+            $('#description').val(proxy.description);
+            
+            if (proxy.protocol === 'https') {
+                $('#sslSection').show();
+                if (proxy.ssl_cert && proxy.ssl_key) {
+                    $('input[name="certType"][value="custom"]').prop('checked', true);
+                    $('#customCertFields').show();
+                    $('#sslCert').val(proxy.ssl_cert);
+                    $('#sslKey').val(proxy.ssl_key);
+                }
+            }
+            
+            document.getElementById('proxyModal').showModal();
+        }
+
+        function deleteProxy(id) {
+            if (!confirm('确定要删除这个反向代理规则吗？')) return;
+            
+            $.ajax({
+                url: `/api/admin/nginx/proxies/${id}`,
+                type: 'DELETE',
+                success: function(result) {
+                    if (result.code === 200) {
+                        alert('删除成功');
+                        loadProxies();
+                    } else {
+                        alert(result.message || '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    const msg = xhr.responseJSON && xhr.responseJSON.message ? xhr.responseJSON.message : '删除失败';
+                    alert(msg);
+                }
+            });
+        }
+
+        async function batchDeleteProxies() {
+            const selected = $('.proxy-checkbox:checked').map(function() {
+                return parseInt($(this).val());
+            }).get();
+            
+            if (selected.length === 0) return;
+            
+            if (!confirm(`确定要删除选中的 ${selected.length} 个反向代理规则吗？`)) return;
+            
+            showToast('info', `正在删除 ${selected.length} 个规则...`);
+
+            try {
+                const result = await $.ajax({
+                    url: '/api/admin/nginx/proxies/batch-delete',
+                    type: 'POST',
+                    contentType: 'application/json',
+                    data: JSON.stringify({ids: selected})
+                });
+                if (result.code === 200) {
+                    showToast('success', `批量删除完成: 成功${result.data.deleted}个`);
+                } else {
+                    showToast('error', result.msg || '批量删除失败');
+                }
+            } catch (e) {
+                showToast('error', '批量删除失败');
+            }
+
+            clearSelection();
+            loadProxies();
+        }
+
+        function toggleSSLFields() {
+            const protocol = $('#protocol').val();
+            if (protocol === 'https') {
+                $('#sslSection').show();
+            } else {
+                $('#sslSection').hide();
+            }
+        }
+
+        function toggleCertFields() {
+            const certType = $('input[name="certType"]:checked').val();
+            if (certType === 'custom') {
+                $('#customCertFields').show();
+            } else {
+                $('#customCertFields').hide();
+            }
+        }
+
+        function closeModal() {
+            document.getElementById('proxyModal').close();
+        }
+
+        $('#proxyForm').on('submit', async function(e) {
+            e.preventDefault();
+            
+            const id = $('#proxyId').val();
+            const containerName = $('#containerName').val();
+            
+            if (!id) {
+                const container = containersCache.find(c => c.name === containerName);
+                if (container && container.reverse_proxy_limit > 0) {
+                    const response = await fetch(`/api/admin/nginx/proxies?container_name=${containerName}`);
+                    const result = await response.json();
+                    if (result.code === 200) {
+                        const proxies = result.data || [];
+                        const used = proxies.filter(p => p.status === 'active').length;
+                        if (used >= container.reverse_proxy_limit) {
+                            alert(`配额已用完 (${used}/${container.reverse_proxy_limit})，无法创建新规则`);
+                            return;
+                        }
+                    }
+                }
+            }
+            
+            const data = {
+                domain: $('#domain').val(),
+                protocol: $('#protocol').val(),
+                container_name: containerName,
+                target_port: parseInt($('#targetPort').val()),
+                target_ip: $('#targetIP').val(),
+                description: $('#description').val(),
+                status: 'active'
+            };
+            
+            if (data.protocol === 'https') {
+                data.enable_ssl = true;
+                const certType = $('input[name="certType"]:checked').val();
+                if (certType === 'custom') {
+                    data.ssl_cert = $('#sslCert').val();
+                    data.ssl_key = $('#sslKey').val();
+                    
+                    if (!data.ssl_cert || !data.ssl_key) {
+                        alert('请提供SSL证书和私钥');
+                        return;
+                    }
+                }
+            }
+            
+            try {
+                const url = id ? `/api/admin/nginx/proxies/${id}` : '/api/admin/nginx/proxies';
+                const method = id ? 'PUT' : 'POST';
+                
+                const response = await fetch(url, {
+                    method: method,
+                    headers: {'Content-Type': 'application/json'},
+                    body: JSON.stringify(data)
+                });
+                
+                const result = await response.json();
+                if (result.code === 200) {
+                    alert(id ? '更新成功' : '创建成功');
+                    closeModal();
+                    loadProxies();
+                } else {
+                    alert(result.message || '操作失败');
+                }
+            } catch (error) {
+                alert('操作失败: ' + error.message);
+            }
+        });
+
+        let containersCache = [];
+
+        async function loadContainers() {
+            try {
+                const response = await fetch('/api/admin/containers');
+                const result = await response.json();
+                if (result.code === 200) {
+                    containersCache = result.data || [];
+                    let options = '';
+                    containersCache.forEach(c => {
+                        options += `<option value="${escapeHtml(c.name)}">`;
+                    });
+                    $('#containerList').html(options);
+                }
+            } catch (error) {
+                console.error('加载容器列表失败:', error);
+            }
+        }
+
+        async function checkContainerQuota() {
+            const containerName = $('#containerName').val();
+            if (!containerName) {
+                $('#quotaInfo').hide();
+                return;
+            }
+            
+            const container = containersCache.find(c => c.name === containerName);
+            if (!container) {
+                $('#quotaInfo').hide();
+                return;
+            }
+            
+            try {
+                const response = await fetch(`/api/admin/nginx/proxies?container_name=${containerName}`);
+                const result = await response.json();
+                if (result.code === 200) {
+                    const proxies = result.data || [];
+                    const used = proxies.filter(p => p.status === 'active').length;
+                    const limit = container.reverse_proxy_limit || 0;
+                    
+                    if (limit > 0) {
+                        const remaining = limit - used;
+                        if (remaining <= 0) {
+                            $('#quotaInfo').html(`<span class="text-red-600">配额已用完 (${used}/${limit})</span>`).show();
+                        } else if (remaining <= 2) {
+                            $('#quotaInfo').html(`<span class="text-orange-600">配额即将用完 (${used}/${limit}，剩余${remaining})</span>`).show();
+                        } else {
+                            $('#quotaInfo').html(`<span class="text-gray-600">已使用 ${used}/${limit}</span>`).show();
+                        }
+                    } else {
+                        $('#quotaInfo').html(`<span class="text-gray-600">已使用 ${used} 个（无限制）</span>`).show();
+                    }
+                }
+            } catch (error) {
+                console.error('检查配额失败:', error);
+            }
+        }
+
+        function escapeHtml(text) {
+            const map = {
+                '&': '&amp;',
+                '<': '&lt;',
+                '>': '&gt;',
+                '"': '&quot;',
+                "'": '&#039;'
+            };
+            return String(text || '').replace(/[&<>"']/g, m => map[m]);
+        }
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "admin/admin_footer.html" .}}
+
+</body>
+</html>
+{{end}}

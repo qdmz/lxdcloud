@@ -1,0 +1,1454 @@
+<!DOCTYPE html>
+<html lang="zh-CN" data-theme="light">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>{{ .title }} - 容器管理</title>
+    {{if .FaviconUrl}}<link rel="icon" href="{{.FaviconUrl}}">{{end}}
+    {{if .UseLocalCDN}}
+    <link href="/static/css/daisyui.min.css" rel="stylesheet">
+    <script src="/static/js/tailwindcss.js"></script>
+    <script src="/static/js/jquery.min.js"></script>
+    {{else}}
+    <link href="https://cdn.jsdelivr.net/npm/daisyui@4.12.14/dist/full.min.css" rel="stylesheet">
+    <script src="https://cdn.tailwindcss.com"></script>
+    <script src="https://code.jquery.com/jquery-3.7.1.min.js"></script>
+    {{end}}
+    <style>
+        :root {
+            --content-opacity: {{if .ContentOpacity}}{{.ContentOpacity}}{{else}}85{{end}};
+            --user-notice-opacity: {{if .UserNoticeOpacity}}{{.UserNoticeOpacity}}{{else}}85{{end}};
+        }
+        .content-box {
+            background-color: rgba(255, 255, 255, calc(var(--content-opacity) / 100)) !important;
+        }
+        .notice-box {
+            background-color: rgba(255, 255, 255, calc(var(--user-notice-opacity) / 100)) !important;
+        }
+    </style>
+</head>
+<body class="relative min-h-screen flex flex-col">
+    <div id="noticeFloat" style="display: none; position: fixed; top: 80px; left: 20px; z-index: 9999; max-width: 400px; width: calc(100% - 40px);">
+        <div class="notice-box rounded-xl shadow-xl border border-blue-200 overflow-hidden">
+            <div class="bg-gradient-to-r from-blue-500 to-blue-600 px-4 py-3 flex items-center justify-between">
+                <div class="flex items-center gap-2 text-white">
+                    <svg class="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
+                        <path d="M10 2a6 6 0 00-6 6v3.586l-.707.707A1 1 0 004 14h12a1 1 0 00.707-1.707L16 11.586V8a6 6 0 00-6-6zM10 18a3 3 0 01-3-3h6a3 3 0 01-3 3z"/>
+                    </svg>
+                    <span class="font-semibold text-sm">系统公告</span>
+                </div>
+                <button onclick="closeNotice()" class="text-white hover:bg-white hover:bg-opacity-20 p-1 rounded transition">
+                    <svg class="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"/>
+                    </svg>
+                </button>
+            </div>
+            <div class="p-4">
+                <div id="noticeContent" class="text-gray-700 text-sm whitespace-pre-wrap leading-relaxed"></div>
+            </div>
+        </div>
+    </div>
+    
+    {{template "user/user_header.html" .}}
+    
+    <div class="flex-1 relative" style="{{if .BgImage}}background-image: url('{{.BgImage}}'); background-size: cover; background-position: center; background-attachment: fixed;{{else}}background-color: #f9fafb;{{end}}">
+        {{if .BgImage}}<div class="absolute inset-0 bg-white pointer-events-none" style="opacity: {{.BgOpacity}}%; z-index: 0;"></div>{{end}}
+        <div class="relative container mx-auto px-4 py-8 pb-12" style="z-index: 1;">
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <div class="flex flex-wrap items-center justify-between gap-3">
+                <div class="flex flex-wrap items-center gap-4 text-sm">
+                    <div><span class="text-gray-500">用户名:</span> <span class="font-semibold text-gray-800" id="username">-</span></div>
+                    <div><span class="text-gray-500">状态:</span> <span id="userStatus">-</span></div>
+                </div>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4">
+            <h3 class="text-sm font-bold text-gray-800 mb-3">我的配额 (已用 / 限制)</h3>
+            <div class="flex flex-wrap gap-x-6 gap-y-2 text-sm">
+                <div><span class="text-gray-500">CPU:</span> <span class="font-medium" id="cpuUsed">0</span> / <span class="font-medium" id="cpuQuota">0</span></div>
+                <div><span class="text-gray-500">单容器最大CPU:</span> <span class="font-medium" id="maxCpuPerContainer">0</span></div>
+                <div><span class="text-gray-500">内存:</span> <span class="font-medium" id="memUsed">0</span> / <span class="font-medium" id="memoryQuota">0</span> MB</div>
+                <div><span class="text-gray-500">磁盘:</span> <span class="font-medium" id="diskUsed">0</span> / <span class="font-medium" id="diskQuota">0</span> MB</div>
+                <div><span class="text-gray-500">流量:</span> <span class="font-medium" id="trafficUsed">0</span> / <span class="font-medium" id="trafficLimit">0</span> GB</div>
+                <div><span class="text-gray-500">IPv4池:</span> <span class="font-medium" id="ipv4PoolUsed">0</span> / <span class="font-medium" id="ipv4PoolLimit">0</span></div>
+                <div><span class="text-gray-500">IPv4映射:</span> <span class="font-medium" id="ipv4MapUsed">0</span> / <span class="font-medium" id="ipv4MappingLimit">0</span></div>
+                <div><span class="text-gray-500">IPv6池:</span> <span class="font-medium" id="ipv6PoolUsed">0</span> / <span class="font-medium" id="ipv6PoolLimit">0</span></div>
+                <div><span class="text-gray-500">IPv6映射:</span> <span class="font-medium" id="ipv6MapUsed">0</span> / <span class="font-medium" id="ipv6MappingLimit">0</span></div>
+                <div><span class="text-gray-500">反代:</span> <span class="font-medium" id="proxyUsed">0</span> / <span class="font-medium" id="reverseProxyLimit">0</span></div>
+            </div>
+        </div>
+
+        <div class="flex justify-between items-center mb-4">
+            <div class="text-sm font-bold text-gray-800">容器列表</div>
+            <div class="flex gap-2">
+                <button onclick="showCreateModal()" class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M12 4v16m8-8H4"></path>
+                    </svg>
+                    创建容器
+                </button>
+                <div class="join">
+                    <button id="btnCardView" onclick="switchView('card')" class="px-2 py-1.5 text-xs font-medium content-box border border-gray-200 join-item hover:bg-gray-50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2V6zM14 6a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2V6zM4 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2H6a2 2 0 01-2-2v-2zM14 16a2 2 0 012-2h2a2 2 0 012 2v2a2 2 0 01-2 2h-2a2 2 0 01-2-2v-2z"></path>
+                        </svg>
+                    </button>
+                    <button id="btnListView" onclick="switchView('list')" class="px-2 py-1.5 text-xs font-medium content-box border border-gray-200 join-item hover:bg-gray-50">
+                        <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 6h16M4 12h16M4 18h16"></path>
+                        </svg>
+                    </button>
+                </div>
+                <button id="btnSelectAll" onclick="toggleSelectAllBtn()" class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z"></path>
+                    </svg>
+                    <span id="selectAllText">全选</span>
+                </button>
+                <button onclick="updateContainerList()" class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    更新
+                </button>
+                <button onclick="refreshContainers()" class="px-3 py-1.5 text-xs font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg transition flex items-center gap-1.5">
+                    <svg class="w-3.5 h-3.5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15"></path>
+                    </svg>
+                    刷新
+                </button>
+            </div>
+        </div>
+
+        <div class="content-box rounded-lg border border-gray-200 p-4 mb-4 flex items-center justify-between">
+            <div class="flex items-center gap-4">
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">每页显示:</span>
+                    <select id="pageSize" onchange="changePageSize()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="25">25 条</option>
+                        <option value="50">50 条</option>
+                        <option value="100">100 条</option>
+                        <option value="all">全部</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2">
+                    <span class="text-xs text-gray-600">排序:</span>
+                    <select id="sortField" onchange="changeSorting()" class="select select-bordered select-xs outline-none focus:ring-2 focus:ring-blue-500 focus:border-blue-500">
+                        <option value="">默认排序</option>
+                        <option value="cpu">CPU使用率</option>
+                        <option value="memory">内存使用量</option>
+                        <option value="disk">磁盘使用量</option>
+                        <option value="traffic">流量使用量</option>
+                    </select>
+                </div>
+                <div class="flex items-center gap-2" id="sortOrderContainer" style="display: none;">
+                    <button onclick="toggleSortOrder()" id="sortOrderBtn" class="px-2 py-1 text-xs font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded transition flex items-center gap-1">
+                        <svg id="sortOrderIcon" class="w-3 h-3" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>
+                        </svg>
+                        <span id="sortOrderText">升序</span>
+                    </button>
+                </div>
+            </div>
+            <div class="text-xs text-gray-600">
+                共 <span id="totalCount" class="font-bold text-gray-800">0</span> 个容器
+            </div>
+        </div>
+
+        <div id="batchOperationBar" class="bg-blue-50 rounded-lg border border-blue-200 p-3 mb-4" style="display: none;">
+            <div class="flex items-center justify-between">
+                <div class="flex items-center gap-2">
+                    <span class="text-sm font-medium text-blue-900">已选择 <span id="selectedCount">0</span> 个容器</span>
+                    <button onclick="clearSelection()" class="text-xs text-blue-600 hover:text-blue-800 underline">清除选择</button>
+                </div>
+                <div class="flex gap-2 flex-wrap">
+                    <button onclick="batchStart()" class="px-3 py-1.5 text-xs font-medium text-green-700 bg-green-50 hover:bg-green-100 border border-green-200 rounded-lg transition">启动</button>
+                    <button onclick="batchStop()" class="px-3 py-1.5 text-xs font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg transition">停止</button>
+                    <button onclick="batchRestart()" class="px-3 py-1.5 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded-lg transition">重启</button>
+                    <button onclick="batchSync()" class="px-3 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition">同步</button>
+                </div>
+            </div>
+        </div>
+
+        <div id="containersContent">
+            <p class="text-center py-8 text-gray-500">加载中...</p>
+        </div>
+    </div>
+
+    <div id="createModal" class="fixed inset-0 bg-black bg-opacity-50 hidden z-50 overflow-y-auto">
+        <div class="flex items-center justify-center min-h-screen p-4">
+            <div class="bg-white rounded-lg shadow-xl max-w-3xl w-full max-h-[90vh] overflow-y-auto">
+                <div class="sticky top-0 bg-white border-b border-gray-200 px-6 py-4 flex justify-between items-center">
+                    <h2 class="text-xl font-bold text-gray-800">创建容器</h2>
+                    <button onclick="hideCreateModal()" class="text-gray-400 hover:text-gray-600">
+                        <svg class="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                            <path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M6 18L18 6M6 6l12 12"></path>
+                        </svg>
+                    </button>
+                </div>
+                
+                <form id="createContainerForm" class="p-6">
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">基础配置</h3>
+                        <div class="mb-4">
+                            <label class="block text-sm font-medium text-gray-700 mb-1">备注</label>
+                            <input type="text" name="remark" maxlength="20" style="max-width: 20ch;" class="input input-bordered input-sm outline-none focus:ring-2 focus:ring-blue-500" placeholder="最多20个字符">
+                        </div>
+                        <div class="grid grid-cols-1 md:grid-cols-2 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">容器名称 <span class="text-red-500">*</span></label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="inputHostname" name="name" required class="input input-bordered input-sm flex-1 outline-none focus:ring-2 focus:ring-blue-500" placeholder="例如: my-container">
+                                    <button type="button" onclick="generateHostname()" class="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded">生成</button>
+                                </div>
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">Root密码</label>
+                                <div class="flex gap-2">
+                                    <input type="text" id="inputPassword" name="password" class="input input-bordered input-sm flex-1 outline-none focus:ring-2 focus:ring-blue-500" placeholder="留空自动生成">
+                                    <button type="button" onclick="generatePassword()" class="px-3 py-1 text-xs font-medium text-blue-700 bg-blue-50 hover:bg-blue-100 border border-blue-200 rounded">生成</button>
+                                </div>
+                            </div>
+                            <div class="md:col-span-2">
+                                <label class="block text-sm font-medium text-gray-700 mb-1">镜像 <span class="text-red-500">*</span></label>
+                                <select name="image" id="selectImage" required class="select select-bordered select-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                                    <option value="">请选择镜像</option>
+                                </select>
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">资源配置</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">CPU核心数 <span class="text-red-500">*</span></label>
+                                <input type="number" name="cpu" required value="1" min="1" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">内存 MB <span class="text-red-500">*</span></label>
+                                <input type="number" name="memory" required value="256" min="1" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">硬盘 MB <span class="text-red-500">*</span></label>
+                                <input type="number" name="disk" required value="512" min="1" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                    </div>
+
+                    <div class="mb-6">
+                        <h3 class="text-lg font-semibold text-gray-800 mb-4">规则配额</h3>
+                        <div class="grid grid-cols-1 md:grid-cols-3 gap-4">
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">月流量限制 GB</label>
+                                <input type="number" name="traffic_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">IPv4地址池</label>
+                                <input type="number" name="ipv4_pool_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">IPv4端口映射</label>
+                                <input type="number" name="ipv4_mapping_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">IPv6地址池</label>
+                                <input type="number" name="ipv6_pool_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">IPv6端口映射</label>
+                                <input type="number" name="ipv6_mapping_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                            <div>
+                                <label class="block text-sm font-medium text-gray-700 mb-1">反向代理</label>
+                                <input type="number" name="reverse_proxy_limit" value="0" min="0" class="input input-bordered input-sm w-full outline-none focus:ring-2 focus:ring-blue-500">
+                            </div>
+                        </div>
+                        <p class="text-xs text-gray-500 mt-2">0 表示无配额</p>
+                    </div>
+
+                    <div class="flex justify-end gap-3 pt-4 border-t">
+                        <button type="button" onclick="hideCreateModal()" class="px-4 py-2 text-sm font-medium text-gray-700 content-box border border-gray-300 rounded-lg hover:bg-gray-50">取消</button>
+                        <button type="submit" id="btnCreateSubmit" class="px-4 py-2 text-sm font-medium text-gray-700 content-box hover:bg-gray-50 border border-gray-200 rounded-lg">创建容器</button>
+                    </div>
+                </form>
+            </div>
+        </div>
+    </div>
+
+    <dialog id="updateConfigModal" class="modal">
+                        <div class="modal-box max-w-3xl">
+                            <h3 class="font-bold text-lg mb-4">更换配置 - <span id="configContainerName" class="text-teal-600"></span></h3>
+                            <form id="updateConfigForm" class="space-y-4">
+                                <input type="hidden" id="configTargetContainer" value="">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">备注</label>
+                                    <input type="text" id="configRemark" name="remark" maxlength="20" class="input input-bordered input-sm" style="max-width: 20ch;" placeholder="最多20个字符">
+                                </div>
+                                <div>
+                                    <h4 class="text-sm font-semibold text-gray-800 mb-3">资源配置</h4>                            <div class="grid grid-cols-3 gap-4">
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">CPU核心数 <span class="text-red-500">*</span></label>
+                                    <input type="number" id="configCpu" name="cpu" required min="1" class="input input-bordered input-sm w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">内存 MB <span class="text-red-500">*</span></label>
+                                    <input type="number" id="configMemory" name="memory" required min="1" class="input input-bordered input-sm w-full">
+                                </div>
+                                <div>
+                                    <label class="block text-xs font-medium text-gray-700 mb-1">硬盘 MB <span class="text-red-500">*</span></label>
+                                    <input type="number" id="configDisk" name="disk" required min="1" class="input input-bordered input-sm w-full">
+                                </div>
+                            </div>
+                        </div>
+                        <div>
+                            <h4 class="text-sm font-semibold text-gray-800 mb-3">规则配额</h4>                    <div class="grid grid-cols-3 gap-4">
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">月流量限制 GB</label>
+                            <input type="number" id="configTrafficLimit" name="traffic_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">IPv4地址池</label>
+                            <input type="number" id="configIPv4PoolLimit" name="ipv4_pool_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">IPv4端口映射</label>
+                            <input type="number" id="configIPv4MappingLimit" name="ipv4_mapping_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">IPv6地址池</label>
+                            <input type="number" id="configIPv6PoolLimit" name="ipv6_pool_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">IPv6端口映射</label>
+                            <input type="number" id="configIPv6MappingLimit" name="ipv6_mapping_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                        <div>
+                            <label class="block text-xs font-medium text-gray-700 mb-1">反向代理</label>
+                            <input type="number" id="configReverseProxyLimit" name="reverse_proxy_limit" min="0" class="input input-bordered input-sm w-full">
+                        </div>
+                    </div>
+                    <p class="text-xs text-gray-500 mt-2">0 表示无配额</p>
+                </div>
+                <div class="modal-action">
+                    <button type="button" onclick="closeUpdateConfigModal()" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-100 hover:bg-gray-200 border border-gray-300 rounded-lg">取消</button>
+                    <button type="submit" class="px-4 py-2 text-sm font-medium text-gray-700 bg-gray-50 hover:bg-gray-100 border border-gray-200 rounded-lg">确认更新</button>
+                </div>
+            </form>
+        </div>
+        <form method="dialog" class="modal-backdrop"><button>关闭</button></form>
+    </dialog>
+
+    <script>
+        let currentView = localStorage.getItem('containerView') || 'card';
+        let containersData = [];
+        let filteredData = [];
+        
+        let pageSize = 25;
+        let currentPage = 1;
+        let totalPages = 1;
+        
+        let sortField = '';
+        let sortOrder = 'asc';
+
+        let currentUser = {};
+        let currentStats = {};
+
+        $(document).ready(function() {
+            loadUserInfo();
+            loadContainers();
+            updateViewButtons();
+        });
+
+        function loadUserInfo() {
+            $.ajax({
+                url: '/api/user/info',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const user = result.data.user;
+                        const stats = result.data.stats;
+                        
+                        currentUser = user;
+                        currentStats = stats;
+                        
+                        $('#username').text(user.username);
+                        const statusBadge = user.status === 'active' 
+                            ? '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full">正常</span>'
+                            : '<span class="px-2 py-0.5 text-xs font-medium text-red-700 bg-red-100 rounded-full">禁用</span>';
+                        $('#userStatus').html(statusBadge);
+                        
+                        $('#cpuUsed').text(stats.used_cpu || 0);
+                        $('#cpuQuota').text(user.cpu_quota || 0);
+                        $('#maxCpuPerContainer').text(user.max_cpu_per_container || 0);
+                        $('#memUsed').text(stats.used_memory || 0);
+                        $('#memoryQuota').text(user.memory_quota || 0);
+                        $('#diskUsed').text(stats.used_disk || 0);
+                        $('#diskQuota').text(user.disk_quota || 0);
+                        $('#trafficUsed').text(formatTrafficGB(stats.used_traffic || 0));
+                        $('#trafficLimit').text(user.traffic_limit || 0);
+                        $('#ipv4PoolUsed').text(stats.used_ipv4_pool || 0);
+                        $('#ipv4PoolLimit').text(user.ipv4_pool_limit || 0);
+                        $('#ipv4MapUsed').text(stats.used_ipv4_map || 0);
+                        $('#ipv4MappingLimit').text(user.ipv4_mapping_limit || 0);
+                        $('#ipv6PoolUsed').text(stats.used_ipv6_pool || 0);
+                        $('#ipv6PoolLimit').text(user.ipv6_pool_limit || 0);
+                        $('#ipv6MapUsed').text(stats.used_ipv6_map || 0);
+                        $('#ipv6MappingLimit').text(user.ipv6_mapping_limit || 0);
+                        $('#proxyUsed').text(stats.used_proxy || 0);
+                        $('#reverseProxyLimit').text(user.reverse_proxy_limit || 0);
+                    }
+                }
+            });
+        }
+
+        function formatTrafficGB(bytes) {
+            if (!bytes || bytes === 0) return '0';
+            const gb = bytes / (1024 * 1024 * 1024);
+            return gb.toFixed(2);
+        }
+
+        function loadContainers() {
+            $('#containersContent').html('<p class="text-center py-8"><span class="loading loading-spinner loading-md"></span></p>');
+            
+            $.ajax({
+                url: '/api/user/containers',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        containersData = result.data.data || [];
+                        applyFiltersAndSort();
+                        renderContainers();
+                    } else {
+                        $('#containersContent').html('<p class="text-center py-8 text-error">加载失败: ' + (result.msg || result.message || '未知错误') + '</p>');
+                    }
+                },
+                error: function(xhr) {
+                    if (xhr.status === 401) {
+                        window.location.href = '/user/login';
+                        return;
+                    }
+                    let errorMsg = '加载失败';
+                    if (xhr.responseJSON && (xhr.responseJSON.msg || xhr.responseJSON.message)) {
+                        errorMsg = xhr.responseJSON.msg || xhr.responseJSON.message;
+                    }
+                    $('#containersContent').html('<p class="text-center py-8 text-error">' + errorMsg + '</p>');
+                }
+            });
+        }
+
+        function applyFiltersAndSort() {
+            filteredData = [...containersData];
+            
+            if (sortField) {
+                filteredData.sort((a, b) => {
+                    let valueA, valueB;
+                    
+                    switch(sortField) {
+                        case 'cpu':
+                            valueA = a.cpu_usage || 0;
+                            valueB = b.cpu_usage || 0;
+                            break;
+                        case 'memory':
+                            valueA = a.memory_usage_raw || 0;
+                            valueB = b.memory_usage_raw || 0;
+                            break;
+                        case 'disk':
+                            valueA = a.disk_usage_raw || 0;
+                            valueB = b.disk_usage_raw || 0;
+                            break;
+                        case 'traffic':
+                            valueA = a.traffic_usage_raw || 0;
+                            valueB = b.traffic_usage_raw || 0;
+                            break;
+                        default:
+                            return 0;
+                    }
+                    
+                    if (sortOrder === 'asc') {
+                        return valueA - valueB;
+                    } else {
+                        return valueB - valueA;
+                    }
+                });
+            }
+            
+            $('#totalCount').text(filteredData.length);
+            
+            if (pageSize === 'all') {
+                totalPages = 1;
+                currentPage = 1;
+            } else {
+                const size = parseInt(pageSize);
+                totalPages = Math.ceil(filteredData.length / size);
+                if (currentPage > totalPages) currentPage = totalPages || 1;
+            }
+        }
+        
+        function getPageData() {
+            if (pageSize === 'all') {
+                return filteredData;
+            }
+            
+            const size = parseInt(pageSize);
+            const start = (currentPage - 1) * size;
+            const end = start + size;
+            return filteredData.slice(start, end);
+        }
+
+        function renderContainers() {
+            if (filteredData.length === 0) {
+                $('#containersContent').html('<p class="text-center py-8 text-gray-500">暂无容器</p>');
+                return;
+            }
+
+            if (currentView === 'card') {
+                renderCardView();
+            } else {
+                renderListView();
+            }
+        }
+
+        function renderCardView() {
+            let dataToRender = getPageData();
+            
+            let html = '<div class="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">';
+            
+            dataToRender.forEach(c => {
+                const status = (c.status || '').toLowerCase();
+                const statusBadge = status === 'running' ? 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>在线</span>' : 
+                    status === 'stopped' ?
+                    '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">离线</span>' :
+                    '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">其他</span>';
+                
+                const memoryUsedMB = c.memory_usage_raw ? parseFloat(c.memory_usage_raw) / 1024 / 1024 : 0;
+                const memoryTotalStr = c.memory || '0';
+                const memoryTotalMB = parseMemoryString(memoryTotalStr);
+                const memoryUsed = formatMB(memoryUsedMB);
+                const memoryTotal = formatMB(memoryTotalMB);
+                const memoryDisplay = `${memoryUsed} / ${memoryTotal}`;
+                
+                const diskUsedMB = c.disk_usage_raw ? parseFloat(c.disk_usage_raw) / 1024 / 1024 : 0;
+                const diskTotalStr = c.disk || '0';
+                const diskTotalMB = parseMemoryString(diskTotalStr);
+                const diskUsed = formatMB(diskUsedMB);
+                const diskTotal = formatMB(diskTotalMB);
+                const diskDisplay = `${diskUsed} / ${diskTotal}`;
+                
+                const trafficLimit = c.traffic_limit || 0;
+                const trafficDisplay = trafficLimit > 0 ? 
+                    `${c.traffic_usage || '-'} / ${trafficLimit} GB` : 
+                    (c.traffic_usage || '-');
+                
+                html += `
+                    <div class="content-box rounded-lg border border-gray-200 hover:border-blue-300 hover:shadow-md transition-all duration-200">
+                        <div class="p-4">
+                            <div class="flex justify-between items-start mb-3">
+                                <div class="flex items-center gap-2 flex-1 min-w-0">
+                                    <label class="cursor-pointer">
+                                        <input type="checkbox" class="checkbox checkbox-xs container-checkbox" data-hostname="${c.name}" onchange="updateSelection()" />
+                                    </label>
+                                    <h3 class="font-semibold text-gray-800 text-base truncate">${c.name}</h3>
+                                    ${c.remark ? `<span class="badge badge-sm bg-blue-100 text-blue-700 border-blue-200">${c.remark}</span>` : ''}
+                                </div>
+                                ${statusBadge}
+                            </div>
+                            <div class="bg-gradient-to-br from-gray-50 to-gray-100 rounded-md p-3 mb-3 space-y-1.5 text-xs">
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">CPU</span>
+                                    <span class="font-medium text-gray-800">${(c.cpu_usage || 0).toFixed(1)}% / ${c.cpu || 1}核</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">内存</span>
+                                    <span class="font-medium text-gray-800">${memoryDisplay}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">磁盘</span>
+                                    <span class="font-medium text-gray-800">${diskDisplay}</span>
+                                </div>
+                                <div class="flex items-center justify-between">
+                                    <span class="text-gray-600">流量</span>
+                                    <span class="font-medium text-gray-800">${trafficDisplay}</span>
+                                </div>
+                            </div>
+                            <div class="flex gap-2">
+                                <a href="/user/container?name=${c.name}" class="flex-1 px-2 py-1.5 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded transition text-center block">详情</a>
+                                <button onclick="syncContainer('${c.name}')" class="flex-1 px-2 py-1.5 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded transition">同步</button>
+                                <button onclick="showConfigModal('${c.name}')" class="flex-1 px-2 py-1.5 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded transition">配置</button>
+                                <button onclick="deleteContainer('${c.name}')" class="flex-1 px-2 py-1.5 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded transition">删除</button>
+                            </div>
+                        </div>
+                    </div>
+                `;
+            });
+            
+            html += '</div>';
+            $('#containersContent').html(html);
+        }
+
+        function renderListView() {
+            let html = `
+                <div class="content-box rounded-lg border border-gray-200 overflow-hidden">
+                    <div class="overflow-x-auto">
+                        <table class="table table-xs">
+                            <thead>
+                                <tr class="bg-gray-50">
+                                    <th class="w-10">
+                                        <label>
+                                            <input type="checkbox" id="selectAll" onchange="toggleSelectAll()" class="checkbox checkbox-xs" />
+                                        </label>
+                                    </th>
+                                    <th class="text-xs text-gray-600">主机名</th>
+                                    <th class="text-xs text-gray-600">备注</th>
+                                    <th class="text-xs text-gray-600">状态</th>
+                                    <th class="text-xs text-gray-600">CPU</th>
+                                    <th class="text-xs text-gray-600">内存</th>
+                                    <th class="text-xs text-gray-600">磁盘</th>
+                                    <th class="text-xs text-gray-600">流量</th>
+                                    <th class="text-xs text-gray-600">操作</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+            `;
+            
+            let dataToRender = getPageData();
+            
+            dataToRender.forEach(c => {
+                const status = (c.status || '').toLowerCase();
+                const statusBadge = status === 'running' ? 
+                    '<span class="px-2 py-0.5 text-xs font-medium text-green-700 bg-green-100 rounded-full flex items-center gap-1 w-fit"><span class="w-1.5 h-1.5 bg-green-500 rounded-full animate-pulse"></span>在线</span>' : 
+                    status === 'stopped' ?
+                    '<span class="px-2 py-0.5 text-xs font-medium text-gray-600 bg-gray-100 rounded-full">离线</span>' :
+                    '<span class="px-2 py-0.5 text-xs font-medium text-yellow-700 bg-yellow-100 rounded-full">其他</span>';
+                
+                const memoryUsedMB = c.memory_usage_raw ? parseFloat(c.memory_usage_raw) / 1024 / 1024 : 0;
+                const memoryTotalStr = c.memory || '0';
+                const memoryTotalMB = parseMemoryString(memoryTotalStr);
+                const memoryUsed = formatMB(memoryUsedMB);
+                const memoryTotal = formatMB(memoryTotalMB);
+                const memoryDisplay = `${memoryUsed} / ${memoryTotal}`;
+                
+                const diskUsedMB = c.disk_usage_raw ? parseFloat(c.disk_usage_raw) / 1024 / 1024 : 0;
+                const diskTotalStr = c.disk || '0';
+                const diskTotalMB = parseMemoryString(diskTotalStr);
+                const diskUsed = formatMB(diskUsedMB);
+                const diskTotal = formatMB(diskTotalMB);
+                const diskDisplay = `${diskUsed} / ${diskTotal}`;
+                
+                const trafficLimit = c.traffic_limit || 0;
+                const trafficDisplay = trafficLimit > 0 ? 
+                    `${c.traffic_usage || '-'} / ${trafficLimit} GB` : 
+                    (c.traffic_usage || '-');
+                
+                const remarkBadge = c.remark ? 
+                    `<span class="badge badge-sm bg-blue-100 text-blue-700 border-blue-200">${c.remark}</span>` : 
+                    '<span class="text-xs text-gray-400">-</span>';
+                
+                html += `
+                    <tr class="hover">
+                        <td>
+                            <label>
+                                <input type="checkbox" class="checkbox checkbox-xs container-checkbox" data-hostname="${c.name}" onchange="updateSelection()" />
+                            </label>
+                        </td>
+                        <td><span class="font-semibold text-gray-800 text-xs">${c.name}</span></td>
+                        <td>${remarkBadge}</td>
+                        <td>${statusBadge}</td>
+                        <td class="text-xs text-gray-700">${(c.cpu_usage || 0).toFixed(1)}% / ${c.cpu || 1}核</td>
+                        <td class="text-xs text-gray-700">${memoryDisplay}</td>
+                        <td class="text-xs text-gray-700">${diskDisplay}</td>
+                        <td class="text-xs text-gray-700">${trafficDisplay}</td>
+                        <td>
+                            <div class="flex gap-1">
+                                <a href="/user/container?name=${c.name}" class="px-2 py-1 text-xs font-medium text-indigo-700 bg-indigo-50 hover:bg-indigo-100 border border-indigo-200 rounded-lg transition">详情</a>
+                                <button onclick="syncContainer('${c.name}')" class="px-2 py-1 text-xs font-medium text-purple-700 bg-purple-50 hover:bg-purple-100 border border-purple-200 rounded-lg transition">同步</button>
+                                <button onclick="showConfigModal('${c.name}')" class="px-2 py-1 text-xs font-medium text-teal-700 bg-teal-50 hover:bg-teal-100 border border-teal-200 rounded-lg transition">配置</button>
+                                <button onclick="deleteContainer('${c.name}')" class="px-2 py-1 text-xs font-medium text-red-700 bg-red-50 hover:bg-red-100 border border-red-200 rounded-lg transition">删除</button>
+                            </div>
+                        </td>
+                    </tr>
+                `;
+            });
+
+            html += `
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+            `;
+            
+            $('#containersContent').html(html);
+        }
+
+        function formatBytes(bytes) {
+            if (!bytes) return '0 B';
+            const k = 1024;
+            const sizes = ['B', 'KB', 'MB', 'GB'];
+            const i = Math.floor(Math.log(bytes) / Math.log(k));
+            return parseFloat((bytes / Math.pow(k, i)).toFixed(2)) + ' ' + sizes[i];
+        }
+
+        function formatMB(mb) {
+            if (!mb || mb === 0) return '0 MB';
+            if (mb < 1024) {
+                return mb.toFixed(2) + ' MB';
+            } else if (mb < 1024 * 1024) {
+                return (mb / 1024).toFixed(2) + ' GB';
+            } else {
+                return (mb / 1024 / 1024).toFixed(2) + ' TB';
+            }
+        }
+
+        function parseMemoryString(str) {
+            if (!str) return 0;
+            str = str.toString().toUpperCase();
+            const match = str.match(/^(\d+\.?\d*)\s*(MB|GB|TB)?$/);
+            if (!match) return 0;
+            
+            const value = parseFloat(match[1]);
+            const unit = match[2] || 'MB';
+            
+            switch(unit) {
+                case 'TB': return value * 1024 * 1024;
+                case 'GB': return value * 1024;
+                case 'MB': return value;
+                default: return value;
+            }
+        }
+
+        function changePageSize() {
+            pageSize = $('#pageSize').val();
+            currentPage = 1;
+            applyFiltersAndSort();
+            renderContainers();
+        }
+
+        function changeSorting() {
+            sortField = $('#sortField').val();
+            if (sortField) {
+                $('#sortOrderContainer').show();
+            } else {
+                $('#sortOrderContainer').hide();
+            }
+            applyFiltersAndSort();
+            renderContainers();
+        }
+
+        function toggleSortOrder() {
+            sortOrder = sortOrder === 'asc' ? 'desc' : 'asc';
+            
+            if (sortOrder === 'asc') {
+                $('#sortOrderText').text('升序');
+                $('#sortOrderIcon').html('<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h9m5-4v12m0 0l-4-4m4 4l4-4"></path>');
+            } else {
+                $('#sortOrderText').text('降序');
+                $('#sortOrderIcon').html('<path stroke-linecap="round" stroke-linejoin="round" stroke-width="2" d="M3 4h13M3 8h9m-9 4h6m7 7V8m0 0l-4 4m4-4l4 4"></path>');
+            }
+            
+            applyFiltersAndSort();
+            renderContainers();
+        }
+
+        function switchView(view) {
+            currentView = view;
+            localStorage.setItem('containerView', view);
+            updateViewButtons();
+            renderContainers();
+        }
+
+        function updateViewButtons() {
+            if (currentView === 'card') {
+                $('#btnCardView').addClass('bg-blue-100 text-blue-700').removeClass('content-box text-gray-700');
+                $('#btnListView').addClass('content-box text-gray-700').removeClass('bg-blue-100 text-blue-700');
+            } else {
+                $('#btnCardView').addClass('content-box text-gray-700').removeClass('bg-blue-100 text-blue-700');
+                $('#btnListView').addClass('bg-blue-100 text-blue-700').removeClass('content-box text-gray-700');
+            }
+        }
+
+        function toggleSelectAll() {
+            const selectAll = $('#selectAll').is(':checked');
+            $('.container-checkbox').prop('checked', selectAll);
+            updateSelection();
+        }
+
+        function toggleSelectAllBtn() {
+            const totalCheckboxes = $('.container-checkbox').length;
+            const selectedCheckboxes = $('.container-checkbox:checked').length;
+            
+            if (selectedCheckboxes === totalCheckboxes && totalCheckboxes > 0) {
+                $('.container-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+            } else {
+                $('.container-checkbox').prop('checked', true);
+                $('#selectAll').prop('checked', true);
+            }
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const selectedCheckboxes = $('.container-checkbox:checked');
+            const count = selectedCheckboxes.length;
+            
+            const totalCheckboxes = $('.container-checkbox').length;
+            $('#selectAll').prop('checked', count === totalCheckboxes && count > 0);
+            
+            if (count === totalCheckboxes && count > 0) {
+                $('#selectAllText').text('取消全选');
+            } else {
+                $('#selectAllText').text('全选');
+            }
+        }
+
+        function updateContainerList() {
+            if (!confirm('确定要从LXD重新获取所有容器并更新缓存吗？这可能需要一些时间。')) {
+                return;
+            }
+
+            showToast('info', '正在从LXD获取容器列表...');
+
+            $.ajax({
+                url: '/api/user/cache/refresh',
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const data = result.data || {};
+                        const total = data.total || 0;
+                        const success = data.success || 0;
+                        const failed = data.failed || 0;
+                        
+                        if (failed > 0) {
+                            showToast('warning', `容器列表已更新：成功 ${success} 个，失败 ${failed} 个，共 ${total} 个`);
+                        } else {
+                            showToast('success', `容器列表已更新：成功获取 ${success} 个容器`);
+                        }
+                        
+                        setTimeout(() => loadContainers(), 1000);
+                    } else {
+                        showToast('error', result.msg || '更新容器列表失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '更新容器列表失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {}
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function refreshContainers() {
+            loadContainers();
+        }
+
+        function toggleSelectAllBtn() {
+            const totalCheckboxes = $('.container-checkbox').length;
+            const selectedCheckboxes = $('.container-checkbox:checked').length;
+            
+            if (selectedCheckboxes === totalCheckboxes && totalCheckboxes > 0) {
+                $('.container-checkbox').prop('checked', false);
+                $('#selectAll').prop('checked', false);
+            } else {
+                $('.container-checkbox').prop('checked', true);
+                $('#selectAll').prop('checked', true);
+            }
+            updateSelection();
+        }
+
+        function toggleSelectAll() {
+            const isChecked = $('#selectAll').prop('checked');
+            $('.container-checkbox').prop('checked', isChecked);
+            updateSelection();
+        }
+
+        function updateSelection() {
+            const selectedCheckboxes = $('.container-checkbox:checked');
+            const count = selectedCheckboxes.length;
+            
+            $('#selectedCount').text(count);
+            
+            if (count > 0) {
+                $('#batchOperationBar').slideDown(200);
+            } else {
+                $('#batchOperationBar').slideUp(200);
+            }
+            
+            const totalCheckboxes = $('.container-checkbox').length;
+            $('#selectAll').prop('checked', count === totalCheckboxes && count > 0);
+            
+            if (count === totalCheckboxes && count > 0) {
+                $('#selectAllText').text('取消全选');
+            } else {
+                $('#selectAllText').text('全选');
+            }
+        }
+
+        function clearSelection() {
+            $('.container-checkbox').prop('checked', false);
+            $('#selectAll').prop('checked', false);
+            updateSelection();
+        }
+
+        function getSelectedContainers() {
+            const selected = [];
+            $('.container-checkbox:checked').each(function() {
+                selected.push($(this).data('hostname'));
+            });
+            return selected;
+        }
+
+        function batchStart() {
+            const containers = getSelectedContainers();
+            if (containers.length === 0) return;
+            
+            if (!confirm(`确定要启动选中的 ${containers.length} 个容器吗？`)) return;
+            
+            batchOperation(containers, 'start', '启动');
+        }
+
+        function batchStop() {
+            const containers = getSelectedContainers();
+            if (containers.length === 0) return;
+            
+            if (!confirm(`确定要停止选中的 ${containers.length} 个容器吗？`)) return;
+            
+            batchOperation(containers, 'stop', '停止');
+        }
+
+        function batchRestart() {
+            const containers = getSelectedContainers();
+            if (containers.length === 0) return;
+            
+            if (!confirm(`确定要重启选中的 ${containers.length} 个容器吗？`)) return;
+            
+            batchOperation(containers, 'restart', '重启');
+        }
+
+        function batchSync() {
+            const containers = getSelectedContainers();
+            if (containers.length === 0) return;
+            
+            if (!confirm(`确定要同步选中的 ${containers.length} 个容器的缓存吗？`)) return;
+            
+            batchSyncOperation(containers);
+        }
+
+        function syncContainer(name) {
+            showToast('info', `正在同步容器 ${name} 的缓存...`);
+            
+            $.ajax({
+                url: `/api/user/cache/refresh?name=${encodeURIComponent(name)}`,
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', `容器 ${name} 缓存同步成功`);
+                        setTimeout(() => loadContainers(), 1000);
+                    } else {
+                        showToast('error', `容器 ${name} 缓存同步失败: ${result.msg}`);
+                    }
+                },
+                error: function(xhr) {
+                    showToast('error', `容器 ${name} 缓存同步失败`);
+                }
+            });
+        }
+
+        async function batchSyncOperation(containers) {
+            let successCount = 0;
+            let failCount = 0;
+            let total = containers.length;
+            
+            showToast('info', `开始批量同步 ${total} 个容器...`);
+            
+            for (let i = 0; i < containers.length; i++) {
+                const name = containers[i];
+                showToast('info', `同步中 (${i+1}/${total}): ${name}`);
+                
+                try {
+                    const result = await $.ajax({
+                        url: `/api/user/cache/refresh?name=${encodeURIComponent(name)}`,
+                        type: 'POST'
+                    });
+                    if (result.code === 200) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (e) {
+                    failCount++;
+                }
+            }
+            
+            let message = `批量同步完成：成功 ${successCount}，失败 ${failCount}`;
+            showToast(failCount > 0 ? 'warning' : 'success', message);
+            clearSelection();
+            loadContainers();
+        }
+
+        async function batchOperation(containers, action, actionName) {
+            let successCount = 0;
+            let failCount = 0;
+            let total = containers.length;
+            
+            showToast('info', `开始批量${actionName} ${total} 个容器...`);
+            
+            for (let i = 0; i < containers.length; i++) {
+                const name = containers[i];
+                showToast('info', `${actionName}中 (${i+1}/${total}): ${name}`);
+                
+                try {
+                    const result = await $.ajax({
+                        url: `/api/user/containers/${encodeURIComponent(name)}/action?action=${action}`,
+                        type: 'POST',
+                        contentType: 'application/json',
+                        data: JSON.stringify({})
+                    });
+                    if (result.code === 200) {
+                        successCount++;
+                    } else {
+                        failCount++;
+                    }
+                } catch (e) {
+                    failCount++;
+                }
+            }
+            
+            let message = `批量${actionName}完成：成功 ${successCount}，失败 ${failCount}`;
+            showToast(failCount > 0 ? 'warning' : 'success', message);
+            clearSelection();
+            loadContainers();
+        }
+    </script>
+
+        </div>
+    </div>
+    
+    {{template "user/user_footer.html" .}}
+    
+    {{if .UseLocalCDN}}
+    <script src="/static/js/marked.min.js"></script>
+    <script src="/static/js/dompurify.min.js"></script>
+    {{else}}
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+    <script src="https://cdn.jsdelivr.net/npm/dompurify/dist/purify.min.js"></script>
+    {{end}}
+
+    <script>
+        marked.setOptions({
+            breaks: true,
+            gfm: true
+        });
+
+        function showNotice(content) {
+            const dirtyHTML = marked.parse(content);
+            const cleanHTML = DOMPurify.sanitize(dirtyHTML, {
+                ALLOWED_TAGS: ['p', 'br', 'strong', 'em', 'ul', 'ol', 'li', 'a', 'code', 'pre', 'h1', 'h2', 'h3', 'h4', 'h5', 'h6', 'blockquote', 'hr'],
+                ALLOWED_ATTR: ['href', 'title', 'target']
+            });
+            
+            $('#noticeContent').html(cleanHTML);
+            
+            $('#noticeContent a').css({
+                color: '#3b82f6',
+                textDecoration: 'underline'
+            }).attr('target', '_blank');
+            
+            $('#noticeContent code').css({
+                backgroundColor: '#f3f4f6',
+                padding: '2px 6px',
+                borderRadius: '4px',
+                fontSize: '13px',
+                fontFamily: 'monospace'
+            });
+            
+            $('#noticeContent pre').css({
+                backgroundColor: '#f3f4f6',
+                padding: '12px',
+                borderRadius: '6px',
+                overflow: 'auto',
+                marginTop: '8px',
+                marginBottom: '8px'
+            });
+            
+            $('#noticeContent blockquote').css({
+                borderLeft: '3px solid #3b82f6',
+                paddingLeft: '12px',
+                color: '#6b7280',
+                fontStyle: 'italic',
+                marginTop: '8px',
+                marginBottom: '8px'
+            });
+
+            $('#noticeFloat').slideDown(400);
+        }
+
+        function closeNotice() {
+            $('#noticeFloat').slideUp(300);
+            localStorage.setItem('userNoticeClosedAt', Date.now());
+        }
+
+        function checkAndShowNotice() {
+            $.ajax({
+                url: '/api/public/brand-settings',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200 && result.data && result.data.user_notice) {
+                        const notice = result.data.user_notice.trim();
+                        if (!notice) return;
+                        
+                        const closedAt = localStorage.getItem('userNoticeClosedAt');
+                        const now = Date.now();
+                        const thirtyMinutes = 30 * 60 * 1000;
+                        
+                        if (!closedAt || (now - parseInt(closedAt)) > thirtyMinutes) {
+                            setTimeout(() => showNotice(notice), 500);
+                        }
+                    }
+                }
+            });
+        }
+
+        $(document).ready(function() {
+            checkAndShowNotice();
+        });
+
+        function showCreateModal() {
+            loadTemplates();
+            $('#createModal').removeClass('hidden');
+            $('body').addClass('overflow-hidden');
+        }
+
+        function hideCreateModal() {
+            $('#createModal').addClass('hidden');
+            $('body').removeClass('overflow-hidden');
+            $('#createContainerForm')[0].reset();
+            $('#selectImage').html('<option value="">请选择镜像</option>');
+        }
+
+        function loadTemplates() {
+            $.ajax({
+                url: '/api/user/templates',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const templates = result.data || [];
+                        let options = '<option value="">请选择镜像</option>';
+                        templates.forEach(function(tpl) {
+                            options += `<option value="${tpl.fingerprint}">${tpl.alias} (${tpl.os} ${tpl.release})</option>`;
+                        });
+                        $('#selectImage').html(options);
+                    }
+                }
+            });
+        }
+
+        function generateHostname() {
+            const prefix = 'ct';
+            const randomNum = Math.floor(Math.random() * 900000) + 100000;
+            const hostname = prefix + randomNum;
+            $('#inputHostname').val(hostname);
+        }
+
+        function generatePassword() {
+            const chars = 'ABCDEFGHJKMNPQRSTWXYZabcdefghjkmnpqrstwxyz23456789';
+            let password = '';
+            for (let i = 0; i < 12; i++) {
+                password += chars.charAt(Math.floor(Math.random() * chars.length));
+            }
+            $('#inputPassword').val(password);
+        }
+
+        $('#createContainerForm').on('submit', function(e) {
+            e.preventDefault();
+            
+            const formData = $(this).serializeArray();
+            const data = {};
+            
+            formData.forEach(function(item) {
+                if (item.name === 'cpu' || item.name === 'memory' || item.name === 'disk' ||
+                    item.name === 'traffic_limit' || item.name === 'ipv4_pool_limit' ||
+                    item.name === 'ipv4_mapping_limit' || item.name === 'ipv6_pool_limit' ||
+                    item.name === 'ipv6_mapping_limit' || item.name === 'reverse_proxy_limit') {
+                    data[item.name] = parseInt(item.value) || 0;
+                } else {
+                    data[item.name] = item.value;
+                }
+            });
+            
+            $('#btnCreateSubmit').prop('disabled', true).text('创建中...');
+            
+            $.ajax({
+                url: '/api/user/containers',
+                type: 'POST',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const taskId = result.data.task_id;
+                        if (taskId) {
+                            showToast('info', '容器创建中，请稍候...');
+                            hideCreateModal();
+                            pollTaskStatus(taskId);
+                        } else {
+                            showToast('success', '容器创建成功');
+                            hideCreateModal();
+                            loadContainers();
+                            loadUserInfo();
+                        }
+                    } else {
+                        showToast('error', result.msg || '创建容器失败');
+                        $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '创建容器失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {}
+                    showToast('error', errorMsg);
+                    $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                }
+            });
+        });
+
+        function pollTaskStatus(taskId) {
+            let pollCount = 0;
+            const maxPolls = 60;
+            
+            const poll = setInterval(function() {
+                pollCount++;
+                
+                $.ajax({
+                    url: '/api/user/tasks/' + taskId,
+                    type: 'GET',
+                    success: function(result) {
+                        if (result.code === 200) {
+                            const status = result.data.status;
+                            if (status === 'success') {
+                                clearInterval(poll);
+                                showToast('success', '容器创建成功');
+                                loadContainers();
+                                loadUserInfo();
+                                $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                            } else if (status === 'failed') {
+                                clearInterval(poll);
+                                showToast('error', '容器创建失败: ' + (result.data.error_msg || '未知错误'));
+                                $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                            }
+                        }
+                    },
+                    error: function() {
+                        if (pollCount >= maxPolls) {
+                            clearInterval(poll);
+                            showToast('warning', '创建超时，请刷新页面查看');
+                            loadContainers();
+                            $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                        }
+                    }
+                });
+                
+                if (pollCount >= maxPolls) {
+                    clearInterval(poll);
+                    showToast('warning', '创建超时，请刷新页面查看');
+                    loadContainers();
+                    $('#btnCreateSubmit').prop('disabled', false).text('创建容器');
+                }
+            }, 2000);
+        }
+
+        function deleteContainer(name) {
+            if (!confirm('确定要删除容器 ' + name + ' 吗？此操作不可恢复！')) {
+                return;
+            }
+            
+            $.ajax({
+                url: '/api/user/containers/' + name,
+                type: 'DELETE',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const taskId = result.data && result.data.task_id;
+                        if (taskId) {
+                            showToast('info', '删除任务已提交，请稍候...');
+                            pollTaskStatus(taskId);
+                        } else {
+                            showToast('success', '删除成功');
+                            loadContainers();
+                            loadUserInfo();
+                        }
+                    } else {
+                        showToast('error', result.msg || '删除失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '删除失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {}
+                    showToast('error', errorMsg);
+                }
+            });
+        }
+
+        function suspendContainer(name) {
+            $.ajax({
+                url: '/api/user/containers/' + name + '/action?action=suspend',
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '容器暂停成功');
+                        loadContainers();
+                    } else {
+                        showToast('error', result.msg || '暂停失败');
+                    }
+                },
+                error: function(xhr) {
+                    showToast('error', '暂停失败');
+                }
+            });
+        }
+
+        function unsuspendContainer(name) {
+            $.ajax({
+                url: '/api/user/containers/' + name + '/action?action=unsuspend',
+                type: 'POST',
+                success: function(result) {
+                    if (result.code === 200) {
+                        showToast('success', '容器恢复成功');
+                        loadContainers();
+                    } else {
+                        showToast('error', result.msg || '恢复失败');
+                    }
+                },
+                error: function(xhr) {
+                    showToast('error', '恢复失败');
+                }
+            });
+        }
+
+        function showConfigModal(name) {
+            $.ajax({
+                url: '/api/user/containers/' + name + '/config',
+                type: 'GET',
+                success: function(result) {
+                    if (result.code === 200) {
+                        const d = result.data;
+                        $('#configTargetContainer').val(name);
+                        $('#configContainerName').text(name);
+
+                        $('#configCpu').val(d.cpu);
+                        $('#configMemory').val(d.memory);
+                        $('#configDisk').val(d.disk);
+                        $('#configTrafficLimit').val(d.traffic_limit);
+                        $('#configIPv4PoolLimit').val(d.ipv4_pool_limit || 0);
+                        $('#configIPv4MappingLimit').val(d.ipv4_mapping_limit || 0);
+                        $('#configIPv6PoolLimit').val(d.ipv6_pool_limit || 0);
+                        $('#configIPv6MappingLimit').val(d.ipv6_mapping_limit || 0);
+                        $('#configReverseProxyLimit').val(d.reverse_proxy_limit || 0);
+                        $('#configRemark').val(d.remark || '').data('original', d.remark || '');
+                        document.getElementById('updateConfigModal').showModal();
+                    } else {
+                        showToast('error', '获取容器配置失败');
+                    }
+                },
+                error: function() {
+                    showToast('error', '获取容器配置失败');
+                }
+            });
+        }
+
+        function closeUpdateConfigModal() {
+            document.getElementById('updateConfigModal').close();
+            $('#updateConfigForm')[0].reset();
+            $('#configTargetContainer').val('');
+            $('#configContainerName').text('');
+        }
+
+        $(document).on('submit', '#updateConfigForm', function(e) {
+            e.preventDefault();
+            const name = $('#configTargetContainer').val();
+            if (!name) {
+                showToast('error', '容器名称为空');
+                return;
+            }
+
+            const data = {
+                cpu: parseInt($('#configCpu').val()) || 0,
+                memory: parseInt($('#configMemory').val()) || 0,
+                disk: parseInt($('#configDisk').val()) || 0,
+                traffic_limit: parseInt($('#configTrafficLimit').val()) || 0,
+                ipv4_pool_limit: parseInt($('#configIPv4PoolLimit').val()) || 0,
+                ipv4_mapping_limit: parseInt($('#configIPv4MappingLimit').val()) || 0,
+                ipv6_pool_limit: parseInt($('#configIPv6PoolLimit').val()) || 0,
+                ipv6_mapping_limit: parseInt($('#configIPv6MappingLimit').val()) || 0,
+                reverse_proxy_limit: parseInt($('#configReverseProxyLimit').val()) || 0
+            };
+
+            const remarkVal = $('#configRemark').val();
+            const remarkChanged = remarkVal !== ($('#configRemark').data('original') || '');
+
+            $.ajax({
+                url: '/api/user/containers/' + name + '/config',
+                type: 'PUT',
+                contentType: 'application/json',
+                data: JSON.stringify(data),
+                success: function(result) {
+                    if (result.code === 200) {
+                        const taskId = result.data && result.data.task_id;
+                        
+                        if (remarkChanged) {
+                            $.ajax({
+                                url: '/api/user/containers/' + name + '/remark',
+                                type: 'PUT',
+                                contentType: 'application/json',
+                                data: JSON.stringify({ remark: remarkVal }),
+                                success: function() {
+                                    closeUpdateConfigModal();
+                                    if (taskId) {
+                                        showToast('info', '配置更新中，请稍候...');
+                                        pollTaskStatus(taskId);
+                                    } else {
+                                        showToast('success', '配置更新成功');
+                                        loadContainers();
+                                        loadUserInfo();
+                                    }
+                                },
+                                error: function() {
+                                    showToast('warning', '配置更新成功，但备注更新失败');
+                                    closeUpdateConfigModal();
+                                    loadContainers();
+                                }
+                            });
+                        } else {
+                            closeUpdateConfigModal();
+                            if (taskId) {
+                                showToast('info', '配置更新中，请稍候...');
+                                pollTaskStatus(taskId);
+                            } else {
+                                showToast('success', '配置更新成功');
+                                loadContainers();
+                                loadUserInfo();
+                            }
+                        }
+                    } else {
+                        showToast('error', result.msg || '更新失败');
+                    }
+                },
+                error: function(xhr) {
+                    let errorMsg = '更新失败';
+                    try {
+                        const response = JSON.parse(xhr.responseText);
+                        errorMsg = response.msg || errorMsg;
+                    } catch (e) {}
+                    showToast('error', errorMsg);
+                }
+            });
+        });
+    </script>
+</body>
+</html>

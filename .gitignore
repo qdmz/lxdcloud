@@ -1,0 +1,13 @@
+# 构建产物
+lxdapi-amd64*
+*.test
+
+# 备份/临时
+*.bak
+*.tar.gz
+*.zip
+
+# 数据库
+*.db
+*.db-shm
+*.db-wal

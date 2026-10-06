@@ -1,0 +1,113 @@
+# 系统配置
+system:
+  # 服务器配置
+  server:
+    # 监听地址
+    host: "0.0.0.0"
+    # 监听端口
+    port: 9443
+    # 运行模式: debug/release
+    mode: "release"
+    # TLS/HTTPS配置
+    tls:
+      # 启用HTTPS
+      enabled: true
+      # 证书文件路径
+      cert_file: "certs/server.crt"
+      # 私钥文件路径
+      key_file: "certs/server.key"
+      # 自动生成自签名证书(当证书不存在时)
+      auto_generate: true
+  
+  # 安全配置
+  security:
+    # 系统级API密钥
+    api_hash: "starfishcloud"
+    enable_captcha: false
+  
+  # 日志配置
+  logger:
+    # 日志级别: debug/release
+    level: "release"
+    # 启用彩色输出
+    colorful: true
+  
+  # 数据库配置
+  database:
+    # 数据库类型: sqlite/mysql/postgres
+    type: "sqlite"
+    # SQLite配置
+    sqlite:
+      path: "lxdapi.db"
+    # MySQL/MariaDB配置
+    mysql:
+      host: "localhost"
+      port: 3306
+      user: "root"
+      password: "CHANGE_ME"
+      database: "lxdapi"
+    # PostgreSQL配置
+    postgres:
+      host: "localhost"
+      port: 5432
+      user: "postgres"
+      password: "CHANGE_ME"
+      database: "lxdapi"
+      sslmode: "disable"
+
+# LXC配置
+lxc:
+  # LXD Socket路径
+  socket: "/var/snap/lxd/common/lxd/unix.socket"
+  # 命令超时(秒)
+  timeout: 300
+  # 默认存储池
+  default_storage: "default"
+
+# 流量监控配置
+traffic:
+  # 启用流量监控
+  enabled: true
+  # 采集间隔(秒)
+  interval: 20
+  # 批量更新数量
+  batch_size: 10
+
+# 异步任务配置
+task:
+  # 启用异步任务
+  enabled: true
+  # 任务队列后端: memory/redis
+  backend: "memory"
+  # Worker数量
+  workers: 4
+  # 队列大小
+  queue_size: 1000
+  # 任务超时(秒)
+  timeout: 600
+  # 自动清理已完成任务(天数, 0表示不清理)
+  auto_cleanup_days: 7
+  # Redis配置(backend为redis时使用)
+  redis:
+    host: "localhost"
+    port: 6379
+    password: "CHANGE_ME"
+    db: 0
+
+# 管理员配置
+admin:
+  # 启用管理面板
+  enabled: true
+  # 管理员用户名
+  username: "admin"
+  # 管理员密码(首次使用请修改)
+  password: "CHANGE_ME"
+  # Session密钥(请修改为随机字符串)
+  session_secret: "ae9d64ef557e4e8507d304b86d869f54"
+
+# 插件配置
+plugins:
+  # Nginx反向代理插件
+  nginx:
+    enabled: true
+

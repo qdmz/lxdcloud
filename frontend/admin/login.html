@@ -1,0 +1,48 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>管理员登录 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="../css/style.css">
+  <link rel="stylesheet" href="../css/admin.css">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="login-wrap">
+    <div class="login-card">
+      <div class="login-brand">
+        <div class="brand-logo" id="brandLogo">A</div>
+        <div class="brand-name" id="brandName">LXD 管理后台</div>
+        <div class="brand-sub">管理员登录</div>
+      </div>
+
+      <form id="loginForm" style="display:flex;flex-direction:column;gap:14px;margin-top:20px">
+        <div class="field">
+          <label>用户名</label>
+          <input type="text" name="username" class="input" placeholder="请输入用户名" required autocomplete="username">
+        </div>
+        <div class="field">
+          <label>密码</label>
+          <input type="password" name="password" id="passwordInput" class="input" placeholder="请输入密码" required autocomplete="current-password">
+        </div>
+        <div class="field">
+          <label>验证码</label>
+          <div class="captcha-row">
+            <input type="text" name="captcha" class="input" placeholder="验证码" maxlength="4" required>
+            <img id="captchaImg" class="captcha-img" alt="验证码" title="点击刷新" onclick="refreshCaptcha()">
+          </div>
+        </div>
+        <div id="errorMsg" class="hidden" style="background:rgba(248,113,113,.1);border:1px solid rgba(248,113,113,.3);color:var(--red);padding:9px 12px;border-radius:10px;font-size:13px"></div>
+        <button type="submit" class="btn btn-primary btn-block">登 录</button>
+      </form>
+
+      <div class="login-tip">默认用户名和密码在 config.yaml 中配置</div>
+    </div>
+  </div>
+
+  <script src="../js/app.js?v=2.4"></script>
+  <script src="../js/admin-login.js?v=2.4"></script>
+</body>
+</html>
