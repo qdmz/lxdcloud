@@ -4,13 +4,34 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"lxdapi/internal/core"
 	"lxdapi/pkg/logger"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 )
+
+// ErrLXDNotInstalled 在节点未安装 lxc 客户端时返回，调用方应直接把
+// 它的文案呈现给用户，而不是透出底层的 exec 错误。
+var ErrLXDNotInstalled = errors.New("当前节点未安装LXD，容器相关操作不可用")
+
+var (
+	lxcPath      string
+	lxcCheckOnce sync.Once
+)
+
+// BinaryAvailable 报告 lxc 可执行文件是否存在（结果缓存）。
+func BinaryAvailable() bool {
+	lxcCheckOnce.Do(func() {
+		if p, err := exec.LookPath("lxc"); err == nil {
+			lxcPath = p
+		}
+	})
+	return lxcPath != ""
+}
 
 type Client struct {
 	socket  string
@@ -26,6 +47,9 @@ func NewClient() *Client {
 }
 
 func (c *Client) exec(ctx context.Context, args ...string) (string, error) {
+	if !BinaryAvailable() {
+		return "", ErrLXDNotInstalled
+	}
 	cmd := exec.CommandContext(ctx, "lxc", args...)
 	var stdout, stderr bytes.Buffer
 	cmd.Stdout = &stdout

@@ -2,13 +2,17 @@ package admin
 
 import (
 	"fmt"
+	"strings"
+	"sync"
+	"time"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"github.com/mojocn/base64Captcha"
+	"golang.org/x/crypto/bcrypt"
 	"lxdapi/internal/core"
+	"lxdapi/pkg/logger"
 	"lxdapi/pkg/response"
-	"sync"
-	"time"
 )
 
 var captchaStore = base64Captcha.DefaultMemStore
@@ -59,6 +63,23 @@ func GetCaptcha(c *gin.Context) {
 		"captcha_id": id,
 		"image":      b64s,
 	})
+}
+
+// checkAdminPassword 校验管理员用户名与密码。
+// config 中的 password 字段应存放 bcrypt 哈希；若为明文（历史配置），
+// 仍允许登录但会打一条警告日志，提示尽快换成哈希。
+func checkAdminPassword(username, password string) bool {
+	if username != core.GlobalConfig.Admin.Username {
+		return false
+	}
+	stored := core.GlobalConfig.Admin.Password
+	if strings.HasPrefix(stored, "$2a$") || strings.HasPrefix(stored, "$2b$") || strings.HasPrefix(stored, "$2y$") {
+		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) == nil
+	}
+	if stored != "" {
+		logger.Warn("管理员密码为明文存储，建议换成 bcrypt 哈希（python3 -c \"import bcrypt; print(bcrypt.hashpw(b'新密码', bcrypt.gensalt()).decode())\"）")
+	}
+	return password == stored
 }
 
 // Login 管理员登录
@@ -128,7 +149,7 @@ func Login(c *gin.Context) {
 	session.Delete("captcha_id")
 	session.Save()
 
-	if req.Username != core.GlobalConfig.Admin.Username || req.Password != core.GlobalConfig.Admin.Password {
+	if !checkAdminPassword(req.Username, req.Password) {
 		loginAttempts.Lock()
 		attempt.Count++
 		attempt.LastAttempt = now

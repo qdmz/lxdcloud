@@ -248,6 +248,7 @@ func main() {
 		Path:     "/",
 		MaxAge:   3600,
 		HttpOnly: true,
+		Secure:   true, // 仅 HTTPS 传输（公网经 Cloudflare 为 HTTPS）
 		SameSite: 2,
 	})
 	r.Use(sessions.Sessions("lxdapi_session", store))

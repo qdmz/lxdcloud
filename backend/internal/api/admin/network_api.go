@@ -7,6 +7,7 @@ import (
 	"time"
 
 	"github.com/gin-gonic/gin"
+	"lxdapi/internal/lxc"
 	"lxdapi/pkg/response"
 )
 
@@ -41,6 +42,11 @@ func SetNetworkNATStatus(c *gin.Context) {
 
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误: "+err.Error())
+		return
+	}
+
+	if !lxc.BinaryAvailable() {
+		response.Error(c, 500, lxc.ErrLXDNotInstalled.Error())
 		return
 	}
 

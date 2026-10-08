@@ -10,6 +10,7 @@ import (
 	"time"
 
 	"lxdapi/internal/db"
+	"lxdapi/internal/lxc"
 	"lxdapi/models"
 	"lxdapi/pkg/logger"
 )
@@ -252,6 +253,9 @@ func createLocalContainer(p *models.Product, name, password string) error {
 
 // createLocalVM 本机创建 VM（依赖 /dev/kvm；LXD 原生 VM）
 func createLocalVM(p *models.Product, name, password string) error {
+	if !lxc.BinaryAvailable() {
+		return lxc.ErrLXDNotInstalled
+	}
 	args := []string{"init", p.Image, name, "--vm",
 		"-c", fmt.Sprintf("limits.cpu=%d", p.CPU),
 		"-c", fmt.Sprintf("limits.memory=%dMB", p.Memory),

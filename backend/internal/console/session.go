@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"lxdapi/internal/lxc"
 	"lxdapi/pkg/logger"
 	"os/exec"
 	"sync"
@@ -71,6 +72,9 @@ func CreateSession(containerName string, conn *websocket.Conn) (*Session, error)
 		stdoutPipe.Close()
 		stderrPipe.Close()
 		cancel()
+		if !lxc.BinaryAvailable() {
+			return nil, lxc.ErrLXDNotInstalled
+		}
 		return nil, fmt.Errorf("启动控制台命令失败: %v", err)
 	}
 
