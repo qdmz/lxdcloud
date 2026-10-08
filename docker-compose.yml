@@ -1,0 +1,59 @@
+# ============================================================
+# LXD Cloud - Docker Compose 一键部署
+#
+# 前置要求：
+#   1. 宿主机已安装并初始化 LXD（snap install lxd && lxd init --auto）
+#   2. 首次使用：cp configs/config.yaml configs/config.prod.yaml，按需修改
+#      - admin.password：bcrypt 哈希（见 README）
+#      - system.security.api_hash：随机字符串
+#      - admin.session_secret：随机字符串
+#      - system.database.sqlite.path：/app/data/lxdapi.db
+#
+# 启动：docker compose up -d --build
+# 访问：http://<服务器IP>/admin/login.html
+# 日志：docker compose logs -f
+# ============================================================
+
+services:
+  lxdapi:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    image: lxdcloud-backend:latest
+    container_name: lxdcloud-backend
+    restart: unless-stopped
+    # LXD 管理必需：挂载宿主机 LXD socket + lxc 客户端配置
+    volumes:
+      # 宿主机 LXD socket（snap 版路径；若用 apt 版改为 /var/lib/lxd/unix.socket）
+      - /var/snap/lxd/common/lxd/unix.socket:/var/snap/lxd/common/lxd/unix.socket
+      # 生产配置（覆盖镜像内默认）
+      - ./configs/config.prod.yaml:/app/configs/config.yaml:ro
+      # 数据持久化（SQLite / 自签证书）
+      - lxdapi-data:/app/data
+    environment:
+      - TZ=Asia/Shanghai
+    expose:
+      - "9443"
+    networks:
+      - lxdcloud
+
+  frontend:
+    image: nginx:alpine
+    container_name: lxdcloud-frontend
+    restart: unless-stopped
+    depends_on:
+      - lxdapi
+    volumes:
+      - ./frontend:/usr/share/nginx/html:ro
+      - ./docker/nginx.conf:/etc/nginx/conf.d/default.conf:ro
+    ports:
+      - "80:80"
+    networks:
+      - lxdcloud
+
+volumes:
+  lxdapi-data:
+
+networks:
+  lxdcloud:
+    driver: bridge
