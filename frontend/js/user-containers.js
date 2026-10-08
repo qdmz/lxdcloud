@@ -276,7 +276,14 @@
       { "label": "创建时间", "keys": ["created_at", "CreatedAt", "create_time"], "type": "time" },
       { "label": "操作", "render": (row) => '<button class="btn btn-ghost btn-sm" onclick="__showContainerDetail(\'' + row.name + '\')">详情</button>' }
     ],
-    buttons: '<button class="btn btn-ghost btn-sm" onclick="__gReload()">↻ 刷新</button>',
+    buttons: '<button class="btn btn-ghost btn-sm" onclick="__gReload()">↻ 刷新</button> <button class="btn btn-ghost btn-sm" onclick="__forceSync()">⟳ 强制同步</button>',
     emptyText: '暂无容器'
   });
+
+  window.__forceSync = function () {
+    LXD.toast('info', '正在从 LXD 强制同步...');
+    USER.request('/api/user/cache/refresh', { method: 'POST' })
+      .then(() => { LXD.toast('success', '同步完成'); __gReload(); })
+      .catch(e => LXD.toast('error', e.message));
+  };
 })();

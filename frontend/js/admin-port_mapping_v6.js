@@ -38,8 +38,11 @@
     c.innerHTML =
       '<div class="card" style="padding:12px 14px;margin-bottom:16px"><div class="toolbar">' +
       '<button class="btn btn-primary" id="btnAlloc">＋ 分配端口映射</button>' +
-      '<button class="btn btn-danger-ghost" id="btnBatchRel" ' + (selected.size ? '' : 'disabled') + '>批量释放(' + selected.size + ')</button>' +
+      '<button class=\"btn btn-danger-ghost\" id=\"btnBatchRel\" ' + (selected.size ? '' : 'disabled') + '>批量释放(' + selected.size + ')</button>' +
       '<span class="grow"></span>' +
+      '<button class="btn btn-ghost" id="btnNatCfg">NAT 配置</button>' +
+      '<button class="btn btn-ghost" id="btnPortRange">端口范围</button>' +
+      '<button class="btn btn-ghost" id="btnNetNat">网络 NAT</button>' +
       '<button class="btn btn-ghost" id="btnReload">↻ 刷新</button>' +
       '</div></div>' +
       '<div class="card" style="padding:14px">' +
@@ -53,6 +56,9 @@
 
     document.getElementById('btnAlloc').addEventListener('click', formAlloc);
     document.getElementById('btnReload').addEventListener('click', load);
+    document.getElementById('btnNatCfg').addEventListener('click', formNatCfg);
+    document.getElementById('btnPortRange').addEventListener('click', formPortRange);
+    document.getElementById('btnNetNat').addEventListener('click', formNetNat);
     const batchBtn = document.getElementById('btnBatchRel');
     batchBtn.addEventListener('click', () => batchRelease(Array.from(selected)));
     c.querySelectorAll('.pm-check').forEach(ch => ch.addEventListener('change', () => {
@@ -122,6 +128,107 @@
         .then(() => { LXD.toast('success', '批量释放完成'); selected.clear(); load(); })
         .catch(e => LXD.toast('error', e.message));
     });
+  }
+
+  /* ---------- NAT 配置 ---------- */
+  function formNatCfg() {
+    ADMIN.request('/api/admin/nat-config?version=' + V)
+      .then(res => {
+        const cfgs = (res.data && res.data.configs) || [];
+        const rows = cfgs.map((g, i) =>
+          '<tr><td class="mono">' + LXD.esc(g.interface || '-') + '</td>' +
+          '<td class="mono">' + LXD.esc(g.ip || '-') + '</td>' +
+          '<td class="mono">' + LXD.esc(g.display_ip || '-') + '</td>' +
+          '<td>' + LXD.esc((g.protocol || 'tcp').toUpperCase()) + '</td>' +
+          '<td class="row-actions"><button class="btn btn-sm btn-danger-ghost" data-natdel="' + i + '">删除</button></td></tr>'
+        ).join('');
+        const m = modal(
+          '<h3>NAT 配置（IPv6）</h3>' +
+          '<div class="tbl-wrap" style="max-height:260px;overflow:auto"><table class="tbl"><thead><tr>' +
+          '<th>网卡接口</th><th>转发IP</th><th>公示IP/域名</th><th>协议</th><th style="width:70px">操作</th>' +
+          '</tr></thead><tbody>' + (rows || '<tr><td colspan="5" class="empty">暂无配置</td></tr>') + '</tbody></table></div>' +
+          '<div class="form-grid" style="margin-top:12px">' +
+          '<div class="field"><label>网卡接口</label><input class="input" id="nIface" placeholder="如 eth0"></div>' +
+          '<div class="field"><label>转发IP</label><input class="input" id="nIp" placeholder="内网转发IP"></div>' +
+          '<div class="field"><label>公示IP/域名</label><input class="input" id="nDisp" placeholder="公网IP或域名"></div>' +
+          '<div class="field"><label>协议</label><select class="input" id="nProto"><option value="tcp">TCP</option><option value="udp">UDP</option><option value="tcpudp">TCP/UDP</option></select></div>' +
+          '</div>' +
+          '<div class="modal-actions"><button class="btn btn-ghost" data-act="cancel">关闭</button>' +
+          '<button class="btn btn-ghost" id="nAdd">＋ 添加</button>' +
+          '<button class="btn btn-primary" data-act="save">保存配置</button></div>',
+          mask => {
+            ADMIN.request('/api/admin/nat-config?version=' + V, { method: 'POST', body: cfgs })
+              .then(() => { LXD.toast('success', 'NAT 配置已保存'); mask.remove(); })
+              .catch(e => LXD.toast('error', e.message));
+          });
+        m.querySelector('#nAdd').onclick = () => {
+          const iface = m.querySelector('#nIface').value.trim();
+          const ip = m.querySelector('#nIp').value.trim();
+          const disp = m.querySelector('#nDisp').value.trim();
+          if (!iface || !ip || !disp) { LXD.toast('error', '请填写网卡接口、转发IP和公示IP/域名'); return; }
+          cfgs.push({ interface: iface, ip: ip, display_ip: disp, protocol: m.querySelector('#nProto').value });
+          m.remove(); formNatCfg();
+        };
+        m.querySelectorAll('[data-natdel]').forEach(b => b.onclick = () => {
+          cfgs.splice(parseInt(b.dataset.natdel, 10), 1);
+          m.remove(); formNatCfg();
+        });
+      }).catch(e => LXD.toast('error', e.message));
+  }
+
+  /* ---------- 端口范围配置 ---------- */
+  function formPortRange() {
+    ADMIN.request('/api/admin/port-range/config')
+      .then(res => {
+        const d = res.data || {};
+        modal(
+          '<h3>端口范围配置</h3>' +
+          '<div class="form-grid">' +
+          '<div class="field"><label>IPv4 起始端口</label><input class="input" id="prV4s" type="number" min="1" max="65535" value="' + (d.v4_port_start || 10000) + '"></div>' +
+          '<div class="field"><label>IPv4 结束端口</label><input class="input" id="prV4e" type="number" min="1" max="65535" value="' + (d.v4_port_end || 65535) + '"></div>' +
+          '<div class="field"><label>IPv6 起始端口</label><input class="input" id="prV6s" type="number" min="1" max="65535" value="' + (d.v6_port_start || 10000) + '"></div>' +
+          '<div class="field"><label>IPv6 结束端口</label><input class="input" id="prV6e" type="number" min="1" max="65535" value="' + (d.v6_port_end || 65535) + '"></div>' +
+          '<div class="field" style="grid-column:1/-1"><label><input type="checkbox" id="prV4a"' + (d.v4_auto_allocate_22 ? ' checked' : '') + '> IPv4 自动分配 22 端口</label></div>' +
+          '<div class="field" style="grid-column:1/-1"><label><input type="checkbox" id="prV6a"' + (d.v6_auto_allocate_22 ? ' checked' : '') + '> IPv6 自动分配 22 端口</label></div>' +
+          '</div>' +
+          '<div class="modal-actions"><button class="btn btn-ghost" data-act="cancel">取消</button><button class="btn btn-primary" data-act="save">保存</button></div>',
+          mask => {
+            const v4s = parseInt(mask.querySelector('#prV4s').value, 10), v4e = parseInt(mask.querySelector('#prV4e').value, 10);
+            const v6s = parseInt(mask.querySelector('#prV6s').value, 10), v6e = parseInt(mask.querySelector('#prV6e').value, 10);
+            if (!(v4s >= 1 && v4e <= 65535 && v4s < v4e && v6s >= 1 && v6e <= 65535 && v6s < v6e)) {
+              LXD.toast('error', '端口范围必须在 1-65535 之间且起始小于结束'); return;
+            }
+            const body = {
+              v4_port_start: v4s, v4_port_end: v4e, v4_auto_allocate_22: mask.querySelector('#prV4a').checked,
+              v6_port_start: v6s, v6_port_end: v6e, v6_auto_allocate_22: mask.querySelector('#prV6a').checked
+            };
+            ADMIN.request('/api/admin/port-range/config', { method: 'POST', body: body })
+              .then(() => { LXD.toast('success', '端口范围已保存'); mask.remove(); })
+              .catch(e => LXD.toast('error', e.message));
+          });
+      }).catch(e => LXD.toast('error', e.message));
+  }
+
+  /* ---------- 网络 NAT 开关 ---------- */
+  function formNetNat() {
+    ADMIN.request('/api/admin/network/nat')
+      .then(res => {
+        const d = res.data || {};
+        modal(
+          '<h3>网络 NAT（lxdbr0）</h3>' +
+          '<div class="form-grid">' +
+          '<div class="field" style="grid-column:1/-1"><label><input type="checkbox" id="nnV4"' + (d.ipv4_nat ? ' checked' : '') + '> 启用 IPv4 NAT</label></div>' +
+          '<div class="field" style="grid-column:1/-1"><label><input type="checkbox" id="nnV6"' + (d.ipv6_nat ? ' checked' : '') + '> 启用 IPv6 NAT</label></div>' +
+          '</div>' +
+          '<div class="modal-actions"><button class="btn btn-ghost" data-act="cancel">取消</button><button class="btn btn-primary" data-act="save">保存</button></div>',
+          mask => {
+            ADMIN.request('/api/admin/network/nat', {
+              method: 'POST',
+              body: { ipv4_nat: mask.querySelector('#nnV4').checked, ipv6_nat: mask.querySelector('#nnV6').checked }
+            }).then(() => { LXD.toast('success', 'NAT 设置已保存'); mask.remove(); })
+              .catch(e => LXD.toast('error', e.message));
+          });
+      }).catch(e => LXD.toast('error', e.message));
   }
 
   function load() {
