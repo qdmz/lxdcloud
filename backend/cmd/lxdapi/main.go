@@ -347,7 +347,19 @@ func main() {
 	
 	r.NoRoute(func(c *gin.Context) {
 		// API 路径返回 JSON 404，避免前端把首页 JSON 当成接口数据
-		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+		path := c.Request.URL.Path
+		// 插件未启用/初始化失败时，其路由不会注册：给出明确提示而不是"接口不存在"
+		for _, dp := range disabledPluginAPIs {
+			if !pluginRegistered(pluginManager, dp.plugin) && hasAnyPrefix(path, dp.prefixes) {
+				if c.Request.Method == "GET" {
+					response.Success(c, dp.emptyData(path))
+				} else {
+					response.Error(c, 503, dp.hint)
+				}
+				return
+			}
+		}
+		if strings.HasPrefix(path, "/api/") {
 			response.Error(c, 404, "接口不存在")
 			return
 		}
@@ -758,3 +770,54 @@ func generateSelfSignedCert(certMgr *tlsManager.CertificateManager) {
 	}
 }
 
+
+
+// disabledPluginAPI 描述一个可选插件的接口前缀，插件未加载时返回友好提示
+type disabledPluginAPI struct {
+	plugin   string
+	prefixes []string
+	hint     string
+}
+
+func (d disabledPluginAPI) emptyData(path string) interface{} {
+	switch {
+	case strings.HasSuffix(path, "/status"):
+		return gin.H{"enabled": false, "running": false, "message": d.hint}
+	case strings.HasSuffix(path, "/proxies"), strings.Contains(path, "/proxies/container/"):
+		return []interface{}{}
+	case strings.HasSuffix(path, "/logs"):
+		return gin.H{"logs": []string{}}
+	default:
+		return gin.H{"enabled": false, "message": d.hint}
+	}
+}
+
+var disabledPluginAPIs = []disabledPluginAPI{
+	{
+		plugin:   "nginx",
+		prefixes: []string{"/api/admin/nginx", "/api/user/nginx", "/api/container/nginx"},
+		hint:     "反向代理插件未启用：请在 config.yaml 中设置 plugins.nginx.enabled: true，安装 Nginx 并确认插件目录存在后重启 lxdapi",
+	},
+	{
+		plugin:   "opengfw",
+		prefixes: []string{"/api/admin/firewall"},
+		hint:     "防火墙插件未加载：请确认 plugins/opengfw 目录及 OpenGFW 程序已安装后重启 lxdapi",
+	},
+}
+
+func pluginRegistered(m *plugin.Manager, name string) bool {
+	if m == nil {
+		return false
+	}
+	_, ok := m.GetPlugin(name)
+	return ok
+}
+
+func hasAnyPrefix(path string, prefixes []string) bool {
+	for _, p := range prefixes {
+		if path == p || strings.HasPrefix(path, p+"/") {
+			return true
+		}
+	}
+	return false
+}

@@ -19,7 +19,10 @@
   function render(status) {
     const st = status || {};
     const running = !!st.running;
-    const statusBar =
+    const disabledBar = (st.enabled === false)
+      ? '<div class="card" style="padding:12px 16px;margin-bottom:16px;border-left:3px solid var(--warning,#f59e0b)">⚠ ' + esc(st.message || '防火墙插件未加载') + '</div>'
+      : '';
+    const statusBar = disabledBar +
       '<div class="card" style="padding:12px 14px;margin-bottom:16px">' +
       '<div class="toolbar">' +
       (running

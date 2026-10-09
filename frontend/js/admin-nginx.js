@@ -35,7 +35,10 @@
         '</td></tr>';
     }).join('');
 
-    const statusBar = (st.running != null)
+    const disabledBar = (st.enabled === false)
+      ? '<div class="card" style="padding:12px 16px;margin-bottom:16px;border-left:3px solid var(--warning,#f59e0b)">⚠ ' + LXD.esc(st.message || '反向代理插件未启用') + '</div>'
+      : '';
+    const statusBar0 = (st.enabled !== false && st.running != null)
       ? '<div class="card" style="padding:12px 14px;margin-bottom:16px"><div class="toolbar">' +
         (st.running ? '<span class="badge badge-running">Nginx 运行中</span>' : '<span class="badge badge-other">Nginx 未运行</span>') +
         '<span class="badge badge-info">版本 ' + LXD.esc(st.version || '-') + '</span>' +
@@ -46,6 +49,7 @@
         '</div></div>'
       : '';
 
+    const statusBar = disabledBar + statusBar0;
     c.innerHTML = statusBar +
       '<div class="card" style="padding:12px 14px;margin-bottom:16px"><div class="toolbar">' +
       '<button class="btn btn-primary" id="btnNew">＋ 新建代理</button>' +
