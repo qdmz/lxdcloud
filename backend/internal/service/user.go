@@ -5,6 +5,7 @@ import (
 	"crypto/rand"
 	"encoding/hex"
 	"fmt"
+	"strings"
 	"lxdapi/internal/db"
 	"lxdapi/models"
 )
@@ -308,7 +309,11 @@ func DeleteUser(userID string) error {
 
 func GetOrCreateUser(username string) (*models.User, error) {
 	var user models.User
-	
+	username = strings.TrimSpace(username)
+	if username == "" {
+		return nil, fmt.Errorf("用户名不能为空")
+	}
+
 	err := db.DB.Where("username = ?", username).First(&user).Error
 	if err == nil {
 		return &user, nil

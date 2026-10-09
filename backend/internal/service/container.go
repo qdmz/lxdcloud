@@ -90,16 +90,20 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 		return fmt.Errorf("容器已存在: %s", req.Name)
 	}
 	
-	user, err := GetOrCreateUser(req.Username)
-	if err != nil {
-		return fmt.Errorf("处理用户失败: %v", err)
+	req.Username = strings.TrimSpace(req.Username)
+	if req.Username != "" {
+		user, err := GetOrCreateUser(req.Username)
+		if err != nil {
+			return fmt.Errorf("处理用户失败: %v", err)
+		}
+		if user.TrafficLocked {
+			return fmt.Errorf("用户流量已超限，无法创建容器")
+		}
+		logger.Info("用户确认: %s (ID: %d)", user.Username, user.ID)
+	} else {
+		// 未指定所属用户：创建为未分配容器，不再自动生成空用户名账号
+		logger.Info("未指定所属用户，容器 %s 将作为未分配容器创建", req.Name)
 	}
-	
-	if user.TrafficLocked {
-		return fmt.Errorf("用户流量已超限，无法创建容器")
-	}
-	
-	logger.Info("用户确认: %s (ID: %d)", user.Username, user.ID)
 	
 	logger.Info("开始创建容器: %s, 镜像: %s", req.Name, req.Image)
 	
