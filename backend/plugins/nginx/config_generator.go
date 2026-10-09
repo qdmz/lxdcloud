@@ -28,7 +28,15 @@ type ConfigGenerator struct {
 
 func NewConfigGenerator(confDir, sitesDir, sslDir string) *ConfigGenerator {
 	tmplPath := filepath.Join(filepath.Dir(confDir), "nginx-default.tmpl")
-	tmpl, err := template.ParseFiles(tmplPath)
+	var tmpl *template.Template
+	var err error
+	if _, statErr := os.Stat(tmplPath); statErr == nil {
+		// 优先使用工作目录下的模板，便于自定义
+		tmpl, err = template.ParseFiles(tmplPath)
+	} else {
+		// 未部署模板文件时使用编译进二进制的默认模板
+		tmpl, err = template.New("nginx-default.tmpl").Parse(defaultNginxTemplate)
+	}
 	if err != nil {
 		logger.Error("加载模板失败: %v", err)
 		return nil

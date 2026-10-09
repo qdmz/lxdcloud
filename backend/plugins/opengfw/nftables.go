@@ -3,6 +3,7 @@ package opengfw
 import (
 	"fmt"
 	"lxdapi/pkg/logger"
+	"os"
 	"os/exec"
 	"strings"
 )
@@ -105,11 +106,11 @@ func (m *NFTablesManager) CheckNFQueueSupport() error {
 		return nil
 	}
 	
-	if !strings.Contains(string(output), "nfnetlink_queue") {
+	if !strings.Contains(string(output), "nfnetlink_queue") && !nfqueueBuiltin() {
 		logger.Warn("nfnetlink_queue 内核模块未加载，尝试加载...")
 		cmd = exec.Command("modprobe", "nfnetlink_queue")
 		if err := cmd.Run(); err != nil {
-			return fmt.Errorf("加载 nfnetlink_queue 模块失败: %v", err)
+			return fmt.Errorf("当前内核不支持 NFQUEUE（nfnetlink_queue 模块无法加载），防火墙无法运行：%v", err)
 		}
 		logger.OK("nfnetlink_queue 模块已加载")
 	}
@@ -124,4 +125,14 @@ func (m *NFTablesManager) execCommand(cmd string) error {
 		return fmt.Errorf("%s", string(out))
 	}
 	return nil
+}
+
+// nfqueueBuiltin 判断 nfnetlink_queue 是否已编译进内核（lsmod 中不会出现）
+func nfqueueBuiltin() bool {
+	for _, p := range []string{"/sys/module/nfnetlink_queue", "/proc/net/netfilter/nfnetlink_queue"} {
+		if _, err := os.Stat(p); err == nil {
+			return true
+		}
+	}
+	return false
 }

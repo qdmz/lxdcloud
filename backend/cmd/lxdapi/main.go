@@ -115,6 +115,7 @@ func main() {
 	opengfwPlugin := opengfw.NewOpenGFWPlugin()
 	if err := pluginManager.Register(opengfwPlugin); err != nil {
 		logger.Error("注册 OpenGFW 插件失败: %v", err)
+		pluginInitErrors["opengfw"] = err.Error()
 	} else {
 		logger.OK("OpenGFW 插件注册成功")
 	}
@@ -123,6 +124,7 @@ func main() {
 		nginxPlugin := nginx.NewNginxPlugin()
 		if err := pluginManager.Register(nginxPlugin); err != nil {
 			logger.Error("注册 Nginx 插件失败: %v", err)
+			pluginInitErrors["nginx"] = err.Error()
 		} else {
 			logger.OK("Nginx 插件注册成功")
 		}
@@ -354,7 +356,7 @@ func main() {
 				if c.Request.Method == "GET" {
 					response.Success(c, dp.emptyData(path))
 				} else {
-					response.Error(c, 503, dp.hint)
+					response.Error(c, 503, dp.message())
 				}
 				return
 			}
@@ -524,7 +526,9 @@ func main() {
 		adminAPI.POST("/ip/pool/batch-delete", admin.BatchDeleteIPFromPool)
 		adminAPI.GET("/users", admin.GetUsers)
 		adminAPI.POST("/users", admin.CreateUser)
+		adminAPI.GET("/users/:id", admin.GetUser)
 		adminAPI.PUT("/users/:id", admin.UpdateUser)
+		adminAPI.POST("/users/:id", admin.UpdateUser) // 前端使用 POST 保存
 		adminAPI.DELETE("/users/:id", admin.DeleteUser)
 		adminAPI.POST("/users/batch-delete", admin.BatchDeleteUsers)
 		adminAPI.POST("/users/:id/regenerate-key", admin.RegenerateAPIKey)
@@ -779,16 +783,26 @@ type disabledPluginAPI struct {
 	hint     string
 }
 
+// pluginInitErrors 记录插件初始化失败原因，用于在前端提示中展示
+var pluginInitErrors = map[string]string{}
+
+func (d disabledPluginAPI) message() string {
+	if reason, ok := pluginInitErrors[d.plugin]; ok && reason != "" {
+		return d.hint + "（加载失败原因：" + reason + "）"
+	}
+	return d.hint
+}
+
 func (d disabledPluginAPI) emptyData(path string) interface{} {
 	switch {
 	case strings.HasSuffix(path, "/status"):
-		return gin.H{"enabled": false, "running": false, "message": d.hint}
+		return gin.H{"enabled": false, "running": false, "message": d.message()}
 	case strings.HasSuffix(path, "/proxies"), strings.Contains(path, "/proxies/container/"):
 		return []interface{}{}
 	case strings.HasSuffix(path, "/logs"):
 		return gin.H{"logs": []string{}}
 	default:
-		return gin.H{"enabled": false, "message": d.hint}
+		return gin.H{"enabled": false, "message": d.message()}
 	}
 }
 

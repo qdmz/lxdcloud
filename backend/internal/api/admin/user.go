@@ -1,6 +1,9 @@
 package admin
 
 import (
+	"fmt"
+	"strings"
+
 	"github.com/gin-gonic/gin"
 	"lxdapi/internal/service"
 	"lxdapi/models"
@@ -11,6 +14,12 @@ import (
 type CreateUserRequest struct {
 	Username           string `json:"username" binding:"required"`
 	Email              string `json:"email"`
+	Password           string `json:"password"`
+	Status             string `json:"status"`
+	Remark             string `json:"remark"`
+	CPU                int    `json:"cpu"`    // 前端别名 → cpu_quota
+	Memory             int    `json:"memory"` // 前端别名 → memory_quota
+	Disk               int    `json:"disk"`   // 前端别名 → disk_quota
 	CPUQuota           int    `json:"cpu_quota"`
 	MemoryQuota        int    `json:"memory_quota"`
 	DiskQuota          int    `json:"disk_quota"`
@@ -50,6 +59,16 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	if req.CPUQuota == 0 && req.CPU > 0 {
+		req.CPUQuota = req.CPU
+	}
+	if req.MemoryQuota == 0 && req.Memory > 0 {
+		req.MemoryQuota = req.Memory
+	}
+	if req.DiskQuota == 0 && req.Disk > 0 {
+		req.DiskQuota = req.Disk
+	}
+
 	user, err := service.CreateUser(req.Username, req.Email, "", req.CPUQuota, req.MemoryQuota, req.DiskQuota,
 		req.MaxCPUPerContainer, req.TrafficLimit, req.IPv4PoolLimit, req.IPv4MappingLimit,
 		req.IPv6PoolLimit, req.IPv6MappingLimit, req.ReverseProxyLimit,
@@ -61,10 +80,34 @@ func CreateUser(c *gin.Context) {
 		return
 	}
 
+	// 管理员指定了初始密码：写入 bcrypt 密码哈希，用户可直接用该密码登录用户中心
+	extra := map[string]interface{}{}
+	if req.Password != "" {
+		hash, herr := service.HashPassword(req.Password)
+		if herr != nil {
+			response.Error(c, 500, "密码处理失败")
+			return
+		}
+		extra["password_hash"] = hash
+		extra["email_verified"] = true
+	}
+	if st := normalizeUserStatus(req.Status); st == "disabled" {
+		extra["status"] = st
+	}
+	if len(extra) > 0 {
+		if err := service.UpdateUser(fmt.Sprint(user.ID), extra); err != nil {
+			logger.Error("设置新用户密码/状态失败: %v", err)
+		}
+	}
+
+	password := user.APIKey
+	if req.Password != "" {
+		password = req.Password
+	}
 	logger.OK("创建用户成功: %s", user.Username)
 	response.Success(c, gin.H{
 		"user":     user,
-		"password": user.APIKey,
+		"password": password,
 	})
 }
 
@@ -137,6 +180,11 @@ func GetUsers(c *gin.Context) {
 
 type UpdateUserRequest struct {
 	Status             *string `json:"status"`
+	Password           *string `json:"password"`
+	Remark             *string `json:"remark"`
+	CPU                *int    `json:"cpu"`    // 前端别名 → cpu_quota
+	Memory             *int    `json:"memory"` // 前端别名 → memory_quota
+	Disk               *int    `json:"disk"`   // 前端别名 → disk_quota
 	CPUQuota           *int    `json:"cpu_quota"`
 	MaxCPUPerContainer *int    `json:"max_cpu_per_container"`
 	MemoryQuota        *int    `json:"memory_quota"`
@@ -183,9 +231,29 @@ func UpdateUser(c *gin.Context) {
 		return
 	}
 
+	if req.CPUQuota == nil && req.CPU != nil {
+		req.CPUQuota = req.CPU
+	}
+	if req.MemoryQuota == nil && req.Memory != nil {
+		req.MemoryQuota = req.Memory
+	}
+	if req.DiskQuota == nil && req.Disk != nil {
+		req.DiskQuota = req.Disk
+	}
+
 	updates := make(map[string]interface{})
 	if req.Status != nil {
-		updates["status"] = *req.Status
+		if st := normalizeUserStatus(*req.Status); st != "" {
+			updates["status"] = st
+		}
+	}
+	if req.Password != nil && *req.Password != "" {
+		hash, err := service.HashPassword(*req.Password)
+		if err != nil {
+			response.Error(c, 500, "密码处理失败")
+			return
+		}
+		updates["password_hash"] = hash
 	}
 	if req.CPUQuota != nil {
 		updates["cpu_quota"] = *req.CPUQuota
@@ -255,6 +323,36 @@ func UpdateUser(c *gin.Context) {
 
 	logger.OK("更新用户成功: %s", userID)
 	response.Success(c, nil)
+}
+
+// GetUser 获取单个用户详情（路径参数版，供前端 GET /api/admin/users/:id 使用）
+// @Router /api/admin/users/:id [get]
+func GetUser(c *gin.Context) {
+	userID := c.Param("id")
+	user, containers, err := service.GetUserWithContainers(userID)
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+	response.Success(c, gin.H{
+		"user":       user,
+		"containers": containers,
+		"total":      len(containers),
+		"stats":      service.GetUserFullStats(user.Username),
+	})
+}
+
+// normalizeUserStatus 统一前端状态值：enabled/active/normal → active，disabled → disabled，pending → pending
+func normalizeUserStatus(s string) string {
+	switch strings.ToLower(strings.TrimSpace(s)) {
+	case "enabled", "active", "normal", "1":
+		return "active"
+	case "disabled", "0":
+		return "disabled"
+	case "pending":
+		return "pending"
+	}
+	return ""
 }
 
 // DeleteUser 删除用户

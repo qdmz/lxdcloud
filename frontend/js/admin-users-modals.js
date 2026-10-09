@@ -142,22 +142,23 @@
 
     openModal(html, (modal) => {
       ADMIN.request('/api/admin/users/' + encodeURIComponent(id)).then((res) => {
-        const u = res.data || {};
+        const d = res.data || {};
+        const u = d.user || d.User || d;
         const set = (n, v) => { const el = modal.querySelector('[name="' + n + '"]'); if (el && v != null) el.value = v; };
         set('username', uget(u, ['username', 'Username', 'name'], ''));
-        set('remark', uget(u, ['remark', 'Remark'], ''));
-        set('status', uget(u, ['status', 'Status'], 'enabled'));
+        set('remark', uget(u, ['remark', 'Remark', 'Nickname'], ''));
+        set('status', String(uget(u, ['status', 'Status'], 'enabled')).toLowerCase() === 'disabled' ? 'disabled' : 'enabled');
         set('cpu', uget(u, ['cpu', 'CPU', 'cpu_quota', 'CPUQuota'], null));
         set('memory', uget(u, ['memory', 'memory_quota', 'MemoryQuota'], null));
         set('disk', uget(u, ['disk', 'disk_quota', 'DiskQuota'], null));
         set('ingress', uget(u, ['ingress', 'Ingress'], null));
         set('egress', uget(u, ['egress', 'Egress'], null));
         set('traffic_limit', uget(u, ['traffic_limit', 'TrafficLimit'], null));
-        set('ipv4_pool_limit', uget(u, ['ipv4_pool_limit'], null));
-        set('ipv6_pool_limit', uget(u, ['ipv6_pool_limit'], null));
-        set('ipv4_mapping_limit', uget(u, ['ipv4_mapping_limit'], null));
-        set('ipv6_mapping_limit', uget(u, ['ipv6_mapping_limit'], null));
-        set('reverse_proxy_limit', uget(u, ['reverse_proxy_limit'], null));
+        set('ipv4_pool_limit', uget(u, ['ipv4_pool_limit', 'IPv4PoolLimit'], null));
+        set('ipv6_pool_limit', uget(u, ['ipv6_pool_limit', 'IPv6PoolLimit'], null));
+        set('ipv4_mapping_limit', uget(u, ['ipv4_mapping_limit', 'IPv4MappingLimit'], null));
+        set('ipv6_mapping_limit', uget(u, ['ipv6_mapping_limit', 'IPv6MappingLimit'], null));
+        set('reverse_proxy_limit', uget(u, ['reverse_proxy_limit', 'ReverseProxyLimit'], null));
         modal.querySelector('#usrLoading').style.display = 'none';
         modal.querySelector('#userForm').style.display = 'block';
         modal.querySelector('#userSubmit').disabled = false;
