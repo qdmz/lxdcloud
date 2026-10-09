@@ -3,6 +3,10 @@
 ## v1.1.3 - 2026-10-09
 
 - fix: 后台创建容器未指定用户名时不再自动生成空用户名账号
+- fix: 管理后台「用户管理 → 编辑」提示接口不存在：新增 `GET/POST /api/admin/users/:id`，兼容前端字段（cpu/memory/disk、enabled 状态、重置密码）
+- fix: 新建用户时填写的初始密码可直接用于用户中心登录
+- fix: Nginx 反向代理插件内置默认站点模板，未部署 `nginx-default.tmpl` 时也能启动
+- feat: 插件加载失败时，前端提示中显示具体原因（如内核不支持 NFQUEUE）；内核内置 nfnetlink_queue 时不再误判
 
 ## v1.1.2 - 2026-10-09
 
