@@ -681,3 +681,6 @@ a.menu-item, a.u-nav-item, a.btn, a.card, .side-nav a, .user-nav a { text-decora
   .stat-grid .stat-val, .stat-grid .stat-value { font-size: 19px; }
 
 }
+
+/* v1.1.1: list-style cards need inner padding */
+.store-card, .order-row, .inst-row, .ticket-row, .product-row, .node-row, .msg-row { padding: 14px 16px; }
