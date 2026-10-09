@@ -37,15 +37,22 @@
       '  <div class="brand-logo" id="brandLogo">L</div>' +
       '  <div><div class="user-topbar-name" id="brandName">LXD 容器面板</div>' +
       '    <div class="user-topbar-sub" id="userInfo">用户中心</div></div>' +
-      '  <nav class="user-nav">' + navHtml + '</nav>' +
       '  <span class="u-spacer"></span>' +
-      '  <button class="btn btn-ghost btn-sm" id="btnLogout" title="退出登录">⎋ 退出</button>' +
+      '  <div class="u-actions">' +
+      '    <button class="btn btn-ghost btn-sm" id="btnLogout" title="退出登录">⎋ <span class="u-logout-text">退出</span></button>' +
+      '    <button class="btn btn-ghost btn-sm u-menu-btn" id="btnUMenu" title="菜单" aria-label="菜单">☰</button>' +
+      '  </div>' +
+      '  <nav class="user-nav" id="userNav">' + navHtml + '</nav>' +
       '</header>' +
       '<main class="user-content" id="userContent">' +
       (title ? '<div class="page-head"><div><h2>' + title + '</h2>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div></div>' : '') +
       '</main></div>';
 
     document.getElementById('btnLogout').addEventListener('click', USER.logout);
+    document.getElementById('btnUMenu').addEventListener('click', () => {
+      document.getElementById('userNav').classList.toggle('open');
+    });
+    if (LXD.mountThemeToggle) LXD.mountThemeToggle(app.querySelector('.u-actions'));
 
     // 品牌
     LXD.loadBrand().then((b) => {
@@ -55,7 +62,8 @@
 
     // 用户信息
     USER.request('/api/user/info').then((res) => {
-      const u = res.data || {};
+      const d = res.data || {};
+      const u = d.user || d; // /api/user/info 返回 {user:{...}, stats:{...}}
       const name = u.username || u.Username || u.name;
       const info = document.getElementById('userInfo');
       if (info && name) info.textContent = '已登录：' + name;
@@ -74,6 +82,11 @@
         throw new Error('unauthorized');
       }
       const data = await res.json().catch(() => ({}));
+      if (data && data.code === 401) {
+        LXD.toast('error', data.msg || '登录已失效，请重新登录');
+        setTimeout(() => { window.location.href = 'login.html'; }, 800);
+        throw new Error('unauthorized');
+      }
       if (!res.ok || (data.code !== undefined && data.code !== 200)) {
         const err = new Error(data.msg || data.message || '请求失败');
         err.status = res.status; err.data = data;

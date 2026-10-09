@@ -36,10 +36,13 @@ func GetBrandSettings(c *gin.Context) {
 	if m == nil {
 		m = gin.H{}
 	}
-	// 附加旧版前端兼容字段
+	// 安全：公开接口绝不能返回 TLS 证书私钥（v1.1.0 修复私钥泄露）
+	delete(m, "tls_cert_content")
+	delete(m, "tls_key_content")
+	// 附加旧版前端兼容字段（logo_url 原先误映射为后台背景图，已更正为空，前端回退为首字母 Logo）
 	m["site_name"] = settings.AdminSystemName
 	m["page_title"] = settings.AdminSystemTitle
-	m["logo_url"] = settings.AdminBgImage
+	m["logo_url"] = ""
 	m["favicon_url"] = settings.FaviconUrl
 	response.Success(c, m)
 }

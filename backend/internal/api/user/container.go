@@ -62,6 +62,10 @@ func CreateContainer(c *gin.Context) {
 		response.Error(c, 400, "参数错误: "+err.Error())
 		return
 	}
+	if err := service.ValidateContainerName(req.Name); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
 
 	if user.MaxCPUPerContainer > 0 && req.CPU > user.MaxCPUPerContainer {
 		response.Error(c, 400, fmt.Sprintf("单容器CPU超过限制，最大允许%d核", user.MaxCPUPerContainer))

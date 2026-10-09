@@ -131,13 +131,24 @@ func MarkOrderPaid(orderNo, channel, tradeNo string) (*models.Order, error) {
 	}
 
 	now := time.Now()
+	// 条件更新保证只有一个回调能把订单从 pending 改为 paid（异步通知与同步跳转并发时不会重复开通）
+	res := db.DB.Model(&models.Order{}).Where("id = ? AND status = ?", o.ID, "pending").Updates(map[string]interface{}{
+		"status":       "paid",
+		"pay_channel":  channel,
+		"pay_trade_no": tradeNo,
+		"paid_at":      now,
+	})
+	if res.Error != nil {
+		return nil, res.Error
+	}
+	if res.RowsAffected == 0 {
+		// 已被其他请求处理
+		return GetOrderByNo(orderNo)
+	}
 	o.Status = "paid"
 	o.PayChannel = channel
 	o.PayTradeNo = tradeNo
 	o.PaidAt = &now
-	if err := db.DB.Save(o).Error; err != nil {
-		return nil, err
-	}
 
 	// 开通/续费
 	if o.Type == "renew" && o.UserProductID > 0 {

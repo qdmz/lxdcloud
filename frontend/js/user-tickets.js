@@ -78,8 +78,11 @@
           .then(() => { LXD.toast('success', '已回复'); showDetail(id); }).catch(e => LXD.toast('error', e.message));
       });
       if (document.getElementById('btnClose')) document.getElementById('btnClose').addEventListener('click', () => {
-        USER.request('/api/user/tickets/' + id + '/close', { method: 'POST' })
-          .then(() => { LXD.toast('success', '工单已关闭'); load(); }).catch(e => LXD.toast('error', e.message));
+        LXD.confirmDialog('关闭工单', '确定关闭该工单吗？关闭后无法继续回复。').then(ok => {
+          if (!ok) return;
+          USER.request('/api/user/tickets/' + id + '/close', { method: 'POST' })
+            .then(() => { LXD.toast('success', '工单已关闭'); load(); }).catch(e => LXD.toast('error', e.message));
+        });
       });
       document.getElementById('btnBack2').addEventListener('click', load);
     }).catch(e => { c.innerHTML = '<div class="empty">加载失败：' + LXD.esc(e.message) + '</div>'; });

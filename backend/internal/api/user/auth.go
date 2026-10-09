@@ -79,7 +79,7 @@ func Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
-		Captcha  string `json:"captcha" binding:"required"`
+		Captcha  string `json:"captcha"` // 关闭验证码时可不传
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
@@ -160,6 +160,7 @@ func Login(c *gin.Context) {
 	delete(userLoginAttempts.attempts, clientIP)
 	userLoginAttempts.Unlock()
 
+	session.Clear() // 登录成功重建会话数据
 	session.Set("user_logged_in", true)
 	session.Set("user_username", user.Username)
 	session.Set("user_id", user.ID)
@@ -169,6 +170,7 @@ func Login(c *gin.Context) {
 		return
 	}
 
+	service.TouchLogin(user)
 	logger.OK("用户登录成功: %s", user.Username)
 	response.Success(c, gin.H{
 		"username": user.Username,

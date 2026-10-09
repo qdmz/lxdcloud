@@ -7,7 +7,7 @@
   position: sticky; top: 0; z-index: 30;
   display: flex; align-items: center; gap: 12px;
   padding: 10px 20px;
-  background: rgba(9, 14, 25, 0.82);
+  background: rgba(var(--d-rgb), 0.82);
   border-bottom: 1px solid var(--border);
   backdrop-filter: blur(12px);
 }
@@ -32,4 +32,33 @@
   .user-nav { margin-left: 0; order: 3; width: 100%; }
   .user-topbar { flex-wrap: wrap; }
   .user-content { padding: 14px; }
+}
+
+/* ---------- v1.1：用户中心移动端折叠菜单 ---------- */
+.u-menu-btn { display: none; }
+.user-topbar .u-actions { display: flex; align-items: center; gap: 8px; }
+@media (max-width: 960px) {
+  .user-topbar { flex-wrap: wrap; }
+  .u-menu-btn { display: inline-flex; }
+  .user-nav {
+    order: 3; width: 100%; margin-left: 0;
+    display: none; flex-direction: column; gap: 2px;
+    padding: 8px 0 4px; border-top: 1px solid var(--border); margin-top: 8px;
+  }
+  .user-nav.open { display: flex; }
+  .user-nav .u-nav-item { padding: 10px 12px; }
+  .user-topbar-sub { max-width: 46vw; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.user-topbar > .brand-logo, .user-topbar > div:not(.u-actions) { order: 0; }
+.user-nav { order: 1; min-width: 0; flex: 0 1 auto; scrollbar-width: thin; }
+.user-topbar .u-spacer { order: 2; }
+.user-topbar .u-actions { order: 3; }
+@media (max-width: 960px) {
+  .user-nav { order: 4; }
+}
+@media (max-width: 480px) {
+  .u-logout-text { display: none; }
+}
+@media (max-width: 640px) {
+  .user-nav.open { display: grid; grid-template-columns: 1fr 1fr; gap: 4px; }
 }

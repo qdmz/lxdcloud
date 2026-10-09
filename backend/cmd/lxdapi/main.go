@@ -2,6 +2,7 @@ package main
 
 import (
 	"context"
+	"crypto/rand"
 	"embed"
 	"encoding/json"
 	"fmt"
@@ -41,10 +42,27 @@ import (
 	"log"
 	"os"
 	"path/filepath"
+	"strings"
 )
 
 //go:embed templates docs static
 var embeddedFiles embed.FS
+
+// Version 程序版本号，发布时可通过 -ldflags "-X main.Version=x.y.z" 注入
+var Version = "1.1.0"
+
+// sessionSecret 返回会话签名密钥；未配置或仍为占位符时生成随机密钥（重启后需重新登录）
+func sessionSecret(cfg *core.Config) []byte {
+	if !core.IsPlaceholder(cfg.Admin.SessionSecret) && len(cfg.Admin.SessionSecret) >= 16 {
+		return []byte(cfg.Admin.SessionSecret)
+	}
+	buf := make([]byte, 32)
+	if _, err := rand.Read(buf); err != nil {
+		log.Fatalf("生成会话密钥失败: %v", err)
+	}
+	logger.Warn("admin.session_secret 未配置、过短或仍为占位符，已使用随机密钥（重启后所有会话失效），请在 config.yaml 中设置至少 16 位随机字符串")
+	return buf
+}
 
 func main() {
 	if err := core.LoadConfig("configs/config.yaml"); err != nil {
@@ -243,15 +261,33 @@ func main() {
 	gin.SetMode(cfg.System.Server.Mode)
 	r := gin.Default()
 
-	store := cookie.NewStore([]byte(cfg.Admin.SessionSecret))
+	// 只信任本机/内网反向代理的 X-Forwarded-For，防止伪造 IP 绕过登录限流
+	trusted := cfg.System.Server.TrustedProxies
+	if len(trusted) == 0 {
+		trusted = []string{"127.0.0.1", "::1", "10.0.0.0/8", "172.16.0.0/12", "192.168.0.0/16", "fc00::/7"}
+	}
+	if err := r.SetTrustedProxies(trusted); err != nil {
+		logger.Warn("trusted_proxies 配置无效: %v", err)
+	}
+	r.MaxMultipartMemory = 32 << 20
+
+	if core.IsPlaceholder(cfg.System.Security.APIHash) {
+		logger.Warn("system.security.api_hash 未配置，系统级 API（/api/system/*）已禁用")
+	}
+	if core.IsPlaceholder(cfg.Admin.Password) {
+		logger.Warn("admin.password 未配置或仍为占位符，管理员将无法登录，请尽快修改 config.yaml")
+	}
+
+	store := cookie.NewStore(sessionSecret(cfg))
 	store.Options(sessions.Options{
 		Path:     "/",
-		MaxAge:   3600,
+		MaxAge:   86400,
 		HttpOnly: true,
-		Secure:   true, // 仅 HTTPS 传输（公网经 Cloudflare 为 HTTPS）
-		SameSite: 2,
+		SameSite: http.SameSiteLaxMode,
 	})
+	r.Use(middleware.SecurityHeaders())
 	r.Use(sessions.Sessions("lxdapi_session", store))
+	r.Use(middleware.SessionCookieOptions())
 	r.Use(middleware.BrandMiddleware())
 
 	tmpl := template.New("").Funcs(template.FuncMap{})
@@ -310,7 +346,19 @@ func main() {
 	logger.OK("模板加载完成")
 	
 	r.NoRoute(func(c *gin.Context) {
+		// API 路径返回 JSON 404，避免前端把首页 JSON 当成接口数据
+		if strings.HasPrefix(c.Request.URL.Path, "/api/") {
+			response.Error(c, 404, "接口不存在")
+			return
+		}
 		c.Redirect(302, "/")
+	})
+
+	r.GET("/api/public/version", func(c *gin.Context) {
+		response.Success(c, gin.H{"version": Version})
+	})
+	r.GET("/healthz", func(c *gin.Context) {
+		c.JSON(200, gin.H{"status": "ok", "version": Version})
 	})
 
 	pluginManager.RegisterRoutes(r)
@@ -321,7 +369,7 @@ func main() {
 			"author":       "xkatld",
 			"project":      "https://github.com/xkatld/lxdapi-web-server",
 			"description":  "主流财务系统对接支持，提供完整的Web管理界面与RESTful API",
-			"version":      "v2.1.3",
+			"version":      "v" + Version,
 			"name":         sysInfo.Name,
 			"docs":         sysInfo.Docs,
 			"os":           sysInfo.OS,
@@ -578,6 +626,7 @@ func main() {
 	}
 
 	r.GET("/api/public/brand-settings", public.GetBrandSettings)
+	r.GET("/api/public/brand", public.GetBrandSettings) // 静态前端使用的别名
 	r.GET("/api/public/ip-pool-settings", admin.GetIPPoolSettingsPublic)
 	// ---- 公开商业化接口 ----
 	r.POST("/api/public/register", public.Register)

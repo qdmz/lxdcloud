@@ -86,20 +86,31 @@
       '    <button class="btn btn-ghost btn-sm btn-menu" id="btnMenu">' + ICONS.menu + '</button>' +
       '    <div class="topbar-title">' + (title || '') + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div>' +
       '    <span class="topbar-spacer"></span>' +
-      '    <button class="btn btn-ghost btn-sm" id="btnRefresh" title="刷新">' + ICONS.refresh + '</button>' +
+      '    <div class="topbar-actions">' +
+      '      <button class="btn btn-ghost btn-sm" id="btnRefresh" title="刷新">' + ICONS.refresh + '</button>' +
+      '    </div>' +
       '  </header>' +
       '  <main class="admin-content" id="adminContent"></main>' +
       '</div></div>';
 
-    // 移动端菜单
+    // 菜单：移动端为抽屉；桌面端为收起/展开侧边栏（记忆状态）
+    const sidebar = document.getElementById('adminSidebar');
+    const overlay = document.getElementById('sideOverlay');
+    const closeDrawer = () => { sidebar.classList.remove('open'); overlay.classList.remove('show'); };
     document.getElementById('btnMenu').addEventListener('click', () => {
-      document.getElementById('adminSidebar').classList.add('open');
-      document.getElementById('sideOverlay').classList.add('show');
+      if (window.matchMedia('(min-width: 901px)').matches) {
+        const on = document.documentElement.classList.toggle('side-collapsed');
+        try { localStorage.setItem('lxd_side_collapsed', on ? '1' : '0'); } catch (e) {}
+        return;
+      }
+      const open = !sidebar.classList.contains('open');
+      sidebar.classList.toggle('open', open);
+      overlay.classList.toggle('show', open);
     });
-    document.getElementById('sideOverlay').addEventListener('click', () => {
-      document.getElementById('adminSidebar').classList.remove('open');
-      document.getElementById('sideOverlay').classList.remove('show');
-    });
+    overlay.addEventListener('click', closeDrawer);
+    sidebar.querySelectorAll('.menu-item').forEach((a) => a.addEventListener('click', closeDrawer));
+    document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
+    if (LXD.mountThemeToggle) LXD.mountThemeToggle(app.querySelector('.topbar-actions'));
     document.getElementById('adminLogout').addEventListener('click', ADMIN.logout);
     document.getElementById('btnRefresh').addEventListener('click', () => window.location.reload());
 
@@ -124,6 +135,12 @@
         throw new Error('unauthorized');
       }
       const data = await res.json().catch(() => ({}));
+      // 后端错误统一以 HTTP 200 + code 字段返回，401 也要跳转登录
+      if (data && data.code === 401) {
+        ADMIN.toast('error', data.msg || '登录已失效，请重新登录');
+        setTimeout(() => { window.location.href = 'login.html'; }, 800);
+        throw new Error('unauthorized');
+      }
       if (!res.ok || (data.code !== undefined && data.code !== 200)) {
         const err = new Error(data.msg || data.message || '请求失败');
         err.status = res.status; err.data = data;

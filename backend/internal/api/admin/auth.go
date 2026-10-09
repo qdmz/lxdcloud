@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"crypto/subtle"
 	"fmt"
 	"strings"
 	"sync"
@@ -69,17 +70,22 @@ func GetCaptcha(c *gin.Context) {
 // config 中的 password 字段应存放 bcrypt 哈希；若为明文（历史配置），
 // 仍允许登录但会打一条警告日志，提示尽快换成哈希。
 func checkAdminPassword(username, password string) bool {
-	if username != core.GlobalConfig.Admin.Username {
+	if subtle.ConstantTimeCompare([]byte(username), []byte(core.GlobalConfig.Admin.Username)) != 1 {
 		return false
 	}
 	stored := core.GlobalConfig.Admin.Password
+	if core.IsPlaceholder(stored) {
+		// 未修改默认密码（空 / CHANGE_ME / __ADMIN_PASS__）时拒绝登录
+		logger.Warn("管理员密码未配置或仍为占位符，已拒绝登录，请修改 config.yaml 中 admin.password")
+		return false
+	}
 	if strings.HasPrefix(stored, "$2a$") || strings.HasPrefix(stored, "$2b$") || strings.HasPrefix(stored, "$2y$") {
 		return bcrypt.CompareHashAndPassword([]byte(stored), []byte(password)) == nil
 	}
 	if stored != "" {
 		logger.Warn("管理员密码为明文存储，建议换成 bcrypt 哈希（python3 -c \"import bcrypt; print(bcrypt.hashpw(b'新密码', bcrypt.gensalt()).decode())\"）")
 	}
-	return password == stored
+	return subtle.ConstantTimeCompare([]byte(password), []byte(stored)) == 1
 }
 
 // Login 管理员登录
@@ -97,7 +103,7 @@ func Login(c *gin.Context) {
 	var req struct {
 		Username string `json:"username" binding:"required"`
 		Password string `json:"password" binding:"required"`
-		Captcha  string `json:"captcha" binding:"required"`
+		Captcha  string `json:"captcha"` // 关闭验证码时可不传
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
@@ -170,15 +176,9 @@ func Login(c *gin.Context) {
 	delete(loginAttempts.attempts, clientIP)
 	loginAttempts.Unlock()
 
-	session.Options(sessions.Options{
-		MaxAge:   86400,
-		HttpOnly: true,
-		// 固定 false：nginx 以 http 对外提供面板时，Secure cookie 会被浏览器丢弃导致所有接口 401
-		Secure:   false,
-		SameSite: 3,
-		Path:     "/",
-	})
-	
+	// Cookie 属性（Secure 按请求协议自动判断）由 middleware.SessionCookieOptions 统一设置；
+	// 登录成功先清空旧会话数据，避免残留状态
+	session.Clear()
 	session.Set("admin_logged_in", true)
 	session.Set("admin_username", req.Username)
 	session.Save()

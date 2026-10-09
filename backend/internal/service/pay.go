@@ -2,9 +2,13 @@ package service
 
 import (
 	"crypto/md5"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"math"
+	"net/url"
 	"sort"
+	"strconv"
 	"strings"
 
 	"lxdapi/internal/db"
@@ -112,11 +116,12 @@ func BuildPayParams(orderNo, name, money, payType string) (string, map[string]st
 	params["sign_type"] = "MD5"
 
 	gateway := strings.TrimRight(cfg.GatewayURL, "/") + "/submit.php"
-	qs := make([]string, 0, len(params))
+	// 参数值需 URL 编码（商品名含中文/空格/& 时原实现会生成错误的跳转地址）
+	qs := url.Values{}
 	for k, v := range params {
-		qs = append(qs, k+"="+v)
+		qs.Set(k, v)
 	}
-	return gateway + "?" + strings.Join(qs, "&"), params, nil
+	return gateway + "?" + qs.Encode(), params, nil
 }
 
 // VerifyPayCallback 验签易支付回调参数；成功返回订单号
@@ -137,8 +142,21 @@ func VerifyPayCallback(raw map[string]string) (string, error) {
 		return "", fmt.Errorf("支付状态非成功")
 	}
 	expected := epaySign(raw, cfg.Key)
-	if !strings.EqualFold(expected, sign) {
+	if subtle.ConstantTimeCompare([]byte(expected), []byte(strings.ToLower(sign))) != 1 {
 		return "", fmt.Errorf("签名校验失败")
+	}
+	// 商户号必须一致
+	if cfg.PID != "" && raw["pid"] != "" && raw["pid"] != cfg.PID {
+		return "", fmt.Errorf("商户号不匹配")
+	}
+	// 回调金额必须与订单金额一致，防止低价支付冒充高价订单
+	o, err := GetOrderByNo(orderNo)
+	if err != nil {
+		return "", err
+	}
+	money, err := strconv.ParseFloat(strings.TrimSpace(raw["money"]), 64)
+	if err != nil || math.Abs(money-o.Amount) > 0.005 {
+		return "", fmt.Errorf("支付金额与订单金额不一致")
 	}
 	return orderNo, nil
 }

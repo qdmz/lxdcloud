@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"net/url"
 	"path"
 	"strings"
 
@@ -37,7 +38,31 @@ func cleanContainerPath(p string) (string, error) {
 	if strings.Contains(p, "..") {
 		return "", fmt.Errorf("路径不允许包含 ..")
 	}
+	if len(p) > 4096 || strings.ContainsAny(p, "\x00\r\n") {
+		return "", fmt.Errorf("路径包含非法字符")
+	}
 	return path.Clean(p), nil
+}
+
+// lxdFileURL 构造 LXD 文件接口地址；容器名与路径均需转义，
+// 否则路径中的 & # ? 等字符会篡改查询参数
+func lxdFileURL(name, p string) string {
+	return "http://lxd/1.0/instances/" + url.PathEscape(name) + "/files?path=" + url.QueryEscape(p)
+}
+
+// safeFileName 生成可安全放入 Content-Disposition 的文件名
+func safeFileName(p string) string {
+	n := path.Base(p)
+	n = strings.Map(func(r rune) rune {
+		if r < 0x20 || r == '"' || r == '\\' || r == 0x7f {
+			return '_'
+		}
+		return r
+	}, n)
+	if n == "" || n == "/" || n == "." {
+		n = "download"
+	}
+	return n
 }
 
 // checkContainerOwner 校验当前用户是否有权访问指定容器
@@ -185,8 +210,8 @@ func DownloadFile(c *gin.Context) {
 	}
 
 	client := lxdFileHTTPClient()
-	url := fmt.Sprintf("http://lxd/1.0/instances/%s/files?path=%s", name, p)
-	req, _ := http.NewRequest("GET", url, nil)
+	lxdURL := lxdFileURL(name, p)
+	req, _ := http.NewRequest("GET", lxdURL, nil)
 	resp, err := client.Do(req)
 	if err != nil {
 		logger.Error("下载文件失败: %v", err)
@@ -200,8 +225,8 @@ func DownloadFile(c *gin.Context) {
 		return
 	}
 
-	fileName := path.Base(p)
-	c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"")
+	fileName := safeFileName(p)
+	c.Header("Content-Disposition", "attachment; filename=\""+fileName+"\"; filename*=UTF-8''"+url.PathEscape(fileName))
 	c.DataFromReader(200, resp.ContentLength, "application/octet-stream", resp.Body, nil)
 }
 
@@ -248,8 +273,8 @@ func UploadFile(c *gin.Context) {
 	defer f.Close()
 
 	client := lxdFileHTTPClient()
-	url := fmt.Sprintf("http://lxd/1.0/instances/%s/files?path=%s", name, p)
-	req, _ := http.NewRequest("POST", url, f)
+	lxdURL := lxdFileURL(name, p)
+	req, _ := http.NewRequest("POST", lxdURL, f)
 	req.Header.Set("Content-Type", "application/octet-stream")
 	req.ContentLength = fileHeader.Size
 
@@ -307,8 +332,8 @@ func MakeDir(c *gin.Context) {
 	}
 
 	client := lxdFileHTTPClient()
-	url := fmt.Sprintf("http://lxd/1.0/instances/%s/files?path=%s", name, p)
-	req2, _ := http.NewRequest("POST", url, nil)
+	lxdURL := lxdFileURL(name, p)
+	req2, _ := http.NewRequest("POST", lxdURL, nil)
 	req2.Header.Set("X-LXD-type", "directory")
 
 	resp, err := client.Do(req2)

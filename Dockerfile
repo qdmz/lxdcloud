@@ -15,9 +15,9 @@ WORKDIR /src
 COPY backend/go.mod backend/go.sum ./
 RUN go mod download
 
-# 复制源码并编译（CGO 必须开启：mattn/go-sqlite3）
+# 复制源码并编译（SQLite 使用纯 Go 驱动 modernc.org/sqlite，无需 CGO）
 COPY backend/ ./
-RUN CGO_ENABLED=1 GOOS=linux go build -trimpath -o /lxdapi ./cmd/lxdapi
+RUN CGO_ENABLED=0 GOOS=linux go build -trimpath -ldflags "-s -w" -o /lxdapi ./cmd/lxdapi
 
 # ---------- 运行阶段 ----------
 FROM debian:bookworm-slim

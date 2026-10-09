@@ -76,7 +76,7 @@ func GetCaptcha(c *gin.Context) {
 func VerifyAccess(c *gin.Context) {
 	var req struct {
 		Hash    string `json:"hash" binding:"required"`
-		Captcha string `json:"captcha" binding:"required"`
+		Captcha string `json:"captcha"` // 关闭验证码时可不传
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")

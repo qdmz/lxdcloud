@@ -13,6 +13,7 @@ import (
 	"lxdapi/pkg/logger"
 	"lxdapi/pkg/plugin"
 	"math/big"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -70,7 +71,21 @@ func generatePassword() string {
 	return string(password)
 }
 
+// containerNameRe LXD 实例名规则：字母开头，字母/数字/短横线，最长 63 位
+var containerNameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9-]{0,62}$`)
+
+// ValidateContainerName 校验容器名（容器名会被拼进 shell 命令设置主机名，必须严格校验）
+func ValidateContainerName(name string) error {
+	if !containerNameRe.MatchString(name) || strings.HasSuffix(name, "-") {
+		return fmt.Errorf("容器名无效：需以字母开头，只能包含字母、数字和短横线，最长 63 位")
+	}
+	return nil
+}
+
 func (s *ContainerService) Create(ctx context.Context, req *models.CreateContainerRequest) error {
+	if err := ValidateContainerName(req.Name); err != nil {
+		return err
+	}
 	if s.lxcClient.ContainerExists(ctx, req.Name) {
 		return fmt.Errorf("容器已存在: %s", req.Name)
 	}

@@ -5,6 +5,20 @@
 - 纯 HTML / CSS / JS 实现，不修改 Go 后端代码，通过 REST API + WebSocket 对接
 - 深色科技风 + 玻璃拟态，手机优先的响应式设计，桌面端自动适配
 - 三端共享同一套设计系统（`css/style.css`）与公共工具库（`js/app.js`）
+- v1.1：深色 / 浅色主题（`js/theme.js`，需在每个页面 `<head>` 中引入）、手机端折叠菜单、表格横向滚动、一键复制、防重复提交，均由 `app.js` 自动生效
+
+### 新页面接入约定（v1.1）
+
+```html
+<link rel="stylesheet" href="../css/style.css?v=1.1.0">
+<script src="../js/theme.js?v=1.1.0"></script>   <!-- head 内，避免主题闪烁 -->
+...
+<script src="../js/app.js?v=1.1.0"></script>      <!-- body 末尾，先于各页面脚本 -->
+```
+
+- 复制按钮：`<button class="copy-btn" data-copy="要复制的文本">复制</button>`，或给元素加 `data-copyable` 自动追加
+- 不希望被防重复提交锁定的按钮加 `data-no-lock`
+- 主题 API：`LXDTheme.toggle()` / `LXDTheme.set('light'|'dark')`
 
 ---
 

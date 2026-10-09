@@ -11,3 +11,8 @@ lxdapi-amd64*
 *.db
 *.db-shm
 *.db-wal
+
+# v1.1.0
+release/
+lxdapi-arm64*
+*.bak-*

@@ -27,8 +27,11 @@
 
     c.querySelectorAll('[data-pay]').forEach(b => b.addEventListener('click', () => pay(b.dataset.pay)));
     c.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => {
-      USER.request('/api/user/orders/' + b.dataset.cancel + '/cancel', { method: 'POST' })
-        .then(() => { LXD.toast('success', '订单已取消'); load(); }).catch(e => LXD.toast('error', e.message));
+      LXD.confirmDialog('取消订单', '确定取消该订单吗？取消后需重新下单。').then(ok => {
+        if (!ok) return;
+        USER.request('/api/user/orders/' + b.dataset.cancel + '/cancel', { method: 'POST' })
+          .then(() => { LXD.toast('success', '订单已取消'); load(); }).catch(e => LXD.toast('error', e.message));
+      });
     }));
   }
 

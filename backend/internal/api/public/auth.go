@@ -5,6 +5,7 @@ import (
 
 	"github.com/gin-gonic/gin"
 
+	"lxdapi/internal/core"
 	"lxdapi/internal/service"
 	"lxdapi/pkg/response"
 )
@@ -40,7 +41,7 @@ func Register(c *gin.Context) {
 	// 发送激活邮件；SMTP 未启用则直接激活
 	smtpOK := false
 	if token, terr := service.CreateEmailToken(user.ID, service.TokenActivate); terr == nil {
-		link := absURL(c, "/api/public/activate?token="+token.Token)
+		link := absURL(c, "/user/activate.html?token="+token.Token)
 		if merr := service.SendMailWithTemplate(user.Email, service.MailTemplateActivate, service.MailData{
 			"SiteName": service.SiteName(),
 			"Username": user.Username,
@@ -109,7 +110,7 @@ func ForgotPassword(c *gin.Context) {
 		response.Error(c, 500, "生成重置链接失败")
 		return
 	}
-	link := absURL(c, "/api/public/reset?token="+token.Token)
+	link := absURL(c, "/user/activate.html?mode=reset&token="+token.Token)
 	if err := service.SendMailWithTemplate(user.Email, service.MailTemplateResetPwd, service.MailData{
 		"SiteName": service.SiteName(),
 		"Username": user.Username,
@@ -160,6 +161,7 @@ func SiteInfo(c *gin.Context) {
 		"register_enabled": true,
 		"pay_enabled":      pay.Enabled,
 		"smtp_enabled":     smtp.Enabled,
+		"captcha_enabled":  core.GlobalConfig.System.Security.EnableCaptcha,
 	})
 }
 
@@ -174,11 +176,12 @@ func PayNotify(c *gin.Context) {
 	}
 	orderNo, err := service.VerifyPayCallback(raw)
 	if err != nil {
-		response.Error(c, 400, err.Error())
+		// 易支付要求回调返回纯文本；验签失败返回 fail
+		c.String(200, "fail")
 		return
 	}
 	if _, err := service.MarkOrderPaid(orderNo, "epay", raw["trade_no"]); err != nil {
-		response.Error(c, 400, err.Error())
+		c.String(200, "fail")
 		return
 	}
 	c.String(200, "success")
@@ -194,9 +197,9 @@ func PayReturn(c *gin.Context) {
 	}
 	orderNo, err := service.VerifyPayCallback(raw)
 	if err != nil {
-		c.Redirect(302, "/user/orders")
+		c.Redirect(302, "/user/orders.html")
 		return
 	}
 	_, _ = service.MarkOrderPaid(orderNo, "epay", raw["trade_no"])
-	c.Redirect(302, "/user/orders")
+	c.Redirect(302, "/user/orders.html")
 }

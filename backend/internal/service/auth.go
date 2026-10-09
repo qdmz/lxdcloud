@@ -2,8 +2,10 @@ package service
 
 import (
 	"crypto/rand"
+	"crypto/subtle"
 	"encoding/hex"
 	"fmt"
+	"regexp"
 	"time"
 
 	"golang.org/x/crypto/bcrypt"
@@ -35,7 +37,28 @@ func VerifyPassword(user *models.User, pwd string) bool {
 	if user.PasswordHash != "" {
 		return bcrypt.CompareHashAndPassword([]byte(user.PasswordHash), []byte(pwd)) == nil
 	}
-	return user.APIKey == pwd
+	return user.APIKey != "" && subtle.ConstantTimeCompare([]byte(user.APIKey), []byte(pwd)) == 1
+}
+
+var (
+	usernameRe = regexp.MustCompile(`^[A-Za-z][A-Za-z0-9_-]{2,31}$`)
+	emailRe    = regexp.MustCompile(`^[^@\s]+@[^@\s]+\.[^@\s]+$`)
+)
+
+// ValidateUsername 用户名：字母开头，3-32 位字母/数字/下划线/短横线
+func ValidateUsername(u string) error {
+	if !usernameRe.MatchString(u) {
+		return fmt.Errorf("用户名需以字母开头，3-32 位，只能包含字母、数字、下划线和短横线")
+	}
+	return nil
+}
+
+// ValidateEmail 简单邮箱格式校验
+func ValidateEmail(e string) error {
+	if len(e) > 254 || !emailRe.MatchString(e) {
+		return fmt.Errorf("邮箱格式不正确")
+	}
+	return nil
 }
 
 func randomToken(n int) (string, error) {
@@ -53,6 +76,15 @@ func RegisterUser(username, email, password string) (*models.User, error) {
 	}
 	if len(password) < 6 {
 		return nil, fmt.Errorf("密码长度至少 6 位")
+	}
+	if len(password) > 72 {
+		return nil, fmt.Errorf("密码长度不能超过 72 位")
+	}
+	if err := ValidateUsername(username); err != nil {
+		return nil, err
+	}
+	if err := ValidateEmail(email); err != nil {
+		return nil, err
 	}
 
 	var cnt int64
@@ -128,8 +160,12 @@ func ValidateEmailToken(token, typ string) (*models.EmailToken, error) {
 		return nil, fmt.Errorf("链接已过期，请重新申请")
 	}
 	now := time.Now()
+	// 原子消费令牌，防止同一链接被并发重复使用
+	res := db.DB.Model(&models.EmailToken{}).Where("id = ? AND used_at IS NULL", et.ID).Update("used_at", now)
+	if res.Error != nil || res.RowsAffected == 0 {
+		return nil, fmt.Errorf("链接已被使用")
+	}
 	et.UsedAt = &now
-	db.DB.Save(&et)
 	return &et, nil
 }
 
@@ -221,6 +257,9 @@ func UpdateProfile(userID uint, nickname, email string) error {
 		return fmt.Errorf("用户不存在")
 	}
 	if email != "" && email != user.Email {
+		if err := ValidateEmail(email); err != nil {
+			return err
+		}
 		var cnt int64
 		db.DB.Model(&models.User{}).Where("email = ? AND id != ?", email, user.ID).Count(&cnt)
 		if cnt > 0 {

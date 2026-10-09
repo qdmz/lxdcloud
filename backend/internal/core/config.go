@@ -1,8 +1,10 @@
 package core
 
 import (
-	"gopkg.in/yaml.v3"
 	"os"
+	"strings"
+
+	"gopkg.in/yaml.v3"
 )
 
 type Config struct {
@@ -26,6 +28,14 @@ type ServerConfig struct {
 	Port int       `yaml:"port"`
 	Mode string    `yaml:"mode"`
 	TLS  TLSConfig `yaml:"tls"`
+	// PublicURL 对外访问地址（如 https://panel.example.com），用于生成激活/重置邮件链接；
+	// 留空时根据请求头（X-Forwarded-Proto/Host）推断。
+	PublicURL string `yaml:"public_url"`
+	// TrustedProxies 信任的反向代理地址/网段，用于正确获取客户端 IP（登录限流依赖它）；
+	// 留空默认信任本机与内网地址。
+	TrustedProxies []string `yaml:"trusted_proxies"`
+	// SecureCookie 会话 Cookie 的 Secure 标志：auto（默认，按请求是否 HTTPS 判断）/ true / false
+	SecureCookie string `yaml:"secure_cookie"`
 }
 
 type TLSConfig struct {
@@ -128,3 +138,20 @@ func LoadConfig(path string) error {
 	return yaml.Unmarshal(data, GlobalConfig)
 }
 
+
+// IsPlaceholder 判断配置值是否为空或仍是模板占位符（如 __API_HASH__、CHANGE_ME），
+// 这类值不能当作真实密钥/密码使用。
+func IsPlaceholder(v string) bool {
+	s := strings.TrimSpace(v)
+	if s == "" {
+		return true
+	}
+	if strings.HasPrefix(s, "__") && strings.HasSuffix(s, "__") {
+		return true
+	}
+	switch strings.ToLower(s) {
+	case "change_me", "changeme", "change-me", "your_api_hash", "your_password":
+		return true
+	}
+	return false
+}

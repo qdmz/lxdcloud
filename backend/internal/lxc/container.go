@@ -4,6 +4,7 @@ import (
 	"context"
 	"encoding/base64"
 	"fmt"
+	"net"
 	"strings"
 	"time"
 	"lxdapi/pkg/logger"
@@ -465,8 +466,16 @@ func (c *Client) SetContainerDNS(ctx context.Context, name string, dnsServers []
 		return fmt.Errorf("DNS服务器列表不能为空")
 	}
 	
+	if len(dnsServers) > 6 {
+		return fmt.Errorf("DNS服务器最多 6 个")
+	}
 	var content string
 	for _, dns := range dnsServers {
+		dns = strings.TrimSpace(dns)
+		// 只允许合法 IP，防止通过 DNS 字段向 sh -c 注入命令
+		if net.ParseIP(dns) == nil {
+			return fmt.Errorf("无效的DNS服务器地址: %q", dns)
+		}
 		content += fmt.Sprintf("nameserver %s\\n", dns)
 	}
 	

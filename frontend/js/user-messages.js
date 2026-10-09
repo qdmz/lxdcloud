@@ -31,8 +31,11 @@
     }));
     c.querySelectorAll('[data-del]').forEach(b => b.addEventListener('click', (e) => {
       e.stopPropagation();
-      USER.request('/api/user/notifications/' + b.dataset.del, { method: 'DELETE' })
-        .then(() => load()).catch(e2 => LXD.toast('error', e2.message));
+      LXD.confirmDialog('删除消息', '确定删除这条消息吗？').then(ok => {
+        if (!ok) return;
+        USER.request('/api/user/notifications/' + b.dataset.del, { method: 'DELETE' })
+          .then(() => { LXD.toast('success', '已删除'); load(); }).catch(e2 => LXD.toast('error', e2.message));
+      });
     }));
   }
 

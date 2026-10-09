@@ -3,6 +3,9 @@ package console
 import (
 	"encoding/json"
 	"lxdapi/internal/console"
+	"lxdapi/internal/db"
+	"lxdapi/models"
+	"lxdapi/pkg/auth"
 	"lxdapi/pkg/logger"
 	"lxdapi/pkg/response"
 	"net/http"
@@ -40,6 +43,33 @@ func CreateToken(c *gin.Context) {
 		return
 	}
 	
+	// 权限校验：系统/管理员可访问任意容器；用户只能访问自己的容器；
+	// 容器访问码只能访问自身容器（修复越权获取他人容器 Shell 的问题）
+	level, ok := c.Get("auth_level")
+	if !ok {
+		response.Error(c, 401, "未认证")
+		return
+	}
+	switch level.(auth.APILevel) {
+	case auth.LevelSystem, auth.LevelAdmin:
+		// 管理端可访问全部容器
+	case auth.LevelUser:
+		var cnt int64
+		db.DB.Model(&models.Container{}).Where("name = ? AND user_id = ?", req.Hostname, c.GetString("username")).Count(&cnt)
+		if cnt == 0 {
+			response.Error(c, 403, "无权访问该容器")
+			return
+		}
+	case auth.LevelContainer:
+		if c.GetString("container_name") != req.Hostname {
+			response.Error(c, 403, "无权访问该容器")
+			return
+		}
+	default:
+		response.Error(c, 403, "无权访问")
+		return
+	}
+
 	token, err := console.GenerateToken(req.Hostname)
 	if err != nil {
 		response.Error(c, 500, "生成令牌失败")

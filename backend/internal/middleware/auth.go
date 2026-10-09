@@ -1,6 +1,8 @@
 package middleware
 
 import (
+	"crypto/subtle"
+
 	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
 	"lxdapi/internal/core"
@@ -12,7 +14,14 @@ import (
 func SystemAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		apiHash := c.GetHeader("X-API-Hash")
-		if apiHash != core.GlobalConfig.System.Security.APIHash {
+		expected := core.GlobalConfig.System.Security.APIHash
+		// 未配置（空值/占位符）时禁用系统级 API，避免空请求头即可通过认证
+		if core.IsPlaceholder(expected) {
+			response.Error(c, 403, "系统级 API 未启用：请在 config.yaml 中配置 system.security.api_hash")
+			c.Abort()
+			return
+		}
+		if apiHash == "" || subtle.ConstantTimeCompare([]byte(apiHash), []byte(expected)) != 1 {
 			response.Error(c, 401, "系统级认证失败")
 			c.Abort()
 			return
@@ -42,9 +51,12 @@ func AdminAuth() gin.HandlerFunc {
 
 func AdminPageAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Query("token") != "" {
-			c.Next()
-			return
+		// 免登录跳转令牌必须真实有效且类型匹配，否则按普通未登录处理
+		if t := c.Query("token"); t != "" {
+			if at, err := service.ValidateAccessToken(t); err == nil && at.Type == "admin" {
+				c.Next()
+				return
+			}
 		}
 		
 		session := sessions.Default(c)
@@ -129,9 +141,11 @@ func UserAuthOrBasic() gin.HandlerFunc {
 
 func UserPageAuth() gin.HandlerFunc {
 	return func(c *gin.Context) {
-		if c.Query("token") != "" {
-			c.Next()
-			return
+		if t := c.Query("token"); t != "" {
+			if at, err := service.ValidateAccessToken(t); err == nil && at.Type == "user" {
+				c.Next()
+				return
+			}
 		}
 		
 		session := sessions.Default(c)

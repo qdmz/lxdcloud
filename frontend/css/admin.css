@@ -7,7 +7,7 @@
 .admin-sidebar {
   width: 232px; flex-shrink: 0;
   display: flex; flex-direction: column;
-  background: rgba(9, 14, 25, 0.92);
+  background: rgba(var(--d-rgb), 0.92);
   border-right: 1px solid var(--border);
   position: fixed; inset: 0 auto 0 0; z-index: 40;
   transition: transform .28s ease;
@@ -16,7 +16,7 @@
 .admin-topbar {
   display: flex; align-items: center; gap: 12px;
   padding: 10px 20px;
-  background: rgba(9, 14, 25, 0.72);
+  background: rgba(var(--d-rgb), 0.72);
   border-bottom: 1px solid var(--border);
   position: sticky; top: 0; z-index: 30;
   backdrop-filter: blur(12px);
@@ -91,7 +91,7 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 
   text-align: left; padding: 10px 12px;
   color: var(--text-3); font-weight: 600; font-size: 12px;
   border-bottom: 1px solid var(--border-strong);
-  white-space: nowrap; background: rgba(255,255,255,0.02);
+  white-space: nowrap; background: rgba(var(--w-rgb),0.02);
 }
 .tbl td { padding: 10px 12px; border-bottom: 1px solid var(--border); color: var(--text-2); vertical-align: middle; }
 .tbl tbody tr { transition: background .15s; }
@@ -124,3 +124,18 @@ table.tbl { width: 100%; border-collapse: collapse; font-size: 13px; min-width: 
 .grid-2 { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
 .grid-3 { display: grid; grid-template-columns: repeat(3, 1fr); gap: 14px; }
 @media (max-width: 900px) { .grid-2, .grid-3 { grid-template-columns: 1fr; } }
+
+/* ---------- v1.1：侧边栏宽度变量 / 桌面端可收起 ---------- */
+.admin-sidebar { width: var(--sidebar-w); }
+.admin-main { margin-left: var(--sidebar-w); }
+.admin-topbar .topbar-actions { display: flex; align-items: center; gap: 8px; }
+@media (min-width: 901px) {
+  html.side-collapsed .admin-sidebar { transform: translateX(-100%); }
+  html.side-collapsed .admin-main { margin-left: 0; }
+  .btn-menu { display: inline-flex; }
+}
+@media (max-width: 900px) {
+  .admin-main { margin-left: 0; }
+  .topbar-title { min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+}
+.admin-main { transition: margin-left .28s ease; }

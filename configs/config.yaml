@@ -8,6 +8,12 @@ system:
     port: 9443
     # 运行模式: debug/release
     mode: "release"
+    # 对外访问地址（用于激活/重置密码邮件链接，防 Host 头注入），如 https://panel.example.com
+    public_url: ""
+    # 会话 Cookie Secure 标志：auto（按是否 HTTPS 自动判断）/ true / false
+    secure_cookie: "auto"
+    # 信任的反向代理（留空默认本机 + 内网网段），用于正确识别客户端 IP
+    trusted_proxies: []
     # TLS/HTTPS配置
     tls:
       # 启用HTTPS
@@ -21,8 +27,9 @@ system:
   
   # 安全配置
   security:
-    # 系统级API密钥
-    api_hash: "starfishcloud"
+    # 系统级API密钥（对接财务系统用；留空或 CHANGE_ME 时 /api/system/* 接口禁用）
+    # 生成：openssl rand -hex 24
+    api_hash: "CHANGE_ME"
     enable_captcha: false
   
   # 日志配置
@@ -100,10 +107,11 @@ admin:
   enabled: true
   # 管理员用户名
   username: "admin"
-  # 管理员密码(首次使用请修改)
+  # 管理员密码：建议填 bcrypt 哈希；保持 CHANGE_ME 时拒绝登录
   password: "CHANGE_ME"
-  # Session密钥(请修改为随机字符串)
-  session_secret: "ae9d64ef557e4e8507d304b86d869f54"
+  # Session密钥(至少 16 位随机字符串；未修改时每次启动随机生成，重启后需重新登录)
+  # 生成：openssl rand -hex 32
+  session_secret: "CHANGE_ME"
 
 # 插件配置
 plugins:
