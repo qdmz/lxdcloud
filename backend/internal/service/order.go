@@ -7,12 +7,15 @@ import (
 	"fmt"
 	"os/exec"
 	"strings"
+	"sync"
 	"time"
 
 	"lxdapi/internal/db"
 	"lxdapi/internal/lxc"
 	"lxdapi/models"
 	"lxdapi/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 var periodFactor = map[string]time.Duration{
@@ -89,6 +92,7 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 		return nil, fmt.Errorf("用户不存在")
 	}
 
+	isNew := typ != "renew"
 	order := &models.Order{
 		OrderNo:       genOrderNo(),
 		UserID:        userID,
@@ -99,7 +103,7 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 		Amount:        price,
 		Status:        "pending",
 	}
-	if err := db.DB.Create(order).Error; err != nil {
+	if err := createOrderRecord(order, p, isNew); err != nil {
 		return nil, err
 	}
 
@@ -117,8 +121,10 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	NotifyUser(userID, "order", "订单创建成功",
 		fmt.Sprintf("订单号 %s，金额 ￥%.2f，请尽快完成支付。", order.OrderNo, order.Amount), order.ID)
 
-	// 邮件通知（失败不影响下单）
-	_ = SendMailWithTemplate(user.Email, MailTemplateOrderCreated, MailData{
+	// 邮件通知（后台发送，失败或 SMTP 不可达不影响下单）
+	go func(email string, data MailData) {
+		_ = SendMailWithTemplate(email, MailTemplateOrderCreated, data)
+	}(user.Email, MailData{
 		"SiteName":    SiteName(),
 		"Username":    user.Username,
 		"OrderNo":     order.OrderNo,
@@ -185,6 +191,18 @@ func MarkOrderPaid(orderNo, channel, tradeNo string) (*models.Order, error) {
 	if res.RowsAffected == 0 {
 		// 已被其他请求处理
 		return GetOrderByNo(orderNo)
+	}
+	if o.Type != "renew" && !o.StockReserved {
+		// 升级前创建的未预占库存订单：支付时扣减（有限库存且已为 0 时仅记录告警，已付款仍照常开通）
+		if ok, err := reserveStock(o.ProductID); err == nil && ok {
+			var p models.Product
+			if db.DB.Select("stock").First(&p, o.ProductID).Error == nil && p.Stock >= 0 {
+				db.DB.Model(&models.Order{}).Where("id = ?", o.ID).Update("stock_reserved", true)
+				o.StockReserved = true
+			}
+		} else {
+			logger.Warn("订单 %s 支付时商品 #%d 库存已为 0（超卖），仍继续开通", o.OrderNo, o.ProductID)
+		}
 	}
 	o.Status = "paid"
 	o.PayChannel = channel
@@ -255,11 +273,17 @@ func provisionUserProduct(o *models.Order) error {
 	if err := db.DB.Create(up).Error; err != nil {
 		return err
 	}
+	// 先关联订单与实例记录（开通失败时实例状态为 failed，不再计入限购）
+	db.DB.Model(o).Update("user_product_id", up.ID)
 
 	// 创建实例
 	if err := createInstanceOnNode(p, up, name, password, user.Username); err != nil {
 		up.Status = "failed"
 		db.DB.Save(up)
+		if o.StockReserved {
+			releaseStock(p.ID)
+			db.DB.Model(&models.Order{}).Where("id = ?", o.ID).Update("stock_reserved", false)
+		}
 		NotifyUser(user.ID, "product", "实例开通失败", fmt.Sprintf("实例 %s 开通失败：%v", name, err), up.ID)
 		return err
 	}
@@ -519,8 +543,87 @@ func CancelUserOrder(userID, id uint) error {
 	if err := db.DB.Where("id = ? AND user_id = ? AND status = ?", id, userID, "pending").First(&o).Error; err != nil {
 		return fmt.Errorf("订单不存在或不可取消")
 	}
-	o.Status = "cancelled"
-	return db.DB.Save(&o).Error
+	// 条件更新：避免与支付回调并发时把已支付订单改为取消
+	res := db.DB.Model(&models.Order{}).Where("id = ? AND status = ?", o.ID, "pending").Update("status", "cancelled")
+	if res.Error != nil {
+		return res.Error
+	}
+	if res.RowsAffected == 0 {
+		return fmt.Errorf("订单不存在或不可取消")
+	}
+	if o.StockReserved {
+		releaseStock(o.ProductID)
+		db.DB.Model(&models.Order{}).Where("id = ?", o.ID).Update("stock_reserved", false)
+	}
+	return nil
+}
+
+var newOrderMu sync.Mutex
+
+// createOrderRecord 写入订单；新购订单在锁内完成限购校验与库存预占（仅数据库操作，不含任何网络 IO）
+func createOrderRecord(order *models.Order, p *models.Product, isNew bool) error {
+	if !isNew {
+		return db.DB.Create(order).Error
+	}
+	// 同一时刻只处理一个新购下单，保证限购计数与库存预占不会因并发被绕过
+	newOrderMu.Lock()
+	defer newOrderMu.Unlock()
+	if p.PerUserLimit > 0 {
+		held := CountUserHolding(order.UserID, p.ID)
+		if held >= int64(p.PerUserLimit) {
+			return fmt.Errorf("每人限购 %d 个，您已购买 %d 个", p.PerUserLimit, held)
+		}
+	}
+	ok, err := reserveStock(p.ID)
+	if err != nil {
+		return err
+	}
+	if !ok {
+		return fmt.Errorf("库存不足，商品已售罄")
+	}
+	var cur models.Product
+	if db.DB.Select("stock").First(&cur, p.ID).Error == nil && cur.Stock >= 0 {
+		order.StockReserved = true
+	}
+	if err := db.DB.Create(order).Error; err != nil {
+		if order.StockReserved {
+			releaseStock(p.ID)
+		}
+		return err
+	}
+	return nil
+}
+
+// reserveStock 原子扣减库存：库存 <0（不限）时不扣减直接成功；>0 时减 1；=0 时失败
+func reserveStock(productID uint) (bool, error) {
+	res := db.DB.Model(&models.Product{}).Where("id = ? AND stock > 0", productID).
+		UpdateColumn("stock", gorm.Expr("stock - 1"))
+	if res.Error != nil {
+		return false, res.Error
+	}
+	if res.RowsAffected > 0 {
+		return true, nil
+	}
+	var p models.Product
+	if err := db.DB.Select("stock").First(&p, productID).Error; err != nil {
+		return false, fmt.Errorf("商品不存在")
+	}
+	return p.Stock < 0, nil
+}
+
+// releaseStock 归还一个库存（仅对有限库存生效）
+func releaseStock(productID uint) {
+	db.DB.Model(&models.Product{}).Where("id = ? AND stock >= 0", productID).
+		UpdateColumn("stock", gorm.Expr("stock + 1"))
+}
+
+// CountUserHolding 用户当前持有的某商品数量：未删除且未开通失败的实例 + 待支付新购订单 + 已支付但尚未生成实例的新购订单
+func CountUserHolding(userID, productID uint) int64 {
+	var ups, pending, provisioning int64
+	db.DB.Model(&models.UserProduct{}).Where("user_id = ? AND product_id = ? AND status <> ?", userID, productID, "failed").Count(&ups)
+	db.DB.Model(&models.Order{}).Where("user_id = ? AND product_id = ? AND type <> ? AND status = ?", userID, productID, "renew", "pending").Count(&pending)
+	db.DB.Model(&models.Order{}).Where("user_id = ? AND product_id = ? AND type <> ? AND status = ? AND user_product_id = 0", userID, productID, "renew", "paid").Count(&provisioning)
+	return ups + pending + provisioning
 }
 
 // deleteLocalContainer 本机删除容器/VM。

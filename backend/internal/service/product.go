@@ -33,7 +33,8 @@ type ProductInput struct {
 	PriceQuarterly float64 `json:"price_quarterly"`
 	PriceHalfYear  float64 `json:"price_half_year"`
 	PriceYearly    float64 `json:"price_yearly"`
-	Stock       int     `json:"stock"`
+	Stock       *int    `json:"stock"`          // nil：新增时默认 -1（不限），编辑时保持不变
+	PerUserLimit *int   `json:"per_user_limit"` // nil：新增时默认 0（不限），编辑时保持不变
 	Status      string  `json:"status"`
 	SortOrder   int     `json:"sort_order"`
 }
@@ -98,7 +99,7 @@ func CreateProduct(in *ProductInput) error {
 		PriceQuarterly: in.PriceQuarterly,
 		PriceHalfYear: in.PriceHalfYear,
 		PriceYearly:  in.PriceYearly,
-		Stock:        in.Stock,
+		Stock:        -1,
 		Status:       in.Status,
 		SortOrder:    in.SortOrder,
 	}
@@ -111,10 +112,20 @@ func CreateProduct(in *ProductInput) error {
 	if p.Status == "" {
 		p.Status = "active"
 	}
-	if p.Stock == 0 {
-		p.Stock = 9999
+	if in.Stock != nil {
+		p.Stock = normStock(*in.Stock)
 	}
-	return db.DB.Create(&p).Error
+	if in.PerUserLimit != nil {
+		p.PerUserLimit = normLimit(*in.PerUserLimit)
+	}
+	if err := db.DB.Create(&p).Error; err != nil {
+		return err
+	}
+	if p.Stock == 0 {
+		// gorm 对带 default 标签的零值字段会使用列默认值(-1)，库存 0（售罄）需显式写入
+		db.DB.Model(&p).Update("stock", 0)
+	}
+	return nil
 }
 
 // UpdateProduct 更新商品
@@ -148,9 +159,14 @@ func UpdateProduct(id uint, in *ProductInput) error {
 		"price_quarterly": in.PriceQuarterly,
 		"price_half_year": in.PriceHalfYear,
 		"price_yearly":   in.PriceYearly,
-		"stock":          in.Stock,
 		"status":         in.Status,
 		"sort_order":     in.SortOrder,
+	}
+	if in.Stock != nil {
+		updates["stock"] = normStock(*in.Stock)
+	}
+	if in.PerUserLimit != nil {
+		updates["per_user_limit"] = normLimit(*in.PerUserLimit)
 	}
 	return db.DB.Model(&p).Updates(updates).Error
 }
@@ -168,4 +184,20 @@ func DeleteProduct(id uint) error {
 		return fmt.Errorf("该商品存在 %d 个用户实例，无法删除", ups)
 	}
 	return db.DB.Delete(&models.Product{}, id).Error
+}
+
+// normStock 库存规范化：负数统一为 -1（不限）
+func normStock(v int) int {
+	if v < 0 {
+		return -1
+	}
+	return v
+}
+
+// normLimit 限购规范化：负数视为 0（不限）
+func normLimit(v int) int {
+	if v < 0 {
+		return 0
+	}
+	return v
 }

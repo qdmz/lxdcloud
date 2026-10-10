@@ -51,7 +51,10 @@ func Init() error {
 		return err
 	}
 
-	return DB.AutoMigrate(
+	// v1.1.5：库存约定改为 -1=不限。首次升级（尚无 per_user_limit 列）时把旧默认值 9999 视为"不限"转换为 -1
+	legacyStock := DB.Migrator().HasTable(&models.Product{}) && !DB.Migrator().HasColumn(&models.Product{}, "per_user_limit")
+
+	if err := DB.AutoMigrate(
 		&models.Container{},
 		&models.User{},
 		&models.Traffic{},
@@ -83,6 +86,13 @@ func Init() error {
 		&models.Ticket{},
 		&models.TicketReply{},
 		&models.Notification{},
-	)
+	); err != nil {
+		return err
+	}
+	if legacyStock {
+		DB.Model(&models.Product{}).Where("stock >= ?", 9999).Update("stock", -1)
+		DB.Model(&models.Product{}).Where("per_user_limit IS NULL").Update("per_user_limit", 0)
+	}
+	return nil
 }
 

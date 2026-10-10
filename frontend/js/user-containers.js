@@ -53,20 +53,20 @@
     const okBtn = mask.querySelector('[data-act="ok"]');
     let chosen = '';
 
-    USER.request('/api/user/templates').then((res) => {
-      const list = Array.isArray(res.data) ? res.data : (res.data && (res.data.templates || res.data.list || res.data.images)) || [];
+    USER.request('/api/user/image-options').then((res) => {
+      const list = (res.data && res.data.images) || [];
       if (!list.length) {
         body.innerHTML = '<div class="empty">暂无可用镜像，请联系管理员</div>';
         return;
       }
       let html = '<div style="display:grid;grid-template-columns:repeat(auto-fill,minmax(230px,1fr));gap:8px;margin-bottom:12px">';
       list.forEach((t) => {
-        const v = t.fingerprint || t.alias || t.name || '';
-        const label = [t.os, t.release, t.alias || t.name].filter(Boolean).join(' ') || v;
+        const v = t.value || '';
+        const label = (t.label || v) + (t.source === 'local' ? '' : '（远程，首次需下载）');
         html += '<label class="ri-item" style="display:block;border:1px solid var(--border);border-radius:8px;padding:10px 12px;cursor:pointer">' +
           '<input type="radio" name="ri-img" value="' + USER.esc(v) + '" style="margin-right:6px">' +
           '<span>' + USER.esc(label) + '</span>' +
-          (t.fingerprint ? '<div style="font-size:12px;color:var(--text-2);word-break:break-all">' + USER.esc(t.fingerprint.slice(0, 24)) + '</div>' : '') +
+          (t.arch ? '<div style="font-size:12px;color:var(--text-2);word-break:break-all">' + USER.esc(t.arch) + '</div>' : '') +
           '</label>';
       });
       html += '</div>';

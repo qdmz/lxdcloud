@@ -49,7 +49,7 @@ import (
 var embeddedFiles embed.FS
 
 // Version 程序版本号，发布时可通过 -ldflags "-X main.Version=x.y.z" 注入
-var Version = "1.1.4"
+var Version = "1.1.5"
 
 // sessionSecret 返回会话签名密钥；未配置或仍为占位符时生成随机密钥（重启后需重新登录）
 func sessionSecret(cfg *core.Config) []byte {
@@ -609,6 +609,7 @@ func main() {
 		userAPI.POST("/containers/:name/ip/allocate", user.AllocateContainerIP)
 		userAPI.POST("/containers/:name/ip/release", user.ReleaseContainerIP)
 		userAPI.GET("/templates", user.GetTemplateList)
+		userAPI.GET("/image-options", user.GetImageOptions)
 		userAPI.GET("/tasks/:id", user.GetTask)
 		userAPI.POST("/console/create-token", console.CreateToken)
 		// ---- 容器文件管理 ----
@@ -662,6 +663,7 @@ func main() {
 	{
 		containerAPI.GET("/info", container.GetInfo)
 		containerAPI.GET("/templates", container.GetTemplateList)
+		containerAPI.GET("/image-options", container.GetImageOptions)
 		containerAPI.POST("/action", container.Action)
 		containerAPI.GET("/dns", container.GetDNS)
 		containerAPI.PUT("/dns", container.SetDNS)

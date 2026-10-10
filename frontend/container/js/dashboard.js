@@ -636,15 +636,15 @@
     const select = document.getElementById('reinstallImage');
     select.innerHTML = '<option value="">加载中...</option>';
     LXD.openModal('reinstallModal');
-    LXD.authRequest('/api/container/templates').then((res) => {
-      const templates = res.data && res.data.templates ? res.data.templates : (Array.isArray(res.data) ? res.data : []);
-      if (!templates.length) {
+    LXD.authRequest('/api/container/image-options').then((res) => {
+      const images = (res.data && res.data.images) || [];
+      if (!images.length) {
         select.innerHTML = '<option value="">暂无可用镜像</option>';
         return;
       }
-      select.innerHTML = templates.map((t) => {
-        const name = t.alias || t.fingerprint || t;
-        return '<option value="' + LXD.esc(name) + '">' + LXD.esc(name) + '</option>';
+      select.innerHTML = images.map((t) => {
+        const label = (t.label || t.value) + (t.source === 'local' ? '' : '（远程）');
+        return '<option value="' + LXD.esc(t.value) + '">' + LXD.esc(label) + '</option>';
       }).join('');
     }).catch((err) => {
       if (!LXD.handleAuthError(err)) select.innerHTML = '<option value="">镜像加载失败</option>';

@@ -21,4 +21,5 @@ type Order struct {
 	PayTradeNo    string     `gorm:"size:100" json:"pay_trade_no"`
 	PaidAt        *time.Time `json:"paid_at"`
 	Extra         string     `gorm:"type:text" json:"extra"`
+	StockReserved bool       `gorm:"default:false" json:"stock_reserved"` // 新购订单是否已扣减商品库存（取消/开通失败时归还）
 }

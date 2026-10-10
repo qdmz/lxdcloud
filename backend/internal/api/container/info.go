@@ -444,3 +444,21 @@ func SetDNS(c *gin.Context) {
 		"message":   "DNS设置成功",
 	})
 }
+
+// GetImageOptions 容器面板可选系统镜像（重装系统使用，按容器所属用户过滤权限）
+// @Summary 可选系统镜像
+// @Tags Container API - 操作
+// @Produce json
+// @Success 200 {object} response.Response "获取成功"
+// @Security ContainerAuth
+// @Router /api/container/image-options [get]
+func GetImageOptions(c *gin.Context) {
+	name := c.GetString("container_name")
+	owner := ""
+	var dbContainer models.Container
+	if err := db.DB.Where("name = ?", name).First(&dbContainer).Error; err == nil {
+		owner = dbContainer.UserID
+	}
+	opts := service.NewTemplateService().UserImageOptions(c.Request.Context(), owner)
+	response.Success(c, gin.H{"images": opts, "count": len(opts)})
+}

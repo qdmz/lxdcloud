@@ -24,8 +24,21 @@
 
   USER.request('/api/user/products').then(res => {
     const list = res.data && res.data.products ? res.data.products : [];
+    const purchased = (res.data && res.data.purchased) || {};
     if (!list.length) { c.innerHTML = '<div class="empty">暂无可售商品</div>'; return; }
     c.innerHTML = list.map(p => {
+      const pid = p.id || p.ID;
+      const stock = (p.stock === undefined || p.stock === null) ? -1 : Number(p.stock);
+      const limit = Number(p.per_user_limit || 0);
+      const bought = Number(purchased[pid] || 0);
+      const soldOut = stock === 0;
+      const limitReached = limit > 0 && bought >= limit;
+      // 库存 / 限购提示（库存 -1 = 不限，不显示）
+      const tips = [];
+      if (soldOut) tips.push('<span class="tag" style="color:var(--danger,#e5484d)">已售罄</span>');
+      else if (stock > 0) tips.push('<span class="tag">剩余库存 ' + stock + '</span>');
+      if (limit > 0) tips.push('<span class="tag">' + (bought > 0 ? '您已购买 ' + bought + '/' + limit : '每人限购 ' + limit + ' 个') + '</span>');
+      const blocked = soldOut ? '已售罄' : (limitReached ? '已达限购数量' : '');
       const prices = PERIODS.filter(per => periodOpen(p, per)).map(per => {
         const val = p[per.field];
         return '<button class="chip" data-p="' + per.key + '" data-price="' + (val || 0) + '" data-text="' + per.text + '">' + per.text + ' ' + priceText(val) + '</button>';
@@ -40,8 +53,9 @@
         '<span>硬盘 ' + (p.disk || 0) + ' GB</span><span>流量 ' + (p.traffic_limit || 0) + ' GB</span>' +
         '<span>IPv4 ' + (p.ipv4_count || 0) + '</span><span>IPv6 ' + (p.ipv6_count || 0) + '</span>' +
         '</div>' +
-        '<div class="period-row" data-id="' + (p.id || p.ID) + '">' + prices + '</div>' +
-        '<button class="btn btn-primary btn-block btn-buy" data-id="' + (p.id || p.ID) + '" disabled>请选择周期</button>' +
+        (tips.length ? '<div class="store-stock" style="margin:6px 0;display:flex;gap:6px;flex-wrap:wrap">' + tips.join('') + '</div>' : '') +
+        '<div class="period-row" data-id="' + pid + '"' + (blocked ? ' data-blocked="1"' : '') + '>' + prices + '</div>' +
+        '<button class="btn btn-primary btn-block btn-buy" data-id="' + pid + '"' + (blocked ? ' data-blocked="1"' : '') + ' disabled>' + (blocked || '请选择周期') + '</button>' +
         '</div>';
     }).join('');
 
@@ -49,6 +63,7 @@
     c.querySelectorAll('.period-row').forEach(row => {
       row.querySelectorAll('.chip').forEach(ch => {
         ch.addEventListener('click', () => {
+          if (row.dataset.blocked) return; // 已售罄 / 已达限购：不可选择
           row.querySelectorAll('.chip').forEach(x => x.classList.remove('active'));
           ch.classList.add('active');
           const btn = row.parentElement.querySelector('.btn-buy');
@@ -62,7 +77,7 @@
     // 下单
     c.querySelectorAll('.btn-buy').forEach(btn => {
       btn.addEventListener('click', () => {
-        if (btn.disabled) return;
+        if (btn.disabled || btn.dataset.blocked) return;
         const id = parseInt(btn.dataset.id, 10);
         const period = btn.dataset.period;
         LXD.toast('info', '正在创建订单...');

@@ -4,6 +4,7 @@ import (
 	"encoding/json"
 	"github.com/gin-gonic/gin"
 	"lxdapi/internal/db"
+	"lxdapi/internal/service"
 	"lxdapi/models"
 	"lxdapi/pkg/logger"
 	"lxdapi/pkg/response"
@@ -64,3 +65,16 @@ func GetTemplateList(c *gin.Context) {
 	response.Success(c, result)
 }
 
+
+// GetImageOptions 用户可选系统镜像（重装系统使用）
+// @Summary 可选系统镜像
+// @Description 返回当前用户有权限的本地镜像及常用远程镜像
+// @Tags User API - 模板
+// @Produce json
+// @Success 200 {object} response.Response "获取成功"
+// @Router /api/user/image-options [get]
+func GetImageOptions(c *gin.Context) {
+	username := c.GetString("username")
+	opts := service.NewTemplateService().UserImageOptions(c.Request.Context(), username)
+	response.Success(c, gin.H{"images": opts, "count": len(opts)})
+}

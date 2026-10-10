@@ -2,6 +2,7 @@ package service
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"lxdapi/internal/db"
 	"lxdapi/internal/lxc"
@@ -236,6 +237,32 @@ func templateLabel(t models.Template) string {
 
 // ImageOptions 返回可选镜像：数据库模板（为空时自动从 LXD 同步一次）+ 常用远程镜像
 func (s *TemplateService) ImageOptions(ctx context.Context) []ImageOption {
+	return s.imageOptions(ctx, nil)
+}
+
+// UserImageOptions 用户/容器面板可选镜像：与 ImageOptions 相同，但按模板的 allowed_users 权限过滤本地镜像
+func (s *TemplateService) UserImageOptions(ctx context.Context, username string) []ImageOption {
+	return s.imageOptions(ctx, func(t models.Template) bool { return templateAllowedFor(t, username) })
+}
+
+// templateAllowedFor 模板未限制用户时所有人可用；限制时仅列表中的用户可用
+func templateAllowedFor(t models.Template, username string) bool {
+	if t.AllowedUsers == "" || t.AllowedUsers == "[]" {
+		return true
+	}
+	var allowed []string
+	if err := json.Unmarshal([]byte(t.AllowedUsers), &allowed); err != nil || len(allowed) == 0 {
+		return true
+	}
+	for _, u := range allowed {
+		if u == username {
+			return true
+		}
+	}
+	return false
+}
+
+func (s *TemplateService) imageOptions(ctx context.Context, allow func(models.Template) bool) []ImageOption {
 	var templates []models.Template
 	db.DB.Order("created_at DESC").Find(&templates)
 	if len(templates) == 0 {
@@ -248,6 +275,9 @@ func (s *TemplateService) ImageOptions(ctx context.Context) []ImageOption {
 	opts := make([]ImageOption, 0, len(templates)+len(RemoteImagePresets))
 	seen := map[string]bool{}
 	for _, t := range templates {
+		if allow != nil && !allow(t) {
+			continue
+		}
 		ref := templateImageRef(t)
 		if ref == "" || seen[ref] {
 			continue

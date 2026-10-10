@@ -15,7 +15,7 @@
         '<div><div style="font-weight:600">' + LXD.esc(p.name || '') +
         (p.type === 'vm' ? ' <span class="tag tag-vm">VM</span>' : ' <span class="tag">CT</span>') +
         ' <span class="tag">' + (p.status === 'active' ? '上架' : '下架') + '</span></div>' +
-        '<div class="sub">#' + (p.ID || p.id) + ' · 节点#' + (p.node_id || 0) + ' ' + LXD.esc(nodeMap[p.node_id] || '') + ' · 库存 ' + (p.stock || 0) + '</div>' +
+        '<div class="sub">#' + (p.ID || p.id) + ' · 节点#' + (p.node_id || 0) + ' ' + LXD.esc(nodeMap[p.node_id] || '') + ' · 库存 ' + (p.stock < 0 ? '不限' : (p.stock === 0 ? '0（售罄）' : p.stock)) + (p.per_user_limit > 0 ? ' · 每人限购 ' + p.per_user_limit : '') + '</div>' +
         '<div class="sub">CPU ' + (p.cpu || 0) + ' 核 / 内存 ' + (p.memory || 0) + ' MB / 硬盘 ' + (p.disk || 0) + ' GB / 流量 ' + (p.traffic_limit || 0) + ' GB / IPv4 x' + (p.ipv4_count || 0) + '</div></div>' +
         '<div style="text-align:right">' +
         '<div style="font-weight:700;color:var(--accent)">¥' + Number(p.price_monthly || 0).toFixed(2) + '/月起</div>' +
@@ -59,7 +59,8 @@
       '  <div class="field"><label>季付(元)</label><input class="input" id="pQ" type="number" step="0.01" value="' + (p.price_quarterly || 0) + '"></div>' +
       '  <div class="field"><label>半年付(元)</label><input class="input" id="pH" type="number" step="0.01" value="' + (p.price_half_year || 0) + '"></div>' +
       '  <div class="field"><label>年付(元)</label><input class="input" id="pY" type="number" step="0.01" value="' + (p.price_yearly || 0) + '"></div>' +
-      '  <div class="field"><label>库存</label><input class="input" id="pStock" type="number" value="' + (p.stock || 0) + '"></div>' +
+      '  <div class="field"><label>库存</label><input class="input" id="pStock" type="number" min="-1" value="' + (p.stock === undefined || p.stock === null ? -1 : p.stock) + '"><div class="sub" style="font-size:12px;color:var(--text-2)">-1 = 不限；0 = 售罄；下单即预占，取消未支付订单自动归还</div></div>' +
+      '  <div class="field"><label>每人限购</label><input class="input" id="pLimit" type="number" min="0" value="' + (p.per_user_limit || 0) + '"><div class="sub" style="font-size:12px;color:var(--text-2)">0 = 不限；按用户当前持有的实例 + 待支付订单计数</div></div>' +
       '  <div class="field"><label>状态</label><select class="input" id="pStatus"><option value="active"' + (p.status === 'active' ? ' selected' : '') + '>上架</option><option value="disabled"' + (p.status !== 'active' ? ' selected' : '') + '>下架</option></select></div>' +
       '  <div class="field" style="grid-column:1/-1"><label>描述</label><textarea class="input" id="pDesc" rows="3">' + LXD.esc(p.description || '') + '</textarea></div>' +
       '</div>' +
@@ -96,13 +97,15 @@
         price_quarterly: parseFloat(document.getElementById('pQ').value) || 0,
         price_half_year: parseFloat(document.getElementById('pH').value) || 0,
         price_yearly: parseFloat(document.getElementById('pY').value) || 0,
-        stock: parseInt(document.getElementById('pStock').value, 10) || 0,
+        stock: (function (v) { v = parseInt(v, 10); return isNaN(v) ? -1 : (v < 0 ? -1 : v); })(document.getElementById('pStock').value),
+        per_user_limit: Math.max(0, parseInt(document.getElementById('pLimit').value, 10) || 0),
         status: document.getElementById('pStatus').value,
         description: document.getElementById('pDesc').value
       });
       if (!body.name) { LXD.toast('error', '商品名称必填'); return; }
-      const p = id ? '/api/admin/products/' + id : '/api/admin/products';
-      ADMIN.request(p, { method: id ? 'PUT' : 'POST', body: body })
+      // 注意：不能在此块内再声明名为 p 的变量（会遮蔽上方商品对象 p，触发 TDZ 报错导致保存无反应）
+      const url = id ? '/api/admin/products/' + id : '/api/admin/products';
+      ADMIN.request(url, { method: id ? 'PUT' : 'POST', body: body })
         .then(() => { LXD.toast('success', '已保存'); load(); }).catch(e => LXD.toast('error', e.message));
     });
     document.getElementById('btnCancel').addEventListener('click', load);

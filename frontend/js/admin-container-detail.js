@@ -124,7 +124,52 @@
       .then(() => load()).catch(() => load());
   }
 
+  /** 重装系统：选择镜像 + 可选新密码（镜像来自 /api/admin/image-options） */
+  function showReinstallModal() {
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask show';
+    mask.innerHTML = '<div class="modal" style="max-width:520px"><h3>重装系统 - ' + ADMIN.esc(name) + '</h3>' +
+      '<div class="field" style="margin:10px 0"><label>系统镜像</label><select class="input select" id="admRiImage" style="width:100%"><option value="">加载镜像列表...</option></select></div>' +
+      '<div class="field" style="margin:10px 0"><label>新 root 密码</label><input class="input" id="admRiPwd" type="text" placeholder="留空则保持原密码" style="width:100%"></div>' +
+      '<div style="font-size:12px;color:var(--text-2)">重装将清空容器磁盘数据，操作不可逆，请提前备份。</div>' +
+      '<div class="modal-actions"><button class="btn btn-ghost" data-act="cancel">取消</button><button class="btn btn-danger" data-act="ok" disabled>确认重装</button></div></div>';
+    document.body.appendChild(mask);
+    const close = () => mask.remove();
+    mask.querySelector('[data-act="cancel"]').onclick = close;
+    mask.addEventListener('click', (e) => { if (e.target === mask) close(); });
+    const sel = mask.querySelector('#admRiImage');
+    const okBtn = mask.querySelector('[data-act="ok"]');
+    ADMIN.request('/api/admin/image-options').then((res) => {
+      const list = (res.data && res.data.images) || [];
+      if (!list.length) { sel.innerHTML = '<option value="">暂无可用镜像，请先在模板管理中同步</option>'; return; }
+      const opt = (t) => '<option value="' + ADMIN.esc(t.value) + '">' + ADMIN.esc(t.label || t.value) + (t.arch ? ' (' + ADMIN.esc(t.arch) + ')' : '') + '</option>';
+      const local = list.filter((t) => t.source === 'local');
+      const remote = list.filter((t) => t.source !== 'local');
+      sel.innerHTML = (local.length ? '<optgroup label="本地镜像">' + local.map(opt).join('') + '</optgroup>' : '') +
+        (remote.length ? '<optgroup label="远程镜像（首次使用需下载）">' + remote.map(opt).join('') + '</optgroup>' : '');
+      sel.value = list[0].value;
+      okBtn.disabled = false;
+    }).catch((err) => { sel.innerHTML = '<option value="">加载镜像失败：' + ADMIN.esc(err.message || '') + '</option>'; });
+    okBtn.onclick = () => {
+      const image = sel.value;
+      if (!image) return LXD.toast('warning', '请选择镜像');
+      if (!window.confirm('确认使用「' + (sel.options[sel.selectedIndex] || {}).text + '」重装容器「' + name + '」吗？容器数据将被清空！')) return;
+      okBtn.disabled = true; okBtn.textContent = '提交中...';
+      ADMIN.request('/api/admin/containers/' + encodeURIComponent(name) + '/action?action=reinstall', {
+        method: 'POST', body: { image: image, password: mask.querySelector('#admRiPwd').value.trim() }
+      }).then((res) => {
+        LXD.toast('success', '重装任务已提交' + (res.data && res.data.task_id ? '（任务 #' + res.data.task_id + '）' : '') + '，可在任务列表查看进度');
+        close();
+        setTimeout(load, 3000);
+      }).catch((err) => {
+        LXD.toast('error', err.message || '重装失败');
+        okBtn.disabled = false; okBtn.textContent = '确认重装';
+      });
+    };
+  }
+
   function confirmAction(action, label) {
+    if (action === 'reinstall') return showReinstallModal();
     const tip = { start: '确定要启动该容器吗？', stop: '确定要停止该容器吗？', restart: '确定要重启该容器吗？',
       pause: '确定要暂停该容器吗？', resume: '确定要恢复该容器吗？', reinstall: '确定要重装系统吗？容器数据将被重置！',
       'reset-password': '确定要重置容器密码吗？', 'reset-traffic': '确定要重置容器流量统计吗？' };

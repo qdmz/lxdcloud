@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"crypto/tls"
 	"fmt"
+	"net"
 	"net/smtp"
+	"strconv"
 	"strings"
 	"text/template"
+	"time"
 
 	"lxdapi/internal/db"
 	"lxdapi/models"
@@ -129,17 +132,19 @@ func SendMail(to, subject, body string) error {
 	msg := fmt.Sprintf("From: %s <%s>\r\nTo: %s\r\nSubject: %s\r\nMIME-Version: 1.0\r\nContent-Type: text/html; charset=UTF-8\r\n\r\n%s",
 		fromName, from, to, subject, body)
 
-	addr := fmt.Sprintf("%s:%d", cfg.Host, cfg.Port)
+	addr := net.JoinHostPort(cfg.Host, strconv.Itoa(cfg.Port))
 	auth := smtp.PlainAuth("", cfg.Username, cfg.Password, cfg.Host)
 
 	useTLS := cfg.EnableSSL || cfg.Port == 465
 
 	if useTLS {
-		conn, err := tls.Dial("tcp", addr, &tls.Config{InsecureSkipVerify: true, ServerName: cfg.Host})
+		// 连接与整体收发均设超时，避免 SMTP 不可达时请求长时间挂起
+		conn, err := tls.DialWithDialer(&net.Dialer{Timeout: 10 * time.Second}, "tcp", addr, &tls.Config{InsecureSkipVerify: true, ServerName: cfg.Host})
 		if err != nil {
 			return fmt.Errorf("连接 SMTP 失败: %v", err)
 		}
 		defer conn.Close()
+		conn.SetDeadline(time.Now().Add(30 * time.Second))
 		client, err := smtp.NewClient(conn, cfg.Host)
 		if err != nil {
 			return err
@@ -153,7 +158,13 @@ func SendMail(to, subject, body string) error {
 		return writeMail(client, from, to, msg)
 	}
 
-	client, err := smtp.Dial(addr)
+	conn, err := net.DialTimeout("tcp", addr, 10*time.Second)
+	if err != nil {
+		return fmt.Errorf("连接 SMTP 失败: %v", err)
+	}
+	defer conn.Close()
+	conn.SetDeadline(time.Now().Add(30 * time.Second))
+	client, err := smtp.NewClient(conn, cfg.Host)
 	if err != nil {
 		return fmt.Errorf("连接 SMTP 失败: %v", err)
 	}

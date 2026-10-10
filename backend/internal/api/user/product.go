@@ -22,7 +22,17 @@ func ListProducts(c *gin.Context) {
 		response.Error(c, 500, "获取商品失败")
 		return
 	}
-	response.Success(c, gin.H{"products": products})
+	// purchased：当前用户已持有的各商品数量（用于前台显示"您已购买 X/N"）
+	purchased := map[uint]int64{}
+	if u, err := currentUser(c); err == nil && u != nil {
+		uid := u.ID
+		for _, p := range products {
+			if p.PerUserLimit > 0 {
+				purchased[p.ID] = service.CountUserHolding(uid, p.ID)
+			}
+		}
+	}
+	response.Success(c, gin.H{"products": products, "purchased": purchased})
 }
 
 // GetProduct 商品详情

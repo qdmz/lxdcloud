@@ -379,15 +379,37 @@ func (s *ContainerService) Reinstall(ctx context.Context, name, image, password 
 
 	logger.Info("开始重装容器: %s", name)
 
+	exists := s.lxcClient.ContainerExists(ctx, name)
 	if image == "" {
-		image = container.Image
+		// 未指定镜像：使用容器当前的基础镜像指纹（数据库中保存的是镜像描述，不能直接用于 lxc）
+		if exists {
+			if info, err := s.lxcClient.GetContainerInfo(ctx, name); err == nil {
+				if fp, ok := info.Config["volatile.base_image"].(string); ok && fp != "" {
+					image = fp
+				}
+			}
+		}
+		if image == "" {
+			image = DefaultImage()
+		}
 	}
 
 	needCreate := false
-	if s.lxcClient.ContainerExists(ctx, name) {
+	if exists {
 		if err := s.lxcClient.RebuildContainer(ctx, name, image); err != nil {
-			logger.Warn("rebuild 失败，尝试删除后重建: %v", err)
-			s.lxcClient.DeleteContainer(ctx, name)
+			// 仅在 LXD 不支持 rebuild 命令时才删除重建；其他错误（如镜像不存在）直接返回，保留原容器
+			msg := strings.ToLower(err.Error())
+			if !strings.Contains(msg, "unknown command") && !strings.Contains(msg, "unknown flag") {
+				// rebuild --force 会先停止容器，失败后尽量恢复运行
+				if serr := s.lxcClient.StartContainer(ctx, name); serr != nil {
+					logger.Warn("重装失败后恢复启动容器失败: %v", serr)
+				}
+				return fmt.Errorf("重装失败（原容器数据未改动）: %v", err)
+			}
+			logger.Warn("LXD 不支持 rebuild，尝试删除后重建: %v", err)
+			if err := s.lxcClient.DeleteContainer(ctx, name); err != nil {
+				return fmt.Errorf("删除旧容器失败: %v", err)
+			}
 			needCreate = true
 		}
 	} else {

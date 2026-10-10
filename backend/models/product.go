@@ -34,7 +34,10 @@ type Product struct {
 	PriceHalfYear  float64 `json:"price_half_year"`
 	PriceYearly    float64 `json:"price_yearly"`
 
-	Stock    int    `gorm:"default:9999" json:"stock"`
+	// Stock 库存：-1（或任意负数）= 不限；0 = 已售罄；>0 = 剩余数量。新购下单时原子扣减（预占），未支付订单取消时归还
+	Stock    int    `gorm:"default:-1" json:"stock"`
+	// PerUserLimit 每人限购：0 = 不限；>0 = 每个用户最多同时持有的该商品实例数（含待支付订单）
+	PerUserLimit int `gorm:"default:0" json:"per_user_limit"`
 	Status   string `gorm:"size:20;default:'active'" json:"status"` // active/hidden/disabled
 	SortOrder int   `gorm:"default:0" json:"sort_order"`
 }
