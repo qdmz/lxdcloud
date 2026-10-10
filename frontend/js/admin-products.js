@@ -47,6 +47,7 @@
       '  <div class="field"><label>名称</label><input class="input" id="pName" value="' + LXD.esc(p.name || '') + '"></div>' +
       '  <div class="field"><label>类型</label><select class="input" id="pType"><option value="container"' + (p.type !== 'vm' ? ' selected' : '') + '>容器</option><option value="vm"' + (p.type === 'vm' ? ' selected' : '') + '>虚拟机</option></select></div>' +
       '  <div class="field"><label>所属节点</label><select class="input" id="pNode"><option value="0">主控(本机)</option>' + nodeOpts + '</select></div>' +
+      '  <div class="field"><label>系统镜像</label><select class="input" id="pImage"><option value="">加载中...</option></select></div>' +
       '  <div class="field"><label>CPU(核)</label><input class="input" id="pCPU" type="number" value="' + (p.cpu || 1) + '"></div>' +
       '  <div class="field"><label>内存(MB)</label><input class="input" id="pMem" type="number" value="' + (p.memory || 512) + '"></div>' +
       '  <div class="field"><label>硬盘(GB)</label><input class="input" id="pDisk" type="number" value="' + (p.disk || 10) + '"></div>' +
@@ -65,8 +66,22 @@
       '<div class="row-actions"><button class="btn btn-primary" id="btnSave">保存</button>' +
       '<button class="btn btn-ghost" id="btnCancel">返回</button></div></div>';
 
+    // 系统镜像下拉：留空则开通时使用默认镜像
+    const imgSel = document.getElementById('pImage');
+    ADMIN.request('/api/admin/image-options').then(res => {
+      const list = (res.data && res.data.images) || [];
+      const cur = p.image || '';
+      let html = '<option value="">自动（默认镜像）</option>' + list.map(t =>
+        '<option value="' + LXD.esc(t.value) + '">' + LXD.esc(t.label || t.value) + (t.source === 'local' ? '' : '（远程）') + '</option>').join('');
+      if (cur && !list.some(t => t.value === cur)) html += '<option value="' + LXD.esc(cur) + '">' + LXD.esc(cur) + '</option>';
+      imgSel.innerHTML = html;
+      imgSel.value = cur;
+    }).catch(() => { imgSel.innerHTML = '<option value="' + LXD.esc(p.image || '') + '">' + LXD.esc(p.image || '自动（默认镜像）') + '</option>'; });
+
     document.getElementById('btnSave').addEventListener('click', () => {
-      const body = {
+      // 以原商品数据为基础，保留表单未展示的字段（带宽、存储池、嵌套等），避免保存时被清零
+      const body = Object.assign({}, p, {
+        image: imgSel.value,
         name: document.getElementById('pName').value,
         type: document.getElementById('pType').value,
         node_id: parseInt(document.getElementById('pNode').value, 10),
@@ -84,7 +99,7 @@
         stock: parseInt(document.getElementById('pStock').value, 10) || 0,
         status: document.getElementById('pStatus').value,
         description: document.getElementById('pDesc').value
-      };
+      });
       if (!body.name) { LXD.toast('error', '商品名称必填'); return; }
       const p = id ? '/api/admin/products/' + id : '/api/admin/products';
       ADMIN.request(p, { method: id ? 'PUT' : 'POST', body: body })

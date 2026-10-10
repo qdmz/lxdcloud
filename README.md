@@ -1,6 +1,6 @@
 # LXD Cloud
 
-![version](https://img.shields.io/badge/version-1.1.3-38bdf8) ![go](https://img.shields.io/badge/Go-1.23%2B-00ADD8) ![license](https://img.shields.io/badge/UI-responsive%20%7C%20dark%2Flight-6366f1)
+![version](https://img.shields.io/badge/version-1.1.4-38bdf8) ![go](https://img.shields.io/badge/Go-1.23%2B-00ADD8) ![license](https://img.shields.io/badge/UI-responsive%20%7C%20dark%2Flight-6366f1)
 
 基于 **LXD** 的云主机管理面板（商业化版），由 Go 后端（lxdapi）与原生静态前端（lxdpanel）组成，提供 **管理后台 / 用户中心 / 容器面板** 三端能力，支持容器全生命周期管理、IP/端口映射、NAT 配置、反向代理、在线文件管理、商品订单与支付等模块。
 

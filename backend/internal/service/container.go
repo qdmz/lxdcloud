@@ -144,7 +144,17 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 	}
 	
 	if err := s.lxcClient.StartContainer(ctx, req.Name); err != nil {
-		logger.Warn("启动容器失败: %v", err)
+		if lxc.IsTCUnsupportedError(err) && (ingress != "" || egress != "") {
+			// 宿主机内核不支持 tc 分类器：去掉网卡限速后重试，保证容器可用
+			logger.Warn("宿主机内核不支持 tc 限速，已移除容器 %s 的带宽限制后重试启动", req.Name)
+			if cerr := s.lxcClient.ClearNICLimits(ctx, req.Name); cerr != nil {
+				logger.Warn("移除带宽限制失败: %v", cerr)
+			} else if err2 := s.lxcClient.StartContainer(ctx, req.Name); err2 != nil {
+				logger.Warn("启动容器失败: %v", err2)
+			}
+		} else {
+			logger.Warn("启动容器失败: %v", err)
+		}
 	}
 	
 	imageAlias := req.Image

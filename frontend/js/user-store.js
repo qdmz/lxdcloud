@@ -13,14 +13,22 @@
   ];
 
   function fmt(n) { return Number(n || 0).toFixed(2); }
+  function priceText(n) { return Number(n || 0) === 0 ? '免费' : '¥' + fmt(n); }
+  // 与后端一致：0 元周期仅在商品全部免费或月付为 0 时开放
+  function periodOpen(p, per) {
+    const v = Number(p[per.field] || 0);
+    if (v > 0) return true;
+    const allFree = PERIODS.every(x => Number(p[x.field] || 0) === 0);
+    return allFree || per.key === 'monthly';
+  }
 
   USER.request('/api/user/products').then(res => {
     const list = res.data && res.data.products ? res.data.products : [];
     if (!list.length) { c.innerHTML = '<div class="empty">暂无可售商品</div>'; return; }
     c.innerHTML = list.map(p => {
-      const prices = PERIODS.map(per => {
+      const prices = PERIODS.filter(per => periodOpen(p, per)).map(per => {
         const val = p[per.field];
-        return '<button class="chip" data-p="' + per.key + '" data-price="' + (val || 0) + '" data-text="' + per.text + '">' + per.text + ' ¥' + fmt(val) + '</button>';
+        return '<button class="chip" data-p="' + per.key + '" data-price="' + (val || 0) + '" data-text="' + per.text + '">' + per.text + ' ' + priceText(val) + '</button>';
       }).join('');
       return '<div class="card store-card">' +
         '<div class="card-title">' + LXD.esc(p.name || '') +
@@ -46,7 +54,7 @@
           const btn = row.parentElement.querySelector('.btn-buy');
           btn.disabled = false;
           btn.dataset.period = ch.dataset.p;
-          btn.textContent = '立即购买 ' + ch.dataset.text + ' ¥' + fmt(ch.dataset.price);
+          btn.textContent = (Number(ch.dataset.price) === 0 ? '免费开通 ' : '立即购买 ') + ch.dataset.text + ' ' + priceText(ch.dataset.price);
         });
       });
     });
@@ -60,6 +68,11 @@
         LXD.toast('info', '正在创建订单...');
         USER.request('/api/user/orders', { method: 'POST', body: { product_id: id, period: period } }).then(res => {
           const order = res.data && res.data.order ? res.data.order : {};
+          if (order.status === 'paid') {
+            LXD.toast('success', '免费订单已完成，实例正在开通...');
+            setTimeout(() => { window.location.href = 'instances.html'; }, 1200);
+            return;
+          }
           LXD.toast('success', '订单创建成功，正在跳转支付...');
           setTimeout(() => { window.location.href = 'orders.html?pay=' + (order.id || order.ID || ''); }, 800);
         }).catch(e => LXD.toast('error', e.message));

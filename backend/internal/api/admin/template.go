@@ -250,3 +250,16 @@ func GetTemplatePermission(c *gin.Context) {
 		"allowed_users": allowedUsers,
 	})
 }
+
+// GetImageOptions 可选系统镜像（创建容器 / 商品配置使用）
+// @Summary 可选系统镜像
+// @Description 返回本地镜像模板（为空时自动从 LXD 同步）及常用远程镜像
+// @Tags Admin API - 模板管理
+// @Produce json
+// @Success 200 {object} response.Response "获取成功"
+// @Security SessionAuth
+// @Router /api/admin/image-options [get]
+func GetImageOptions(c *gin.Context) {
+	opts := service.NewTemplateService().ImageOptions(c.Request.Context())
+	response.Success(c, gin.H{"images": opts, "count": len(opts)})
+}

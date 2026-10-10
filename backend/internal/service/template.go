@@ -182,3 +182,94 @@ func formatSize(bytes int64) string {
 	}
 	return fmt.Sprintf("%.1f %cB", float64(bytes)/float64(div), "KMGTPE"[exp])
 }
+
+// ImageOption 创建容器/商品时可选的系统镜像
+type ImageOption struct {
+	Value  string `json:"value"`  // 传给 lxc init 的镜像引用（本地别名/指纹，或 remote:alias）
+	Label  string `json:"label"`  // 展示名称
+	Arch   string `json:"arch"`   // 架构
+	Source string `json:"source"` // local=本地已缓存镜像 / remote=远程镜像（首次使用需下载）
+}
+
+// RemoteImagePresets 常用远程镜像（LXD 默认远程：ubuntu: 为 Canonical 官方云镜像，images: 为社区镜像；
+// images: 已不再提供 Ubuntu）
+var RemoteImagePresets = []ImageOption{
+	{Value: "ubuntu:24.04", Label: "Ubuntu 24.04 LTS", Source: "remote"},
+	{Value: "ubuntu:22.04", Label: "Ubuntu 22.04 LTS", Source: "remote"},
+	{Value: "images:debian/13", Label: "Debian 13", Source: "remote"},
+	{Value: "images:debian/12", Label: "Debian 12", Source: "remote"},
+	{Value: "images:rockylinux/9", Label: "Rocky Linux 9", Source: "remote"},
+	{Value: "images:almalinux/9", Label: "AlmaLinux 9", Source: "remote"},
+	{Value: "images:centos/9-Stream", Label: "CentOS Stream 9", Source: "remote"},
+	{Value: "images:alpine/3.22", Label: "Alpine 3.22", Source: "remote"},
+}
+
+// templateImageRef 模板对应的 lxc init 镜像引用：优先别名，没有别名用指纹
+func templateImageRef(t models.Template) string {
+	if t.Alias != "" {
+		return t.Alias
+	}
+	return t.Fingerprint
+}
+
+func templateLabel(t models.Template) string {
+	label := t.Alias
+	if t.Description != "" {
+		if label != "" {
+			label += " - " + t.Description
+		} else {
+			label = t.Description
+		}
+	}
+	if label == "" {
+		label = t.OS + " " + t.Release
+	}
+	if label == " " || label == "" {
+		fp := t.Fingerprint
+		if len(fp) > 12 {
+			fp = fp[:12]
+		}
+		label = fp
+	}
+	return label
+}
+
+// ImageOptions 返回可选镜像：数据库模板（为空时自动从 LXD 同步一次）+ 常用远程镜像
+func (s *TemplateService) ImageOptions(ctx context.Context) []ImageOption {
+	var templates []models.Template
+	db.DB.Order("created_at DESC").Find(&templates)
+	if len(templates) == 0 {
+		if _, _, _, err := s.SyncFromLXD(ctx); err != nil {
+			logger.Warn("自动同步镜像模板失败: %v", err)
+		} else {
+			db.DB.Order("created_at DESC").Find(&templates)
+		}
+	}
+	opts := make([]ImageOption, 0, len(templates)+len(RemoteImagePresets))
+	seen := map[string]bool{}
+	for _, t := range templates {
+		ref := templateImageRef(t)
+		if ref == "" || seen[ref] {
+			continue
+		}
+		seen[ref] = true
+		opts = append(opts, ImageOption{Value: ref, Label: templateLabel(t), Arch: t.Architecture, Source: "local"})
+	}
+	for _, r := range RemoteImagePresets {
+		if !seen[r.Value] {
+			opts = append(opts, r)
+		}
+	}
+	return opts
+}
+
+// DefaultImage 商品未配置镜像时使用的默认镜像：第一个本地模板，否则 ubuntu:24.04
+func DefaultImage() string {
+	var t models.Template
+	if err := db.DB.Order("created_at DESC").First(&t).Error; err == nil {
+		if ref := templateImageRef(t); ref != "" {
+			return ref
+		}
+	}
+	return RemoteImagePresets[0].Value
+}

@@ -91,6 +91,15 @@ func PayOrder(c *gin.Context) {
 		response.Error(c, 400, "订单已支付或已关闭")
 		return
 	}
+	// 0 元订单无需跳转支付，直接标记已支付并开通
+	if orders.Amount == 0 {
+		if _, err := service.MarkOrderPaid(orders.OrderNo, "free", ""); err != nil {
+			response.Error(c, 400, err.Error())
+			return
+		}
+		response.Success(c, gin.H{"paid": true, "message": "免费订单已完成，正在开通"})
+		return
+	}
 	payURL, params, err := service.BuildPayParams(orders.OrderNo, orders.OrderNo, twoDecimal(orders.Amount), req.Type)
 	if err != nil {
 		response.Error(c, 400, err.Error())

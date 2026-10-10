@@ -98,15 +98,18 @@
 
     openModal(html, (modal) => {
       const sel = modal.querySelector('#createImage');
-      ADMIN.request('/api/admin/templates').then((res) => {
-        const list = res.data || [];
-        sel.innerHTML = '<option value="">请选择镜像</option>' + list.map((t) => {
-          const name = t.name || t.alias || t;
-          const val = t.name || t.alias || t;
-          return '<option value="' + ADMIN.esc(val) + '">' + ADMIN.esc(name) + (t.arch ? ' (' + t.arch + ')' : '') + '</option>';
-        }).join('');
-        if (!list.length) sel.innerHTML = '<option value="">无可用镜像，请先同步模板</option>';
-      }).catch(() => { sel.innerHTML = '<option value="">加载镜像列表失败</option>'; });
+      // 镜像列表：本地已缓存镜像（数据库为空时后端自动从 LXD 同步）+ 常用远程镜像
+      ADMIN.request('/api/admin/image-options').then((res) => {
+        const list = (res.data && res.data.images) || [];
+        if (!list.length) { sel.innerHTML = '<option value="">无可用镜像，请先在模板管理中同步</option>'; return; }
+        const opt = (t) => '<option value="' + ADMIN.esc(t.value) + '">' + ADMIN.esc(t.label || t.value) + (t.arch ? ' (' + ADMIN.esc(t.arch) + ')' : '') + '</option>';
+        const local = list.filter((t) => t.source === 'local');
+        const remote = list.filter((t) => t.source !== 'local');
+        sel.innerHTML = '<option value="">请选择镜像</option>' +
+          (local.length ? '<optgroup label="本地镜像">' + local.map(opt).join('') + '</optgroup>' : '') +
+          (remote.length ? '<optgroup label="远程镜像（首次使用需下载）">' + remote.map(opt).join('') + '</optgroup>' : '');
+        if (local.length) sel.value = local[0].value;
+      }).catch((err) => { sel.innerHTML = '<option value="">加载镜像列表失败：' + ADMIN.esc(err.message || '') + '</option>'; });
 
       modal.querySelector('#createForm').addEventListener('submit', (e) => {
         e.preventDefault();

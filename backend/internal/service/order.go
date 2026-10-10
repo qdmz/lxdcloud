@@ -19,6 +19,7 @@ var periodFactor = map[string]time.Duration{
 	"monthly":   30 * 24 * time.Hour,
 	"quarterly": 90 * 24 * time.Hour,
 	"halfyear":  180 * 24 * time.Hour,
+	"half_year": 180 * 24 * time.Hour,
 	"yearly":    365 * 24 * time.Hour,
 }
 
@@ -48,6 +49,17 @@ func genInstanceName(prefix string) string {
 	return fmt.Sprintf("%s-%s", strings.ToLower(prefix), hex.EncodeToString(b))
 }
 
+// genInstancePassword 自动开通实例的 root 密码：16 位字母数字（不含 shell 特殊字符，VM/节点开通会经 shell 传递）
+func genInstancePassword() string {
+	const charset = "abcdefghijkmnpqrstuvwxyzABCDEFGHJKLMNPQRSTUVWXYZ23456789"
+	b := make([]byte, 16)
+	rand.Read(b)
+	for i := range b {
+		b[i] = charset[int(b[i])%len(charset)]
+	}
+	return string(b)
+}
+
 // CreateOrder 创建订单（new=新购 / renew=续费）
 func CreateOrder(userID, productID uint, period, typ string, userProductID uint) (*models.Order, error) {
 	p, err := GetProduct(productID)
@@ -60,9 +72,16 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	if typ == "" {
 		typ = "new"
 	}
+	if _, ok := periodFactor[period]; !ok {
+		return nil, fmt.Errorf("无效的购买周期")
+	}
 	price := PeriodPrice(p, period)
-	if price <= 0 {
+	if price < 0 {
 		return nil, fmt.Errorf("该周期价格无效")
+	}
+	if price == 0 && !IsFreePeriod(p, period) {
+		// 价格为 0 且商品其他周期有定价：视为该周期未开放，避免误开免费
+		return nil, fmt.Errorf("该周期未开放购买")
 	}
 
 	var user models.User
@@ -84,6 +103,17 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 		return nil, err
 	}
 
+	// 0 元订单：无需支付，直接标记已支付并走与在线支付相同的开通流程
+	if price == 0 {
+		NotifyUser(userID, "order", "订单创建成功",
+			fmt.Sprintf("订单号 %s 为免费订单，已自动完成支付，正在开通。", order.OrderNo), order.ID)
+		paid, err := MarkOrderPaid(order.OrderNo, "free", "")
+		if err != nil {
+			return nil, fmt.Errorf("免费订单处理失败: %v", err)
+		}
+		return paid, nil
+	}
+
 	NotifyUser(userID, "order", "订单创建成功",
 		fmt.Sprintf("订单号 %s，金额 ￥%.2f，请尽快完成支付。", order.OrderNo, order.Amount), order.ID)
 
@@ -97,6 +127,17 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	})
 
 	return order, nil
+}
+
+// IsFreePeriod 0 元周期是否允许下单：商品全部周期均为 0（免费商品），或月付为 0（月付免费）
+func IsFreePeriod(p *models.Product, period string) bool {
+	if PeriodPrice(p, period) != 0 {
+		return false
+	}
+	if p.PriceMonthly == 0 && p.PriceQuarterly == 0 && p.PriceHalfYear == 0 && p.PriceYearly == 0 {
+		return true
+	}
+	return period == "monthly"
 }
 
 // GetOrderByNo 按订单号查询
@@ -150,17 +191,30 @@ func MarkOrderPaid(orderNo, channel, tradeNo string) (*models.Order, error) {
 	o.PayTradeNo = tradeNo
 	o.PaidAt = &now
 
-	// 开通/续费
+	// 开通/续费：后台执行，避免创建容器耗时导致支付回调/下单请求超时
+	go fulfillOrder(*o)
+	return o, nil
+}
+
+// fulfillOrder 已支付订单的开通/续费（免费订单与在线支付共用）
+func fulfillOrder(o models.Order) {
+	defer func() {
+		if r := recover(); r != nil {
+			logger.Error("订单开通异常 order=%s: %v", o.OrderNo, r)
+		}
+	}()
 	if o.Type == "renew" && o.UserProductID > 0 {
-		if err := renewUserProduct(o); err != nil {
+		if err := renewUserProduct(&o); err != nil {
 			logger.Error("续费开通失败 order=%s: %v", o.OrderNo, err)
 		}
-	} else {
-		if err := provisionUserProduct(o); err != nil {
-			logger.Error("自动开通失败 order=%s: %v", o.OrderNo, err)
-		}
+		return
 	}
-	return o, nil
+	logger.Info("开始自动开通 order=%s", o.OrderNo)
+	if err := provisionUserProduct(&o); err != nil {
+		logger.Error("自动开通失败 order=%s: %v", o.OrderNo, err)
+		return
+	}
+	logger.OK("自动开通完成 order=%s", o.OrderNo)
 }
 
 // provisionUserProduct 自动开通新实例
@@ -174,12 +228,18 @@ func provisionUserProduct(o *models.Order) error {
 		return err
 	}
 
+	// 商品未配置镜像时使用默认镜像（否则 lxc init 镜像参数为空必然失败）
+	if strings.TrimSpace(p.Image) == "" {
+		p.Image = DefaultImage()
+		logger.Warn("商品 #%d 未配置系统镜像，使用默认镜像 %s", p.ID, p.Image)
+	}
+
 	name := genInstanceName("vm")
 	if p.Type == "container" {
 		name = genInstanceName("ct")
 	}
-	password := genInstanceName("pwd")
-	expire := time.Now().Add(periodFactor[o.Period])
+	password := genInstancePassword()
+	expire := time.Now().Add(periodFactor[o.Period]).Round(0)
 
 	up := &models.UserProduct{
 		UserID:    user.ID,
@@ -196,8 +256,8 @@ func provisionUserProduct(o *models.Order) error {
 		return err
 	}
 
-	// 同步创建实例
-	if err := createInstanceOnNode(p, up, name, password); err != nil {
+	// 创建实例
+	if err := createInstanceOnNode(p, up, name, password, user.Username); err != nil {
 		up.Status = "failed"
 		db.DB.Save(up)
 		NotifyUser(user.ID, "product", "实例开通失败", fmt.Sprintf("实例 %s 开通失败：%v", name, err), up.ID)
@@ -226,7 +286,7 @@ func provisionUserProduct(o *models.Order) error {
 }
 
 // createInstanceOnNode 在本机或节点创建容器/VM
-func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, password string) error {
+func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, password, username string) error {
 	if p.NodeID != 0 {
 		node, err := GetNode(p.NodeID)
 		if err != nil {
@@ -239,19 +299,20 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 	if p.Type == "vm" {
 		return createLocalVM(p, name, password)
 	}
-	return createLocalContainer(p, name, password)
+	return createLocalContainer(p, name, password, username)
 }
 
 // createLocalContainer 本机创建容器（复用 ContainerService）
-func createLocalContainer(p *models.Product, name, password string) error {
+func createLocalContainer(p *models.Product, name, password, username string) error {
 	svc := NewContainerService()
 	req := &models.CreateContainerRequest{
 		Name:         name,
 		Password:     password,
 		Image:        p.Image,
+		Username:     username, // 归属下单用户，用户面板才能看到并管理
 		CPU:          p.CPU,
 		Memory:       p.Memory,
-		Disk:         p.Disk,
+		Disk:         productDiskMB(p.Disk),
 		Ingress:      p.Ingress,
 		Egress:       p.Egress,
 		TrafficLimit: int(p.TrafficLimit),
@@ -260,6 +321,18 @@ func createLocalContainer(p *models.Product, name, password string) error {
 		Privileged:   p.Privileged,
 	}
 	return svc.Create(context.Background(), req)
+}
+
+// productDiskMB 商品硬盘单位为 GB，容器创建接口单位为 MB。
+// 兼容旧数据：数值 >= 1024 时视为当初按 MB 录入，原样使用。
+func productDiskMB(disk int) int {
+	if disk <= 0 {
+		return 0
+	}
+	if disk >= 1024 {
+		return disk
+	}
+	return disk * 1024
 }
 
 // createLocalVM 本机创建 VM（依赖 /dev/kvm；LXD 原生 VM）
@@ -353,7 +426,7 @@ func DeleteUserProduct(userID, id uint) error {
 		return err
 	}
 	if up.NodeID == 0 {
-		exec.Command("lxc", "delete", "-f", up.Name).Run()
+		_ = deleteLocalContainer(up.Name, up.Type == "vm")
 	} else {
 		node, nerr := GetNode(up.NodeID)
 		if nerr == nil {
@@ -450,8 +523,12 @@ func CancelUserOrder(userID, id uint) error {
 	return db.DB.Save(&o).Error
 }
 
-// deleteLocalContainer 本机删除容器/VM
+// deleteLocalContainer 本机删除容器/VM。
+// 容器走 ContainerService.Delete，同时清理容器记录、端口映射、IP 绑定、流量与访问凭证，避免后台残留孤儿记录。
 func deleteLocalContainer(name string, isVM bool) error {
+	if !isVM {
+		return NewContainerService().Delete(context.Background(), name)
+	}
 	return exec.Command("lxc", "delete", "-f", name).Run()
 }
 

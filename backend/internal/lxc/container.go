@@ -510,3 +510,22 @@ func (c *Client) GetContainerDNS(ctx context.Context, name string) ([]string, er
 	
 	return dnsServers, nil
 }
+
+// IsTCUnsupportedError 内核缺少 tc 分类器（cls_u32 等）时设置网卡限速会导致容器无法启动
+func IsTCUnsupportedError(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := err.Error()
+	return strings.Contains(msg, "TC classifier not found") || strings.Contains(msg, "Failed to create tc filter")
+}
+
+// ClearNICLimits 移除容器 eth0 的带宽限制（limits.ingress / limits.egress）
+func (c *Client) ClearNICLimits(ctx context.Context, name string) error {
+	for _, key := range []string{"limits.ingress", "limits.egress"} {
+		if _, err := c.exec(ctx, "config", "device", "unset", name, "eth0", key); err != nil {
+			return err
+		}
+	}
+	return nil
+}

@@ -49,7 +49,7 @@ import (
 var embeddedFiles embed.FS
 
 // Version 程序版本号，发布时可通过 -ldflags "-X main.Version=x.y.z" 注入
-var Version = "1.1.3"
+var Version = "1.1.4"
 
 // sessionSecret 返回会话签名密钥；未配置或仍为占位符时生成随机密钥（重启后需重新登录）
 func sessionSecret(cfg *core.Config) []byte {
@@ -533,6 +533,7 @@ func main() {
 		adminAPI.POST("/users/batch-delete", admin.BatchDeleteUsers)
 		adminAPI.POST("/users/:id/regenerate-key", admin.RegenerateAPIKey)
 		adminAPI.GET("/templates", admin.GetTemplateList)
+		adminAPI.GET("/image-options", admin.GetImageOptions)
 		adminAPI.POST("/templates/sync", admin.SyncTemplates)
 		adminAPI.DELETE("/templates/:fingerprint", admin.DeleteTemplate)
 		adminAPI.POST("/templates/batch-delete", admin.BatchDeleteTemplates)

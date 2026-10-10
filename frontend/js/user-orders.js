@@ -6,11 +6,12 @@
   c.innerHTML = '<div class="loading">加载中...</div>';
 
   const STATUS = { pending: '待支付', paid: '已支付', cancelled: '已取消', refunded: '已退款' };
-  const PERIOD = { monthly: '月付', quarterly: '季付', half_year: '半年付', yearly: '年付' };
+  const PERIOD = { monthly: '月付', quarterly: '季付', half_year: '半年付', halfyear: '半年付', yearly: '年付' };
 
   function render(list) {
     if (!list.length) { c.innerHTML = '<div class="empty">暂无订单</div>'; return; }
     c.innerHTML = list.map(o => {
+      o.id = o.id || o.ID;
       let info = {};
       try { info = o.info_json ? JSON.parse(o.info_json) : {}; } catch (e) {}
       const amount = o.amount !== undefined ? o.amount : info.amount;
@@ -39,7 +40,7 @@
     USER.request('/api/user/orders/' + id + '/pay', { method: 'POST' }).then(res => {
       const url = res.data && res.data.pay_url;
       if (url) { window.location.href = url; return; }
-      LXD.toast('success', '订单已支付（直接开通）');
+      LXD.toast('success', '订单已支付，实例正在开通，可在「我的实例」查看');
       setTimeout(load, 1000);
     }).catch(e => LXD.toast('error', e.message));
   }
@@ -53,5 +54,6 @@
 
   // 若从下单页带 pay=id，自动发起支付
   const qs = new URLSearchParams(window.location.search);
-  if (qs.get('pay')) setTimeout(() => pay(qs.get('pay')), 600);
+  const payId = qs.get('pay');
+  if (payId && /^\d+$/.test(payId)) setTimeout(() => pay(payId), 600);
 })();
