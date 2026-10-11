@@ -1,0 +1,47 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
+  <title>忘记密码 - LXD Panel</title>
+  <link rel="icon" href="data:,">
+  <link rel="stylesheet" href="/static/css/style.css">
+  <link rel="stylesheet" href="/static/css/cloudvm.css?v=3.0">
+</head>
+<body>
+  <div class="bg-glow"></div>
+  <div class="auth-page">
+    <div class="auth-left">
+      <div class="auth-left-content">
+        <div class="brand-name"><span id="brandName">LXD Panel</span><span class="brand-pro"> Pro</span></div>
+        <div class="auth-tagline">
+          <h2>高效管理你的<br>LXC / KVM 云主机</h2>
+          <p>多节点 · 商店 · 订单 · 工单 · 容器控制台 · 一站式商业化面板</p>
+        </div>
+      </div>
+    </div>
+    <div class="auth-right">
+      <div class="auth-form-wrapper">
+        <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:8px">
+          <h1>忘记密码</h1>
+          <button type="button" class="btn-ghost" data-theme-toggle style="padding:6px 12px;font-size:13px">切换主题</button>
+        </div>
+        <p class="subtitle"><a href="/static/index.html">返回首页</a></p>
+        
+        <form id="forgotForm" style="display:flex;flex-direction:column;gap:16px">
+          <div class="field">
+            <label>注册邮箱</label>
+            <input class="input" name="email" type="email" placeholder="请输入注册邮箱" required>
+          </div>
+          <button class="btn btn-primary btn-block" type="submit" style="margin-top:4px">发送重置链接</button>
+        </form>
+        <div id="errorMsg" class="login-error hidden" style="margin-top:12px"></div>
+        <script src="/static/js/user-forgot.js?v=2.8"></script>
+
+      </div>
+    </div>
+  </div>
+  <script src="/static/js/app.js?v=2.8"></script>
+  <script src="/static/js/theme.js"></script>
+</body>
+</html>

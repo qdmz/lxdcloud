@@ -1,5 +1,11 @@
 # 更新日志
 
+## v1.1.6 - 2026-10-11
+
+- feat: 全站恢复 cloudvm 皮肤 SPA 壳模板（console/admin/user/container 三端，引用 theme.js + cloudvm.css）
+- feat: 补齐实例管理/文件管理/商城/工单等页面模板与配套前端脚本
+- fix: 修复被覆盖丢失的 Go 模板皮肤，新增前端主题皮肤全套（cloudvm.css/theme.js）
+
 ## v1.1.5 - 2026-10-10
 
 - fix: 「重装系统」弹窗没有可选镜像：管理端容器详情点击重装只弹确认框、不传镜像；用户端读取 `/api/user/templates` 字段不匹配；容器面板读取 `/api/container/templates`。新增 `GET /api/user/image-options`、`GET /api/container/image-options`（与 `/api/admin/image-options` 同一列表，按模板 allowed_users 权限过滤本地镜像），三处重装弹窗统一改为「本地镜像 + 常用远程镜像」下拉，管理端弹窗支持设置新 root 密码
