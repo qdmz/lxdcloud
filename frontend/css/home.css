@@ -235,7 +235,7 @@ html[data-theme="light"] .h-orb { opacity: .16; }
 .hp-search input { width: 100%; height: 52px; padding: 0 18px 0 46px; border-radius: 14px; border: 1px solid var(--border-strong); background: var(--h-card); color: var(--text-1); font-size: 15px; outline: none; font-family: inherit; }
 .hp-search input:focus { border-color: var(--accent); box-shadow: 0 0 0 4px rgba(56, 189, 248, .15); }
 .hp-search::before { content: "⌕"; position: absolute; left: 16px; top: 12px; font-size: 22px; color: var(--text-3); }
-.hp-layout { display: grid; grid-template-columns: 230px 1fr; gap: 36px; padding: 30px 0 90px; align-items: start; }
+.hp-layout { display: grid; grid-template-columns: 230px 1fr; gap: 36px; padding-top: 30px; padding-bottom: 90px; align-items: start; }
 .hp-toc { position: sticky; top: 92px; display: grid; gap: 2px; padding: 14px; border-radius: 16px; background: var(--h-card); border: 1px solid var(--h-line); }
 .hp-toc a { padding: 9px 12px; border-radius: 9px; font-size: 14px; color: var(--text-2); text-decoration: none; }
 .hp-toc a:hover, .hp-toc a.on { color: var(--text-1); background: rgba(56, 189, 248, .1); }
