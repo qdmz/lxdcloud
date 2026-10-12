@@ -59,7 +59,7 @@
 
   let ORDERS = {};
   function load() {
-    USER.request('/api/user/orders').then(res => { const l = res.data && res.data.orders || []; ORDERS = {}; l.forEach(o => { ORDERS[o.id] = o; }); render(l); }).catch(e => {
+    USER.request('/api/user/orders').then(res => { const l = res.data && res.data.orders || []; ORDERS = {}; l.forEach(o => { ORDERS[o.id || o.ID] = o; }); render(l); }).catch(e => {
       c.innerHTML = '<div class="empty">加载失败：' + LXD.esc(e.message) + '</div>';
     });
   }

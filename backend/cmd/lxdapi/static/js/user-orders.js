@@ -11,6 +11,7 @@
   function render(list) {
     if (!list.length) { c.innerHTML = '<div class="empty">暂无订单</div>'; return; }
     c.innerHTML = list.map(o => {
+      o.id = o.id || o.ID;
       let info = {};
       try { info = o.info_json ? JSON.parse(o.info_json) : {}; } catch (e) {}
       const amount = o.amount !== undefined ? o.amount : info.amount;

@@ -8,15 +8,26 @@
   const STATUS = { creating: '开通中', active: '运行中', suspended: '已暂停', expired: '已到期', deleting: '删除中' };
   const PERIOD = { monthly: '月付', quarterly: '季付', half_year: '半年付', yearly: '年付' };
 
-  function fmtTime(t) { return t ? String(t).replace('T', ' ').slice(0, 16) : '-'; }
+  function fmtTime(t) {
+    if (!t) return '-';
+    const s = String(t);
+    // 后端时间格式如 "Mon 2026-11-09 11:16 AM CST (UTC+08:00)" 或 ISO
+    const m = s.match(/(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})(?::\d{2})?(?:\S*)?\s*(AM|PM)?/i);
+    if (!m) return s.slice(0, 16);
+    let h = parseInt(m[2], 10);
+    if (m[4]) { const pm = m[4].toUpperCase() === 'PM'; if (pm && h < 12) h += 12; if (!pm && h === 12) h = 0; }
+    return m[1] + ' ' + String(h).padStart(2, '0') + ':' + m[3];
+  }
+  function toDate(t) { const f = fmtTime(t); return f === '-' ? null : new Date(f.replace(' ', 'T') + ':00'); }
 
   function render(list) {
     if (!list.length) { c.innerHTML = '<div class="empty">暂无实例，去 <a href="store.html" style="color:var(--accent)">产品订购</a> 看看吧</div>'; return; }
     c.innerHTML = list.map(it => {
+      it.id = it.id || it.ID;
       let cfg = {};
       try { cfg = it.config_json ? JSON.parse(it.config_json) : {}; } catch (e) {}
       const productName = it.product_name || (cfg.name || ('商品#' + it.product_id));
-      const expired = it.status === 'active' && it.expire_at && new Date(it.expire_at) < new Date();
+      const expired = it.status === 'active' && it.expire_at && toDate(it.expire_at) && toDate(it.expire_at) < new Date();
       const statusText = expired ? '已到期' : (STATUS[it.status] || it.status);
       return '<div class="card inst-row">' +
         '<div><div style="font-weight:600">' + LXD.esc(productName) + ' <span class="tag">' + (it.type === 'vm' ? 'VM' : '容器') + '</span></div>' +
