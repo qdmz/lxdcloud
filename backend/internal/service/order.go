@@ -197,7 +197,7 @@ func MarkOrderPaid(orderNo, channel, tradeNo string) (*models.Order, error) {
 		// 已被其他请求处理
 		return GetOrderByNo(orderNo)
 	}
-	if o.Type != "renew" && !o.StockReserved {
+	if o.Type != "renew" && o.Type != "recharge" && !o.StockReserved {
 		// 升级前创建的未预占库存订单：支付时扣减（有限库存且已为 0 时仅记录告警，已付款仍照常开通）
 		if ok, err := reserveStock(o.ProductID); err == nil && ok {
 			var p models.Product
@@ -226,6 +226,12 @@ func fulfillOrder(o models.Order) {
 			logger.Error("订单开通异常 order=%s: %v", o.OrderNo, r)
 		}
 	}()
+	if o.Type == "recharge" {
+		if _, err := creditRecharge(&o); err != nil {
+			logger.Error("充值入账失败 order=%s: %v", o.OrderNo, err)
+		}
+		return
+	}
 	if o.Type == "renew" && o.UserProductID > 0 {
 		if err := renewUserProduct(&o); err != nil {
 			logger.Error("续费开通失败 order=%s: %v", o.OrderNo, err)

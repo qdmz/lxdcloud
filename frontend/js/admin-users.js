@@ -220,17 +220,47 @@
   window.goPage = goPage;
   window.load = load;
   window.delOne = delOne;
-  // 余额充值 / 扣减
+  // 余额：查看流水 + 充值 / 扣减
   window.adjustBalance = (id, name) => {
-    const v = window.prompt('调整用户「' + name + '」的余额（元）：正数充值，负数扣减', '100');
-    if (v === null) return;
-    const amount = Number(v);
-    if (!isFinite(amount) || amount === 0) { LXD.toast('error', '请输入非 0 的金额'); return; }
-    const remark = window.prompt('备注（可选）', amount > 0 ? '管理员充值' : '管理员扣减') || '';
-    ADMIN.request('/api/admin/users/' + encodeURIComponent(id) + '/balance', { method: 'POST', body: { amount: amount, remark: remark } })
-      .then((res) => { LXD.toast('success', '已调整，当前余额 ¥' + Number(res.data && res.data.balance || 0).toFixed(2)); load(); })
-      .catch((e) => LXD.toast('error', e.message));
+    const TYPE = { recharge: '充值', pay: '消费', refund: '退款', adjust: '调整' };
+    const mask = document.createElement('div');
+    mask.className = 'modal-mask show';
+    document.body.appendChild(mask);
+    const close = () => mask.remove();
+    mask.addEventListener('click', e => { if (e.target === mask) close(); });
+    function fmt(t) { const d = new Date(t); if (isNaN(d)) return String(t || '-').slice(0, 16); const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+    function draw(d) {
+      const logs = d.logs || [];
+      mask.innerHTML = '<div class="modal" style="max-width:640px;width:calc(100% - 24px)">' +
+        '<h3>用户余额 · ' + ADMIN.esc(name) + '</h3>' +
+        '<div style="font-size:28px;font-weight:800;color:var(--accent);margin:4px 0 14px">¥' + Number(d.balance || 0).toFixed(2) + '</div>' +
+        '<div style="display:flex;gap:8px;flex-wrap:wrap;align-items:center">' +
+        '<input class="input" id="abAmt" type="number" step="0.01" placeholder="金额：正数充值，负数扣减" style="flex:1;min-width:160px">' +
+        '<input class="input" id="abRemark" placeholder="备注（可选）" style="flex:1;min-width:140px">' +
+        '<button class="btn btn-primary" id="abGo">确认调整</button></div>' +
+        '<div style="margin-top:14px;max-height:320px;overflow:auto"><div class="tbl-wrap"><table class="tbl" style="min-width:520px"><thead><tr><th>时间</th><th>类型</th><th>变动</th><th>余额</th><th>备注/订单</th></tr></thead><tbody>' +
+        (logs.length ? logs.map(l => '<tr><td class="mono">' + fmt(l.CreatedAt) + '</td><td>' + (TYPE[l.type] || l.type) + '</td>' +
+          '<td class="mono" style="color:' + (l.amount >= 0 ? 'var(--green)' : 'var(--red)') + '">' + (l.amount >= 0 ? '+' : '') + Number(l.amount).toFixed(2) + '</td>' +
+          '<td class="mono">' + Number(l.balance).toFixed(2) + '</td><td>' + ADMIN.esc(l.remark || '') + (l.order_no ? '<div class="mono" style="font-size:11px">' + ADMIN.esc(l.order_no) + '</div>' : '') + '</td></tr>').join('')
+          : '<tr><td colspan="5" style="text-align:center">暂无流水</td></tr>') +
+        '</tbody></table></div></div>' +
+        '<div class="modal-actions"><button class="btn btn-ghost" id="abClose">关闭</button></div></div>';
+      mask.querySelector('#abClose').onclick = close;
+      mask.querySelector('#abGo').onclick = () => {
+        const amount = Number(mask.querySelector('#abAmt').value);
+        if (!isFinite(amount) || amount === 0) { LXD.toast('error', '请输入非 0 的金额'); return; }
+        const remark = mask.querySelector('#abRemark').value.trim() || (amount > 0 ? '管理员充值' : '管理员扣减');
+        ADMIN.request('/api/admin/users/' + encodeURIComponent(id) + '/balance', { method: 'POST', body: { amount: amount, remark: remark } })
+          .then(() => { LXD.toast('success', '余额已调整'); refresh(); load(); })
+          .catch(e => LXD.toast('error', e.message));
+      };
+    }
+    function refresh() {
+      ADMIN.request('/api/admin/users/' + encodeURIComponent(id) + '/balance').then(r => draw(r.data || {})).catch(e => { LXD.toast('error', e.message); close(); });
+    }
+    refresh();
   };
+
   window.regenerateKey = regenerateKey;
   window.updateSel = updateSel;
   window.toggleAll = toggleAll;

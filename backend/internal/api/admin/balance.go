@@ -37,3 +37,16 @@ func AdjustUserBalance(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"balance": after, "logs": service.ListBalanceLogs(uint(id), 20)})
 }
+
+// UserBalanceLogs 管理员查看用户余额与流水
+// @Summary 用户余额流水
+// @Tags Admin API - 用户
+// @Router /api/admin/users/:id/balance [get]
+func UserBalanceLogs(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "参数错误")
+		return
+	}
+	response.Success(c, gin.H{"balance": service.GetUserBalance(uint(id)), "logs": service.ListAllBalanceLogs(uint(id), 200)})
+}

@@ -16,12 +16,12 @@
       try { info = o.info_json ? JSON.parse(o.info_json) : {}; } catch (e) {}
       const amount = o.amount !== undefined ? o.amount : info.amount;
       return '<div class="card order-row">' +
-        '<div><div style="font-weight:600">' + LXD.esc(info.product_name || o.product_name || ('商品#' + o.product_id)) + '</div>' +
+        '<div><div style="font-weight:600">' + (o.type === 'recharge' ? '账户充值' : LXD.esc(info.product_name || o.product_name || ('商品#' + o.product_id))) + '</div>' +
         '<div class="sub">订单号：' + LXD.esc(o.order_no || '') + ' · ' + (o.type === 'renew' ? '<span class="tag">续费</span> ' : '') + (PERIOD[o.period] || o.period || '') + (o.status === 'paid' && o.pay_channel ? ' · ' + ({ balance: '余额支付', epay: '在线支付', free: '免费' }[o.pay_channel] || o.pay_channel) : '') + '</div></div>' +
         '<div style="text-align:right">' +
         '<div style="font-weight:700;color:var(--accent)">¥' + Number(amount || 0).toFixed(2) + '</div>' +
         '<div class="sub">' + (STATUS[o.status] || o.status) + '</div>' +
-        (o.status === 'pending' ? '<div class="row-actions"><button class="btn btn-sm btn-primary" data-pay="' + o.id + '" data-amt="' + Number(amount || 0) + '">去支付</button>' +
+        (o.status === 'pending' ? '<div class="row-actions"><button class="btn btn-sm btn-primary" data-pay="' + o.id + '" data-amt="' + (o.type === 'recharge' ? 0 : Number(amount || 0)) + '">去支付</button>' +
           '<button class="btn btn-sm btn-ghost" data-cancel="' + o.id + '">取消</button></div>' : '') +
         '</div></div>';
     }).join('');

@@ -163,7 +163,7 @@
         const bal = Number(b.data && b.data.balance || 0);
         let bar = document.getElementById('balBar');
         if (!bar) { bar = document.createElement('div'); bar.id = 'balBar'; bar.className = 'card bal-bar'; c.insertBefore(bar, c.firstChild); }
-        bar.innerHTML = '<span>账户余额</span><b>¥' + bal.toFixed(2) + '</b><span class="sub">可用于续费与自动续费</span>';
+        bar.innerHTML = '<span>账户余额</span><b>¥' + bal.toFixed(2) + '</b><a class="btn btn-sm" href="balance.html" style="margin-left:auto">充值 / 明细</a>';
       }).catch(() => {});
     }).catch(e => {
       c.innerHTML = '<div class="empty">加载失败：' + LXD.esc(e.message) + '</div>';

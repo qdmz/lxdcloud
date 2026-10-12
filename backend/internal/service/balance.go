@@ -23,8 +23,44 @@ func GetUserBalance(userID uint) float64 {
 	return round2(u.Balance)
 }
 
+// RechargeMin / RechargeMax 单笔在线充值金额范围（元）
+const (
+	RechargeMin = 1.0
+	RechargeMax = 50000.0
+)
+
+// CreateRechargeOrder 创建在线充值订单（type=recharge，product_id=0）
+func CreateRechargeOrder(userID uint, amount float64) (*models.Order, error) {
+	amount = round2(amount)
+	if amount < RechargeMin || amount > RechargeMax {
+		return nil, fmt.Errorf("充值金额需在 ￥%.0f ~ ￥%.0f 之间", RechargeMin, RechargeMax)
+	}
+	o := &models.Order{OrderNo: genOrderNo(), UserID: userID, Type: "recharge", Period: "", Amount: amount, Status: "pending"}
+	if err := db.DB.Create(o).Error; err != nil {
+		return nil, err
+	}
+	return o, nil
+}
+
+// creditRecharge 充值订单支付成功后入账（由 MarkOrderPaid 的条件更新保证只执行一次）
+func creditRecharge(o *models.Order) (float64, error) {
+	var exists int64
+	db.DB.Model(&models.BalanceLog{}).Where("order_no = ? AND type = ?", o.OrderNo, "recharge").Count(&exists)
+	if exists > 0 {
+		return GetUserBalance(o.UserID), nil
+	}
+	return adjustBalance(o.UserID, o.Amount, "recharge", "在线充值", o.OrderNo)
+}
+
+// ListAllBalanceLogs 管理端：某用户的余额流水
+func ListAllBalanceLogs(userID uint, limit int) []models.BalanceLog { return ListBalanceLogs(userID, limit) }
+
 // AdjustBalance 管理员调整余额（充值为正，扣减为负），记录流水
 func AdjustBalance(userID uint, amount float64, typ, remark string) (float64, error) {
+	return adjustBalance(userID, amount, typ, remark, "")
+}
+
+func adjustBalance(userID uint, amount float64, typ, remark, orderNo string) (float64, error) {
 	amount = round2(amount)
 	if amount == 0 {
 		return 0, fmt.Errorf("金额不能为 0")
@@ -54,7 +90,7 @@ func AdjustBalance(userID uint, amount float64, typ, remark string) (float64, er
 			return err
 		}
 		after = round2(u.Balance)
-		return tx.Create(&models.BalanceLog{UserID: userID, Amount: amount, Balance: after, Type: typ, Remark: remark}).Error
+		return tx.Create(&models.BalanceLog{UserID: userID, Amount: amount, Balance: after, Type: typ, Remark: remark, OrderNo: orderNo}).Error
 	})
 	if err != nil {
 		return 0, err
@@ -72,6 +108,9 @@ func PayOrderByBalance(userID uint, o *models.Order) (*models.Order, error) {
 	}
 	if o.Status != "pending" {
 		return nil, fmt.Errorf("订单已支付或已关闭")
+	}
+	if o.Type == "recharge" {
+		return nil, fmt.Errorf("充值订单不能使用余额支付")
 	}
 	amount := round2(o.Amount)
 	var after float64
@@ -113,7 +152,7 @@ func PayOrderByBalance(userID uint, o *models.Order) (*models.Order, error) {
 
 // ListBalanceLogs 用户余额流水（最近 limit 条）
 func ListBalanceLogs(userID uint, limit int) []models.BalanceLog {
-	if limit <= 0 || limit > 200 {
+	if limit <= 0 || limit > 500 {
 		limit = 50
 	}
 	var logs []models.BalanceLog

@@ -11,6 +11,7 @@
     { id: 'store', text: '产品订购', href: 'store.html' },
     { id: 'instances', text: '我的实例', href: 'instances.html' },
     { id: 'orders', text: '我的订单', href: 'orders.html' },
+    { id: 'balance', text: '账户余额', href: 'balance.html' },
     { id: 'containers', text: '我的容器', href: 'containers.html' },
     { id: 'port_mapping', text: '端口映射', href: 'port_mapping.html' },
     { id: 'nginx', text: '反向代理', href: 'nginx.html' },

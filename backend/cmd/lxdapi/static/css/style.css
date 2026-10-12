@@ -562,3 +562,19 @@ code.mono { font-family: var(--mono); font-size: 12.5px; color: var(--primary); 
 .bal-bar b { font-size: 20px; color: var(--accent); }
 .bal-bar .sub { margin-left: auto; }
 @media (max-width: 480px) { .renew-grid { grid-template-columns: repeat(2, 1fr); } .bal-bar .sub { margin-left: 0; width: 100%; } }
+
+/* ---------- v1.1.9 账户余额页 ---------- */
+.bal-top { display: grid; grid-template-columns: minmax(0, 1fr) minmax(0, 1.4fr); gap: 12px; align-items: start; }
+.bal-hero { padding: 22px 20px; background: linear-gradient(135deg, rgba(56, 189, 248, .16), rgba(99, 102, 241, .14)); }
+.bal-num { font-size: 36px; font-weight: 800; color: var(--accent); margin: 6px 0 14px; letter-spacing: -.02em; }
+.bal-mini { display: flex; gap: 16px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+.bal-mini b { color: var(--text-1); }
+.bal-recharge { padding: 18px 20px; }
+.bal-custom { display: flex; align-items: center; gap: 8px; margin-top: 10px; flex-wrap: wrap; font-size: 13px; color: var(--text-2); }
+.bal-custom input { width: 140px; padding: 8px 10px; border-radius: 10px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text-1); font-size: 14px; }
+.bal-logs { display: grid; }
+.bal-log { display: flex; justify-content: space-between; gap: 12px; padding: 12px 0; border-bottom: 1px solid var(--border); font-size: 13.5px; }
+.bal-log:last-child { border-bottom: 0; }
+.bal-in { color: var(--green); font-weight: 700; }
+.bal-out { color: var(--red); font-weight: 700; }
+@media (max-width: 760px) { .bal-top { grid-template-columns: 1fr; } .bal-num { font-size: 30px; } }

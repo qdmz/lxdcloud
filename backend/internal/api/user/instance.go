@@ -175,5 +175,42 @@ func BalanceInfo(c *gin.Context) {
 	if uid == 0 {
 		return
 	}
-	response.Success(c, gin.H{"balance": service.GetUserBalance(uid), "logs": service.ListBalanceLogs(uid, 50)})
+	cfg := service.GetPayConfig()
+	epay := cfg.Enabled && cfg.GatewayURL != "" && cfg.PID != "" && cfg.Key != ""
+	response.Success(c, gin.H{"balance": service.GetUserBalance(uid), "logs": service.ListBalanceLogs(uid, 200),
+		"epay_enabled": epay, "recharge_min": service.RechargeMin, "recharge_max": service.RechargeMax})
+}
+
+// RechargeBalance 在线充值：创建充值订单并返回易支付跳转地址
+// @Summary 余额充值
+// @Tags User API - 账户
+// @Router /api/user/balance/recharge [post]
+func RechargeBalance(c *gin.Context) {
+	var req struct {
+		Amount float64 `json:"amount"`
+		Type   string  `json:"type"` // alipay / wxpay / qqpay
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "参数错误")
+		return
+	}
+	uid := currentUserID(c)
+	if uid == 0 {
+		return
+	}
+	if req.Type == "balance" {
+		response.Error(c, 400, "请选择在线支付方式")
+		return
+	}
+	o, err := service.CreateRechargeOrder(uid, req.Amount)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	payURL, _, err := service.BuildPayParams(o.OrderNo, "账户充值 "+o.OrderNo, twoDecimal(o.Amount), req.Type)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"order": o, "pay_url": payURL})
 }
