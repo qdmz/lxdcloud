@@ -542,3 +542,23 @@ code.mono { font-family: var(--mono); font-size: 12.5px; color: var(--primary); 
 .tpl-row { display:flex; justify-content:space-between; align-items:center; gap:10px; padding:10px 0; border-bottom:1px solid rgba(255,255,255,.07); }
 .btn-danger-ghost { border:1px solid rgba(248,113,113,.4); color:#f87171; background:transparent; }
 .btn-danger-ghost:hover { background:rgba(248,113,113,.1); }
+
+/* ---------- v1.1.6 续费弹窗 / 余额条 ---------- */
+.renew-label { font-size: 12.5px; color: var(--text-3); margin: 12px 0 8px; font-weight: 600; letter-spacing: .02em; }
+.renew-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(96px, 1fr)); gap: 8px; }
+.renew-opt { display: flex; flex-direction: column; align-items: flex-start; gap: 3px; padding: 10px 12px; border-radius: 12px; border: 1px solid var(--border-strong); background: var(--card); color: var(--text-1); cursor: pointer; text-align: left; transition: border-color .15s, box-shadow .15s, transform .15s; }
+.renew-opt b { font-size: 14px; }
+.renew-opt span { font-size: 12px; color: var(--text-2); }
+.renew-opt:hover { border-color: var(--accent); transform: translateY(-1px); }
+.renew-opt.active { border-color: var(--accent); box-shadow: 0 0 0 3px rgba(56, 189, 248, .18); }
+.renew-opt.active span { color: var(--accent); }
+.renew-sum { margin-top: 16px; padding: 12px 14px; border-radius: 12px; background: var(--card-strong); display: grid; gap: 8px; font-size: 13.5px; }
+.renew-sum > div { display: flex; justify-content: space-between; gap: 12px; }
+.renew-sum span { color: var(--text-2); }
+.renew-amt { font-size: 18px; color: var(--accent); }
+.renew-sum .renew-warn { display: block; color: var(--red); font-size: 12.5px; }
+.renew-auto { display: flex; gap: 8px; align-items: center; margin-top: 12px; font-size: 13px; color: var(--text-2); cursor: pointer; }
+.bal-bar { display: flex; align-items: baseline; gap: 10px; flex-wrap: wrap; padding: 14px 16px; margin-bottom: 12px; }
+.bal-bar b { font-size: 20px; color: var(--accent); }
+.bal-bar .sub { margin-left: auto; }
+@media (max-width: 480px) { .renew-grid { grid-template-columns: repeat(2, 1fr); } .bal-bar .sub { margin-left: 0; width: 100%; } }

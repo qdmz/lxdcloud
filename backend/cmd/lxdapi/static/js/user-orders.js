@@ -16,27 +16,38 @@
       const amount = o.amount !== undefined ? o.amount : info.amount;
       return '<div class="card order-row">' +
         '<div><div style="font-weight:600">' + LXD.esc(info.product_name || o.product_name || ('商品#' + o.product_id)) + '</div>' +
-        '<div class="sub">订单号：' + LXD.esc(o.order_no || '') + ' · ' + (PERIOD[o.period] || o.period || '') + '</div></div>' +
+        '<div class="sub">订单号：' + LXD.esc(o.order_no || '') + ' · ' + (o.type === 'renew' ? '<span class="tag">续费</span> ' : '') + (PERIOD[o.period] || o.period || '') + (o.status === 'paid' && o.pay_channel ? ' · ' + ({ balance: '余额支付', epay: '在线支付', free: '免费' }[o.pay_channel] || o.pay_channel) : '') + '</div></div>' +
         '<div style="text-align:right">' +
         '<div style="font-weight:700;color:var(--accent)">¥' + Number(amount || 0).toFixed(2) + '</div>' +
         '<div class="sub">' + (STATUS[o.status] || o.status) + '</div>' +
-        (o.status === 'pending' ? '<div class="row-actions"><button class="btn btn-sm btn-primary" data-pay="' + o.id + '">去支付</button>' +
+        (o.status === 'pending' ? '<div class="row-actions"><button class="btn btn-sm btn-primary" data-pay="' + o.id + '" data-amt="' + Number(amount || 0) + '">去支付</button>' +
           '<button class="btn btn-sm btn-ghost" data-cancel="' + o.id + '">取消</button></div>' : '') +
         '</div></div>';
     }).join('');
 
-    c.querySelectorAll('[data-pay]').forEach(b => b.addEventListener('click', () => pay(b.dataset.pay)));
+    c.querySelectorAll('[data-pay]').forEach(b => b.addEventListener('click', () => choosePay(b.dataset.pay, Number(b.dataset.amt || 0))));
     c.querySelectorAll('[data-cancel]').forEach(b => b.addEventListener('click', () => {
       USER.request('/api/user/orders/' + b.dataset.cancel + '/cancel', { method: 'POST' })
         .then(() => { LXD.toast('success', '订单已取消'); load(); }).catch(e => LXD.toast('error', e.message));
     }));
   }
 
+  // 选择支付方式：余额充足时可选余额支付，否则在线支付
+  function choosePay(id, amt) {
+    if (!amt) { pay(id); return; }
+    USER.request('/api/user/balance').then(r => {
+      const bal = Number(r.data && r.data.balance || 0);
+      if (bal < amt) { pay(id, 'alipay'); return; }
+      LXD.confirmDialog('选择支付方式', '账户余额 ¥' + bal.toFixed(2) + '，是否使用余额支付 ¥' + amt.toFixed(2) + '？<br><span class="sub">点「取消」改用在线支付</span>', false)
+        .then(ok => pay(id, ok ? 'balance' : 'alipay'));
+    }).catch(() => pay(id, 'alipay'));
+  }
+
   function pay(id, type) {
     USER.request('/api/user/orders/' + id + '/pay', { method: 'POST', body: type ? { type: type } : {} }).then(res => {
       const url = res.data && res.data.pay_url;
       if (url) { window.location.href = url; return; }
-      LXD.toast('success', '订单已支付（直接开通）');
+      LXD.toast('success', (type === 'balance' ? '余额支付成功，订单已完成' : '订单已支付（直接开通）'));
       setTimeout(load, 1000);
     }).catch(e => LXD.toast('error', e.message));
   }
