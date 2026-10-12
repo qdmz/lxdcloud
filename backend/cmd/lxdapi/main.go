@@ -659,6 +659,7 @@ func main() {
 	r.POST("/api/public/reset", public.ResetPassword)
 	r.GET("/api/public/site-info", public.SiteInfo)
 	r.POST("/api/public/pay/notify", public.PayNotify)
+	r.GET("/api/public/pay/notify", public.PayNotify) // 彩虹易支付异步通知默认为 GET
 	r.GET("/api/public/pay/return", public.PayReturn)
 
 	r.GET("/api/container/captcha", container.GetCaptcha)
