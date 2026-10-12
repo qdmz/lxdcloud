@@ -102,3 +102,78 @@ func DeleteInstance(c *gin.Context) {
 	}
 	response.Success(c, gin.H{"deleted": true})
 }
+
+// RenewOptions 续费选项：可选周期与价格、续费后到期时间、余额与支付方式
+// @Summary 续费选项
+// @Tags User API - 实例
+// @Router /api/user/instances/:id/renew-options [get]
+func RenewOptions(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "参数错误")
+		return
+	}
+	uid := currentUserID(c)
+	if uid == 0 {
+		return
+	}
+	up, err := service.GetUserProduct(uid, uint(id))
+	if err != nil {
+		response.Error(c, 404, err.Error())
+		return
+	}
+	opts, err := service.GetRenewOptions(up)
+	if err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	cfg := service.GetPayConfig()
+	epay := cfg.Enabled && cfg.GatewayURL != "" && cfg.PID != "" && cfg.Key != ""
+	response.Success(c, gin.H{
+		"instance":     up,
+		"options":      opts,
+		"balance":      service.GetUserBalance(uid),
+		"epay_enabled": epay,
+	})
+}
+
+// SetAutoRenew 开关自动续费
+// @Summary 自动续费设置
+// @Tags User API - 实例
+// @Router /api/user/instances/:id/auto-renew [post]
+func SetAutoRenew(c *gin.Context) {
+	id, err := strconv.ParseUint(c.Param("id"), 10, 64)
+	if err != nil {
+		response.Error(c, 400, "参数错误")
+		return
+	}
+	var req struct {
+		Enabled bool   `json:"enabled"`
+		Period  string `json:"period"`
+	}
+	if err := c.ShouldBindJSON(&req); err != nil {
+		response.Error(c, 400, "参数错误")
+		return
+	}
+	uid := currentUserID(c)
+	if uid == 0 {
+		return
+	}
+	if err := service.SetAutoRenew(uid, uint(id), req.Enabled, req.Period); err != nil {
+		response.Error(c, 400, err.Error())
+		return
+	}
+	response.Success(c, gin.H{"auto_renew": req.Enabled, "renew_period": req.Period})
+}
+
+// BalanceInfo 余额与流水
+// @Summary 余额与流水
+// @Tags User API - 账户
+// @Router /api/user/balance [get]
+func BalanceInfo(c *gin.Context) {
+	uid := currentUserID(c)
+	if uid == 0 {
+		return
+	}
+	response.Success(c, gin.H{"balance": service.GetUserBalance(uid), "logs": service.ListBalanceLogs(uid, 50)})
+}

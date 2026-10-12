@@ -76,7 +76,7 @@
 
     let h = '<div class="tbl-wrap"><table class="tbl"><thead><tr>' +
       '<th><input type="checkbox" onclick="toggleAll(this.checked)" id="ckAll"></th>' +
-      '<th>ID</th><th>用户名</th><th>状态</th><th>配额</th><th>备注</th><th>创建时间</th><th>操作</th>' +
+      '<th>ID</th><th>用户名</th><th>状态</th><th>余额</th><th>配额</th><th>备注</th><th>创建时间</th><th>操作</th>' +
       '</tr></thead><tbody>';
     rows.forEach((u) => {
       const id = uget(u, ['id', 'ID'], '');
@@ -86,11 +86,13 @@
         '<td class="mono">' + ADMIN.esc(String(id)) + '</td>' +
         '<td style="color:var(--text-1);font-weight:600">' + ADMIN.esc(nm) + '</td>' +
         '<td>' + userStatus(u) + '</td>' +
+        '<td class="mono">¥' + Number(uget(u, ['balance', 'Balance'], 0) || 0).toFixed(2) + '</td>' +
         '<td>' + quotaStr(u) + '</td>' +
         '<td>' + ADMIN.esc(uget(u, ['remark', 'Remark'], '') || '-') + '</td>' +
         '<td class="mono">' + ADMIN.fmt.time(uget(u, ['created_at', 'CreatedAt', 'createdAt'], '')) + '</td>' +
         '<td><div class="row-actions">' +
         '<button class="btn btn-ghost btn-xs" onclick="openUserModal(\'edit\',\'' + ADMIN.esc(String(id)) + '\')">编辑</button>' +
+        '<button class="btn btn-ghost btn-xs" onclick="adjustBalance(\'' + ADMIN.esc(String(id)) + '\',\'' + ADMIN.esc(nm) + '\')">余额</button>' +
         '<button class="btn btn-ghost btn-xs" onclick="regenerateKey(\'' + ADMIN.esc(String(id)) + '\')">重置密钥</button>' +
         '<button class="btn btn-danger btn-xs" onclick="delOne(\'' + ADMIN.esc(String(id)) + '\')">删除</button>' +
         '</div></td></tr>';
@@ -218,6 +220,17 @@
   window.goPage = goPage;
   window.load = load;
   window.delOne = delOne;
+  // 余额充值 / 扣减
+  window.adjustBalance = (id, name) => {
+    const v = window.prompt('调整用户「' + name + '」的余额（元）：正数充值，负数扣减', '100');
+    if (v === null) return;
+    const amount = Number(v);
+    if (!isFinite(amount) || amount === 0) { LXD.toast('error', '请输入非 0 的金额'); return; }
+    const remark = window.prompt('备注（可选）', amount > 0 ? '管理员充值' : '管理员扣减') || '';
+    ADMIN.request('/api/admin/users/' + encodeURIComponent(id) + '/balance', { method: 'POST', body: { amount: amount, remark: remark } })
+      .then((res) => { LXD.toast('success', '已调整，当前余额 ¥' + Number(res.data && res.data.balance || 0).toFixed(2)); load(); })
+      .catch((e) => LXD.toast('error', e.message));
+  };
   window.regenerateKey = regenerateKey;
   window.updateSel = updateSel;
   window.toggleAll = toggleAll;

@@ -78,7 +78,7 @@ func PayOrder(c *gin.Context) {
 		return
 	}
 	var req struct {
-		Type string `json:"type"` // alipay / wxpay / qqpay
+		Type string `json:"type"` // balance / alipay / wxpay / qqpay
 	}
 	_ = c.ShouldBindJSON(&req)
 
@@ -89,6 +89,16 @@ func PayOrder(c *gin.Context) {
 	}
 	if orders.Status != "pending" {
 		response.Error(c, 400, "订单已支付或已关闭")
+		return
+	}
+	// 余额支付：直接扣款并完成开通/续费
+	if req.Type == "balance" {
+		paid, err := service.PayOrderByBalance(uid, orders)
+		if err != nil {
+			response.Error(c, 400, err.Error())
+			return
+		}
+		response.Success(c, gin.H{"paid": true, "order": paid, "balance": service.GetUserBalance(uid), "message": "余额支付成功"})
 		return
 	}
 	// 0 元订单无需跳转支付，直接标记已支付并开通

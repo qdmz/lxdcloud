@@ -23,6 +23,7 @@ type User struct {
 	MaxCPUPerContainer int
 	TrafficLimit      int
 	TrafficUsed       float64 `gorm:"default:0"`
+	Balance           float64 `gorm:"default:0"` // 账户余额（元），可用于支付订单 / 自动续费
 	TrafficLocked     bool    `gorm:"default:false"`
 	IPv4PoolLimit     int
 	IPv4MappingLimit  int

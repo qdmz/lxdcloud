@@ -200,6 +200,10 @@ func PayReturn(c *gin.Context) {
 		c.Redirect(302, "/user/orders.html")
 		return
 	}
-	_, _ = service.MarkOrderPaid(orderNo, "epay", raw["trade_no"])
+	o, _ := service.MarkOrderPaid(orderNo, "epay", raw["trade_no"])
+	if o != nil && o.Type == "renew" {
+		c.Redirect(302, "/user/instances.html?renewed="+orderNo)
+		return
+	}
 	c.Redirect(302, "/user/orders.html")
 }
