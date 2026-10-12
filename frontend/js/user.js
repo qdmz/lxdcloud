@@ -47,13 +47,15 @@
       '</header>' +
       '<main class="user-content" id="userContent">' +
       (title ? '<div class="page-head"><div><h2>' + title + '</h2>' + (sub ? '<div class="sub">' + sub + '</div>' : '') + '</div></div>' : '') +
-      '</main></div>';
+      '</main></div>' +
+      '<footer id="siteFooter" class="h-footer u-site-footer"></footer>';
 
     document.getElementById('btnLogout').addEventListener('click', USER.logout);
     document.getElementById('btnUMenu').addEventListener('click', () => {
       document.getElementById('userNav').classList.toggle('open');
     });
     if (LXD.mountThemeToggle) LXD.mountThemeToggle(app.querySelector('.u-actions'));
+    if (window.SITE) { SITE.footer(); SITE.applyBrand(); }
 
     // 品牌
     LXD.loadBrand().then((b) => {

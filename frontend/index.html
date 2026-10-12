@@ -3,85 +3,193 @@
 <head>
   <meta charset="UTF-8">
   <meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover">
-  <title>LXD Panel - 控制面板入口</title>
+  <title>LXD Cloud - 秒级开通的 LXD 容器云</title>
+  <meta name="description" content="基于 LXD 的轻量云主机平台：秒级开通、独立 IPv4/IPv6、端口映射、快照备份与一键重装，在线下单自动交付。">
   <link rel="icon" href="data:,">
   <link rel="stylesheet" href="css/style.css?v=1.1.11">
-  <style>
-    .home-wrap { min-height: 100vh; display: flex; flex-direction: column; align-items: center; justify-content: center; gap: 28px; padding: 40px 20px; }
-    .home-brand { text-align: center; }
-    .home-brand h1 { font-size: clamp(1.6rem, 4vw, 2.4rem); font-weight: 700; letter-spacing: 0.06em; margin: 0 0 10px; }
-    .home-brand p { color: var(--muted, #94a3b8); margin: 0; font-size: 0.95rem; }
-    .home-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(240px, 1fr)); gap: 18px; width: 100%; max-width: 860px; }
-    .home-card { display: flex; flex-direction: column; gap: 12px; }
-    .home-card .card-title { display: flex; align-items: center; gap: 10px; }
-    .home-card .card-title .dot { width: 10px; height: 10px; border-radius: 50%; background: var(--accent, #22d3ee); box-shadow: 0 0 10px var(--accent, #22d3ee); }
-    .home-card .card-title .dot.admin { background: #a78bfa; box-shadow: 0 0 10px #a78bfa; }
-    .home-card .card-title .dot.user { background: #34d399; box-shadow: 0 0 10px #34d399; }
-    .home-card p { color: var(--muted, #94a3b8); font-size: 0.88rem; line-height: 1.6; margin: 0; flex: 1; }
-    .home-card .btn { text-align: center; }
-    .home-footer { color: var(--muted, #94a3b8); font-size: 0.8rem; text-align: center; }
-  </style>
+  <link rel="stylesheet" href="css/home.css?v=1.1.11">
   <meta name="theme-color" content="#070b14">
   <script src="js/theme.js?v=1.1.11"></script>
 </head>
-<body>
-  <div class="bg-glow"></div>
-  <div class="home-wrap">
-    <div class="home-brand">
-      <h1 id="siteName">LXD Panel</h1>
-      <p id="siteDesc">商业化云面板 · 多节点 / 商店 / 订单 / 工单 / 消息 / 容器控制台</p>
-    </div>
-
-    <div class="home-grid">
-      <div class="card home-card">
-        <div class="card-title">
-          <span class="dot"></span>
-          <strong>容器面板</strong>
-        </div>
-        <p>终端用户入口：资源监控、IP 管理、端口映射、反向代理、DNS 与 Web 终端。使用访问码登录。</p>
-        <a class="btn btn-primary" href="container/login.html">进入容器面板</a>
-      </div>
-
-      <div class="card home-card">
-        <div class="card-title">
-          <span class="dot admin"></span>
-          <strong>管理后台</strong>
-        </div>
-        <p>管理员入口：容器、节点、商品、订单、实例、工单、邮件、支付、模板、存储池、Nginx 与品牌设置。</p>
-        <a class="btn btn-primary" href="admin/login.html">进入管理后台</a>
-      </div>
-
-      <div class="card home-card">
-        <div class="card-title">
-          <span class="dot user"></span>
-          <strong>用户中心</strong>
-        </div>
-        <p>平台用户入口：注册/找回、商店下单、订单支付、我的实例、续费、工单、站内消息、个人资料与容器管理。</p>
-        <a class="btn btn-primary" href="user/login.html">进入用户中心</a>
-      </div>
-    </div>
-
-    <div class="home-footer" id="siteFooter"></div>
+<body class="home">
+  <div class="h-bg" aria-hidden="true">
+    <div class="h-grid"></div>
+    <span class="h-orb o1"></span><span class="h-orb o2"></span><span class="h-orb o3"></span>
   </div>
 
-  <script src="js/app.js?v=1.1.11"></script>
-  <script>
-    (function () {
-      if (window.LXD && LXD.loadBrand) {
-        LXD.loadBrand().then(function (b) {
-          if (!b) return;
-          if (b.site_name) document.getElementById('siteName').textContent = b.site_name;
-          if (b.page_title) document.title = b.page_title;
-          if (b.footer_text) document.getElementById('siteFooter').textContent = b.footer_text;
-          if (b.favicon_url) {
-            var icon = document.createElement('link');
-            icon.rel = 'icon';
-            icon.href = b.favicon_url;
-            document.head.appendChild(icon);
-          }
-        }).catch(function () {});
-      }
-    })();
-  </script>
+  <header id="siteHeader"></header>
+
+  <main>
+    <!-- Hero -->
+    <section class="h-hero">
+      <div class="h-container h-hero-inner">
+        <div class="h-hero-copy">
+          <a class="h-pill" href="#pricing"><span class="h-pill-dot"></span><span id="heroBadge">新一代 LXD 云主机 · 自动交付</span><b>→</b></a>
+          <h1>秒级开通的<br><span class="h-grad">高性能容器云主机</span></h1>
+          <p class="h-lead" id="siteDesc">基于 LXD 系统级容器，独享资源、原生性能。独立 IPv4 / IPv6、端口映射、快照备份与一键重装，下单支付后全自动交付。</p>
+          <div class="h-hero-cta">
+            <a class="h-btn h-btn-primary h-btn-lg" href="#pricing">立即选购 <span aria-hidden="true">→</span></a>
+            <a class="h-btn h-btn-ghost h-btn-lg" href="user/login.html" id="heroConsole">进入控制台</a>
+          </div>
+          <ul class="h-hero-points">
+            <li><i></i>自动开通，无需等待</li>
+            <li><i></i>Web 终端随时接入</li>
+            <li><i></i>支持在线支付</li>
+          </ul>
+        </div>
+
+        <div class="h-hero-visual" aria-hidden="true">
+          <div class="h-term">
+            <div class="h-term-bar"><i></i><i></i><i></i><span>root@lxd-cloud: ~</span></div>
+            <div class="h-term-body">
+              <p><span class="c-p">$</span> lxc launch ubuntu:24.04 my-app</p>
+              <p class="c-m">Creating my-app</p>
+              <p class="c-m">Starting my-app</p>
+              <p><span class="c-ok">✔</span> 实例已就绪 · 用时 <b>4.2s</b></p>
+              <p><span class="c-p">$</span> lxc list my-app</p>
+              <div class="h-term-table">
+                <span>NAME</span><span>STATE</span><span>IPV4</span>
+                <span>my-app</span><span class="c-ok">RUNNING</span><span>10.8.0.23</span>
+              </div>
+              <p><span class="c-p">$</span> <span class="h-caret"></span></p>
+            </div>
+          </div>
+          <div class="h-float f1"><b>99.9%</b><span>在线率目标</span></div>
+          <div class="h-float f2"><b>IPv4 + IPv6</b><span>双栈网络</span></div>
+        </div>
+      </div>
+
+      <div class="h-container">
+        <div class="h-stats">
+          <div><b id="statProducts">—</b><span>在售套餐</span></div>
+          <div><b>&lt; 10s</b><span>平均开通</span></div>
+          <div><b>7×24</b><span>工单支持</span></div>
+          <div><b id="statVersion">v—</b><span>系统版本</span></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 特性 -->
+    <section class="h-section" id="features">
+      <div class="h-container">
+        <div class="h-head">
+          <span class="h-eyebrow">产品特性</span>
+          <h2>为开发者与站长打造的轻量云</h2>
+          <p>不只是一台主机，而是一整套可自助管理的云平台。</p>
+        </div>
+        <div class="h-features">
+          <article class="h-feat"><span class="h-ico t1"><svg viewBox="0 0 24 24"><path d="M3 7l9-4 9 4-9 4-9-4z"/><path d="M3 12l9 4 9-4"/><path d="M3 17l9 4 9-4"/></svg></span><h3>LXD 系统容器</h3><p>完整 Linux 系统，资源隔离、原生性能，开销远低于传统虚拟机。</p></article>
+          <article class="h-feat"><span class="h-ico t2"><svg viewBox="0 0 24 24"><path d="M13 2L4 14h7l-1 8 9-12h-7l1-8z"/></svg></span><h3>秒级自动开通</h3><p>下单支付后自动创建实例并发送凭据，免费套餐即领即用。</p></article>
+          <article class="h-feat"><span class="h-ico t3"><svg viewBox="0 0 24 24"><circle cx="12" cy="12" r="9"/><path d="M3 12h18M12 3a14 14 0 010 18M12 3a14 14 0 000 18"/></svg></span><h3>IPv4 / IPv6 双栈</h3><p>支持独立 IP、IPv6 分配与端口映射，灵活对外提供服务。</p></article>
+          <article class="h-feat"><span class="h-ico t4"><svg viewBox="0 0 24 24"><path d="M4 4v6h6"/><path d="M20 20v-6h-6"/><path d="M20 10A8 8 0 006.3 6.3L4 10M4 14a8 8 0 0013.7 3.7L20 14"/></svg></span><h3>快照备份 · 一键重装</h3><p>多种系统镜像随心切换，快照与备份让试错零成本。</p></article>
+          <article class="h-feat"><span class="h-ico t5"><svg viewBox="0 0 24 24"><path d="M3 3v18h18"/><path d="M7 15l4-4 3 3 5-6"/></svg></span><h3>流量与带宽可视</h3><p>实时 CPU、内存、磁盘与流量监控，用量一目了然。</p></article>
+          <article class="h-feat"><span class="h-ico t6"><svg viewBox="0 0 24 24"><rect x="3" y="4" width="18" height="16" rx="2"/><path d="M7 9l3 3-3 3M13 15h4"/></svg></span><h3>Web 终端与反代</h3><p>浏览器内直连终端，内置 Nginx 反向代理与 DNS 管理。</p></article>
+        </div>
+      </div>
+    </section>
+
+    <!-- 价格 -->
+    <section class="h-section h-section-alt" id="pricing">
+      <div class="h-container">
+        <div class="h-head">
+          <span class="h-eyebrow">价格方案</span>
+          <h2>按需选择，随时升级</h2>
+          <p>透明定价，无隐藏费用。</p>
+        </div>
+        <div class="h-period" id="hPeriod" role="tablist" aria-label="计费周期">
+          <button type="button" data-k="price_monthly" class="on">月付</button>
+          <button type="button" data-k="price_quarterly">季付</button>
+          <button type="button" data-k="price_half_year">半年付</button>
+          <button type="button" data-k="price_yearly">年付</button>
+        </div>
+        <div class="h-plans" id="hPlans">
+          <div class="h-plan h-skel"></div><div class="h-plan h-skel"></div><div class="h-plan h-skel"></div>
+        </div>
+      </div>
+    </section>
+
+    <!-- 流程 -->
+    <section class="h-section" id="steps">
+      <div class="h-container">
+        <div class="h-head">
+          <span class="h-eyebrow">开通流程</span>
+          <h2>三步，拥有你的云主机</h2>
+        </div>
+        <ol class="h-steps">
+          <li><span class="h-step-n">01</span><h3>注册账号</h3><p>邮箱注册并激活，一分钟完成。</p></li>
+          <li><span class="h-step-n">02</span><h3>选择套餐</h3><p>挑选配置与计费周期，在线支付。</p></li>
+          <li><span class="h-step-n">03</span><h3>自动交付</h3><p>系统自动开通，立即登录使用。</p></li>
+        </ol>
+      </div>
+    </section>
+
+    <!-- 控制台入口 -->
+    <section class="h-section h-section-alt" id="portals">
+      <div class="h-container">
+        <div class="h-head">
+          <span class="h-eyebrow">控制台</span>
+          <h2>一站式自助管理</h2>
+        </div>
+        <div class="h-portals">
+          <a class="h-portal" href="user/login.html" id="portalUser">
+            <span class="h-portal-dot d-user"></span>
+            <h3>用户中心</h3>
+            <p>商店下单、订单支付、我的实例、续费、工单与站内消息。</p>
+            <span class="h-portal-go">进入用户中心 →</span>
+          </a>
+          <a class="h-portal" href="container/login.html">
+            <span class="h-portal-dot d-ct"></span>
+            <h3>容器面板</h3>
+            <p>资源监控、IP 管理、端口映射、反向代理、DNS 与 Web 终端，访问码登录。</p>
+            <span class="h-portal-go">进入容器面板 →</span>
+          </a>
+          <a class="h-portal" href="help.html">
+            <span class="h-portal-dot d-admin"></span>
+            <h3>帮助中心</h3>
+            <p>新手入门、购买与续费、余额充值、实例管理、网络配置与常见问题。</p>
+            <span class="h-portal-go">查看帮助文档 →</span>
+          </a>
+        </div>
+      </div>
+    </section>
+
+    <!-- FAQ -->
+    <section class="h-section" id="faq">
+      <div class="h-container h-narrow">
+        <div class="h-head">
+          <span class="h-eyebrow">常见问题</span>
+          <h2>你可能想知道</h2>
+        </div>
+        <div class="h-faq">
+          <details><summary>LXD 容器和 VPS 有什么区别？</summary><p>LXD 是系统级容器，拥有完整的 Linux 用户空间，可以像 VPS 一样安装软件、运行服务，但共享宿主内核，启动更快、性能损耗更低。</p></details>
+          <details><summary>付款后多久可以使用？</summary><p>支付成功后系统会自动创建实例，通常数秒到一分钟内完成，凭据会显示在用户中心并通过邮件发送。</p></details>
+          <details><summary>可以更换操作系统吗？</summary><p>可以。在用户中心或容器面板中选择“重装系统”，从可用镜像列表中挑选即可，重装前建议先做快照备份。</p></details>
+          <details><summary>支持哪些网络能力？</summary><p>视套餐而定，可包含独立 IPv4、IPv6 地址、端口映射与反向代理，带宽与月流量在套餐中标明。</p></details>
+          <details><summary>遇到问题如何联系？</summary><p>登录用户中心提交工单，我们会尽快处理；重要通知会通过站内消息与邮件告知。</p></details>
+        </div>
+      </div>
+    </section>
+
+    <!-- CTA -->
+    <section class="h-cta-wrap">
+      <div class="h-container">
+        <div class="h-cta">
+          <div>
+            <h2>现在开始，几秒后就能 SSH 登录</h2>
+            <p>注册即可选购套餐，免费套餐同样自动开通。</p>
+          </div>
+          <div class="h-cta-btns">
+            <a class="h-btn h-btn-white h-btn-lg" href="user/register.html" data-auth="register">免费注册</a>
+            <a class="h-btn h-btn-outline-white h-btn-lg" href="#pricing">查看价格</a>
+          </div>
+        </div>
+      </div>
+    </section>
+  </main>
+
+  <footer id="siteFooter"></footer>
+
+  <script src="js/site.js?v=1.1.11"></script>
+  <script src="js/home.js?v=1.1.11"></script>
 </body>
 </html>
