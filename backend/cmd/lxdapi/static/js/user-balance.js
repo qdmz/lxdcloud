@@ -46,7 +46,7 @@
       '<div class="card bal-hero"><div class="sub">当前余额</div><div class="bal-num">' + money(d.balance) + '</div>' +
       '<div class="bal-mini"><span>累计入账 <b>' + money(income) + '</b></span><span>累计支出 <b>' + money(spend) + '</b></span></div></div>' +
       recharge + '</div>' +
-      '<div class="card" style="margin-top:12px"><div class="card-title">收支记录</div>' +
+      '<div class="card" style="margin-top:12px;padding:18px 20px"><div class="card-title">收支记录</div>' +
       (logs.length
         ? '<div class="bal-logs">' + logs.map(l =>
           '<div class="bal-log"><div><div style="font-weight:600">' + (TYPE[l.type] || l.type) + (l.remark ? ' · ' + LXD.esc(l.remark) : '') + '</div>' +
