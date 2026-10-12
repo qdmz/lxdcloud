@@ -11,6 +11,11 @@
   function fmtTime(t) {
     if (!t) return '-';
     const s = String(t);
+    if (/^\d{4}-\d{2}-\d{2}T/.test(s)) {
+      // ISO 时间（含时区）按浏览器本地时区显示
+      const d = new Date(s);
+      if (!isNaN(d)) { const z = n => String(n).padStart(2, '0'); return d.getFullYear() + '-' + z(d.getMonth() + 1) + '-' + z(d.getDate()) + ' ' + z(d.getHours()) + ':' + z(d.getMinutes()); }
+    }
     // 后端时间格式如 "Mon 2026-11-09 11:16 AM CST (UTC+08:00)" 或 ISO
     const m = s.match(/(\d{4}-\d{2}-\d{2})[ T](\d{1,2}):(\d{2})(?::\d{2})?(?:\S*)?\s*(AM|PM)?/i);
     if (!m) return s.slice(0, 16);
