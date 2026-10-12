@@ -69,7 +69,12 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	if err != nil {
 		return nil, err
 	}
-	if p.Status != "active" {
+	// 新购仅限上架商品；续费允许已隐藏（下架）的商品，只有停用（disabled）的商品不再续费
+	if typ == "renew" {
+		if p.Status == "disabled" {
+			return nil, fmt.Errorf("该商品已停止续费")
+		}
+	} else if p.Status != "active" {
 		return nil, fmt.Errorf("商品已下架")
 	}
 	if typ == "" {
@@ -662,6 +667,7 @@ func StartLifecycleScheduler() {
 	}()
 	ticker := time.NewTicker(time.Minute)
 	for range ticker.C {
+		AutoRenewDueProducts()
 		SuspendExpiredProducts()
 		DeleteGracePeriodExpired(7)
 	}

@@ -82,6 +82,7 @@ func Init() error {
 		&models.Product{},
 		&models.Order{},
 		&models.UserProduct{},
+		&models.BalanceLog{},
 		&models.EmailToken{},
 		&models.Ticket{},
 		&models.TicketReply{},

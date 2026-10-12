@@ -21,5 +21,6 @@ type UserProduct struct {
 
 	ExpireAt      *time.Time `gorm:"index" json:"expire_at"`
 	AutoRenew     bool       `gorm:"default:false" json:"auto_renew"`
+	RenewPeriod   string     `gorm:"size:20;default:'monthly'" json:"renew_period"` // 自动续费周期
 	ProvisionedAt *time.Time `json:"provisioned_at"`
 }

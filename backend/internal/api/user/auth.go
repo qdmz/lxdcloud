@@ -231,6 +231,7 @@ func GetUserInfo(c *gin.Context) {
 			"ipv6_pool_limit":       user.IPv6PoolLimit,
 			"ipv6_mapping_limit":    user.IPv6MappingLimit,
 			"reverse_proxy_limit":   user.ReverseProxyLimit,
+			"balance":               user.Balance,
 		},
 		"stats": stats,
 	})
