@@ -11,6 +11,7 @@ import (
 	"strconv"
 	"strings"
 
+	"lxdapi/internal/core"
 	"lxdapi/internal/db"
 	"lxdapi/models"
 
@@ -98,6 +99,15 @@ func BuildPayParams(orderNo, name, money, payType string) (string, map[string]st
 	returnURL := cfg.ReturnURL
 	if returnURL == "" {
 		returnURL = "/api/public/pay/return"
+	}
+	// 相对路径时用 public_url 补全为绝对地址（易支付网关只能回调绝对 URL）
+	if base := strings.TrimRight(strings.TrimSpace(core.GlobalConfig.System.Server.PublicURL), "/"); base != "" {
+		if strings.HasPrefix(notifyURL, "/") {
+			notifyURL = base + notifyURL
+		}
+		if strings.HasPrefix(returnURL, "/") {
+			returnURL = base + returnURL
+		}
 	}
 	if payType == "" {
 		payType = "alipay"
