@@ -142,3 +142,7 @@ bash scripts/release.sh major      # 1.x.y → 2.0.0
 
 - **v1.1.0** — 前端响应式重构 + 深浅色主题 + 通用交互增强；修复 TLS 私钥泄露、终端越权、系统 API 空密钥绕过、支付回调金额校验等安全问题；修复 build.sh；新增 CHANGELOG / VERSION / 发布脚本。详见 [CHANGELOG.md](CHANGELOG.md)
 - **v1.0** — 安全加固（bcrypt/Secure Cookie/友好报错）+ 前端补齐（NAT 配置/端口范围/网络 NAT/强制同步）
+
+### 插件（反向代理 / 防火墙）
+
+`install.sh` 安装后端时会自动执行 `scripts/install-plugins.sh`：创建 `plugins/nginx`、`plugins/opengfw` 目录，将反代站点接入系统 Nginx（`/etc/nginx/conf.d/lxdcloud-proxies.conf`），安装 OpenGFW 程序与 GeoIP/GeoSite 数据并加载 `nfnetlink_queue`。已部署的面板可单独执行：`sudo bash scripts/install-plugins.sh /opt/lxdapi` 后重启服务。

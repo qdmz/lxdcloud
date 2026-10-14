@@ -444,6 +444,7 @@ main() {
             mkdir -p "${APP_DIR}"
             build_backend
             gen_backend_config
+            bash "${SCRIPT_DIR}/scripts/install-plugins.sh" "${APP_DIR}" || true
             install_backend_service
             ;;
         --frontend)
@@ -455,6 +456,7 @@ main() {
             mkdir -p "${APP_DIR}"
             build_backend
             gen_backend_config
+            bash "${SCRIPT_DIR}/scripts/install-plugins.sh" "${APP_DIR}" || true
             install_backend_service
             install_frontend
             gen_nginx_conf
@@ -469,6 +471,7 @@ main() {
             mkdir -p "${APP_DIR}"
             build_backend
             gen_backend_config
+            bash "${SCRIPT_DIR}/scripts/install-plugins.sh" "${APP_DIR}" || true
             install_backend_service
             install_frontend
             gen_nginx_conf

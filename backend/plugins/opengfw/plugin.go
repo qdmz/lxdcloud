@@ -44,18 +44,15 @@ func (p *OpenGFWPlugin) Description() string {
 func (p *OpenGFWPlugin) Init() error {
 	logger.Info("初始化 OpenGFW 插件...")
 	
-	if _, err := os.Stat(p.workDir); os.IsNotExist(err) {
-		return fmt.Errorf("插件目录不存在: %s", p.workDir)
-	}
-	
 	binPath := filepath.Join(p.workDir, "bin")
-	if _, err := os.Stat(binPath); os.IsNotExist(err) {
-		return fmt.Errorf("二进制文件目录不存在: %s", binPath)
-	}
-	
 	dataPath := filepath.Join(p.workDir, "data")
-	if _, err := os.Stat(dataPath); os.IsNotExist(err) {
-		return fmt.Errorf("数据文件目录不存在: %s", dataPath)
+	for _, dir := range []string{p.workDir, binPath, dataPath} {
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("创建插件目录失败: %s: %v", dir, err)
+		}
+	}
+	if _, err := os.Stat(filepath.Join(binPath, getBinaryName())); os.IsNotExist(err) {
+		return fmt.Errorf("未安装 OpenGFW 程序: %s（请在面板目录执行 scripts/install-plugins.sh）", filepath.Join(binPath, getBinaryName()))
 	}
 	
 	geoipPath := filepath.Join(dataPath, "geoip.dat")

@@ -57,8 +57,8 @@ func (p *NginxPlugin) Init() error {
 	logger.Info("初始化 Nginx 插件...")
 	
 	for _, dir := range []string{p.workDir, p.confDir, p.sitesDir, p.sslDir} {
-		if _, err := os.Stat(dir); os.IsNotExist(err) {
-			return fmt.Errorf("插件目录不存在: %s", dir)
+		if err := os.MkdirAll(dir, 0755); err != nil {
+			return fmt.Errorf("创建插件目录失败: %s: %v", dir, err)
 		}
 	}
 	
