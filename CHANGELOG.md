@@ -1,5 +1,9 @@
 # 更新日志
 
+## v1.1.16 - 2026-10-14
+
+- feat: 新增 scripts/install-plugins.sh 并在 install.sh 中自动执行，补齐 Nginx 反代目录与系统 Nginx 引入、OpenGFW 程序（下载或 go 编译）与 GeoIP 数据、NFQUEUE 模块；插件目录缺失时自动创建，OpenGFW 未安装时给出明确提示
+
 ## v1.1.15 - 2026-10-14
 
 - feat: 易支付异步通知/同步跳转地址为相对路径时自动用 public_url 补全为绝对地址；新增 scripts/node-info.sh 输出本机作为节点所需的地址与 api_hash 并自测
