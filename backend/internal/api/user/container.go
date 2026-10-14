@@ -249,9 +249,16 @@ func ListContainers(c *gin.Context) {
 		}
 	}
 
+	// 追加用户在节点上的容器
+	out := make([]interface{}, 0, len(userContainers))
+	for _, ct := range userContainers {
+		out = append(out, ct)
+	}
+	out = append(out, service.UserNodeContainers(username.(string))...)
+
 	response.Success(c, gin.H{
-		"data":  userContainers,
-		"count": len(userContainers),
+		"data":  out,
+		"count": len(out),
 	})
 }
 

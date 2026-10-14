@@ -108,7 +108,7 @@
     area.querySelectorAll('[data-dl]').forEach((b) => {
       b.addEventListener('click', () => {
         const a = document.createElement('a');
-        a.href = api + '/download?path=' + encodeURIComponent(b.dataset.dl);
+        a.href = ADMIN.scopeUrl(api + '/download?path=' + encodeURIComponent(b.dataset.dl));
         a.download = '';
         document.body.appendChild(a); a.click(); a.remove();
       });
@@ -170,7 +170,7 @@
       const fd1 = new FormData();
       fd1.append('file', f);
       fd1.append('path', base + '/' + f.name);
-      return fetch(api + '/upload', { method: 'POST', body: fd1 })
+      return fetch(ADMIN.scopeUrl(api + '/upload'), { method: 'POST', body: fd1 })
         .then((r) => r.json().catch(() => ({})))
         .then((j) => {
           if (j.code !== 200) throw new Error(j.msg || '上传失败');

@@ -91,6 +91,7 @@
         '<a class="btn btn-ghost btn-xs" href="/admin/container-detail.html?name=' + encodeURIComponent(nm) + '">详情</a>' +
         '<button class="btn btn-ghost btn-xs" onclick="syncOne(\'' + encodeURIComponent(nm) + '\')">同步</button>' +
         '<button class="btn btn-ghost btn-xs" onclick="openConfig(\'' + encodeURIComponent(nm) + '\')">配置</button>' +
+        '<button class="btn btn-ghost btn-xs" onclick="ADMIN.openContainerPanel(decodeURIComponent(\'' + encodeURIComponent(nm) + '\'))">面板</button>' +
         '<button class="btn btn-danger btn-xs" onclick="delOne(\'' + encodeURIComponent(nm) + '\')">删除</button>' +
         '</div></td></tr>';
     });
@@ -115,6 +116,7 @@
         '<div class="row-actions" style="margin-top:12px">' +
         '<a class="btn btn-ghost btn-xs" href="/admin/container-detail.html?name=' + encodeURIComponent(nm) + '">详情</a>' +
         '<button class="btn btn-ghost btn-xs" onclick="syncOne(\'' + encodeURIComponent(nm) + '\')">同步</button>' +
+        '<button class="btn btn-ghost btn-xs" onclick="ADMIN.openContainerPanel(decodeURIComponent(\'' + encodeURIComponent(nm) + '\'))">面板</button>' +
         '<button class="btn btn-danger btn-xs" onclick="delOne(\'' + encodeURIComponent(nm) + '\')">删除</button>' +
         '</div></div>';
     });

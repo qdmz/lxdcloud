@@ -52,6 +52,51 @@
     }
   ];
 
+  /* ---- 节点切换：容器/模板/存储池等页面可切到远程节点（请求附带 node_id，由主控转发） ---- */
+  const NODE_SCOPE_PAGES = ['containers.html', 'container-detail.html', 'file-manager.html', 'templates.html', 'storage_pools.html', 'tasks.html'];
+  const NODE_SCOPE_API = /^\/api\/admin\/(containers|templates|image-options|storage-pools|tasks|cache|container-templates|console|host|network)(\/|\?|$)/;
+  function nodeScoped() {
+    const f = (location.pathname.split('/').pop() || '').toLowerCase();
+    return NODE_SCOPE_PAGES.indexOf(f) >= 0;
+  }
+  function currentNode() {
+    try { return localStorage.getItem('lxd_admin_node') || '0'; } catch (e) { return '0'; }
+  }
+  function scopeUrl(url) {
+    const nid = currentNode();
+    if (!nodeScoped() || nid === '0' || !NODE_SCOPE_API.test(url)) return url;
+    return url + (url.indexOf('?') >= 0 ? '&' : '?') + 'node_id=' + encodeURIComponent(nid);
+  }
+  function mountNodeSwitch(box) {
+    if (!box || !nodeScoped()) return;
+    const sel = document.createElement('select');
+    sel.className = 'form-control';
+    sel.id = 'nodeSwitch';
+    sel.title = '切换节点';
+    sel.style.cssText = 'width:auto;min-width:120px;height:30px;padding:2px 8px;font-size:12.5px';
+    sel.innerHTML = '<option value="0">本机</option>';
+    box.insertBefore(sel, box.firstChild);
+    fetch('/api/admin/nodes').then((r) => r.json()).then((res) => {
+      const list = (res && res.data && (res.data.nodes || res.data.list || res.data)) || [];
+      const cur = currentNode();
+      let found = cur === '0';
+      (Array.isArray(list) ? list : []).forEach((n) => {
+        const id = String(n.ID || n.id);
+        if (id === cur) found = true;
+        const o = document.createElement('option');
+        o.value = id;
+        o.textContent = '节点：' + (n.name || ('#' + id));
+        sel.appendChild(o);
+      });
+      if (!found) { try { localStorage.setItem('lxd_admin_node', '0'); } catch (e) {} }
+      sel.value = found ? cur : '0';
+    }).catch(() => {});
+    sel.addEventListener('change', () => {
+      try { localStorage.setItem('lxd_admin_node', sel.value); } catch (e) {}
+      window.location.reload();
+    });
+  }
+
   /** 渲染管理端外壳 */
   function shell(active, title, sub) {
     const app = document.getElementById('admin-app');
@@ -111,6 +156,7 @@
     sidebar.querySelectorAll('.menu-item').forEach((a) => a.addEventListener('click', closeDrawer));
     document.addEventListener('keydown', (e) => { if (e.key === 'Escape') closeDrawer(); });
     if (LXD.mountThemeToggle) LXD.mountThemeToggle(app.querySelector('.topbar-actions'));
+    mountNodeSwitch(app.querySelector('.topbar-actions'));
     document.getElementById('adminLogout').addEventListener('click', ADMIN.logout);
     document.getElementById('btnRefresh').addEventListener('click', () => window.location.reload());
 
@@ -125,6 +171,7 @@
 
   /** 请求封装（同源 Cookie 会话；返回 data 字段） */
   function request(url, options = {}) {
+    url = scopeUrl(url);
     options.method = options.method || 'GET';
     options.headers = Object.assign({ 'Content-Type': 'application/json' }, options.headers || {});
     if (options.body && typeof options.body !== 'string') options.body = JSON.stringify(options.body);
@@ -167,5 +214,24 @@
     return '<div class="empty"><div class="empty-icon">▫</div>' + LXD.esc(text || '暂无数据') + '</div>';
   }
 
-  window.ADMIN = { shell, request, logout, fmt, empty, toast: LXD.toast, esc: LXD.esc, MENUS, ICONS };
+  /** 进入某容器的容器面板（管理员免访问码） */
+  function openContainerPanel(name) {
+    request('/api/admin/containers/' + encodeURIComponent(name) + '/credential').then((res) => {
+      const d = res.data || {};
+      if (!d.hash) throw new Error('未获取到容器访问码');
+      try { localStorage.setItem('container_hash', d.hash); } catch (e) {}
+      window.open('/container/dashboard.html', '_blank');
+    }).catch((e) => LXD.toast('error', e.message || '进入容器面板失败'));
+  }
+
+  /** 以某用户身份登录用户中心 */
+  function loginAsUser(id) {
+    request('/api/admin/users/' + encodeURIComponent(id) + '/impersonate', { method: 'POST' }).then((res) => {
+      const d = res.data || {};
+      LXD.toast('success', '已切换为用户 ' + (d.username || '') + '，正在打开用户中心');
+      window.open(d.redirect || '/user/index.html', '_blank');
+    }).catch((e) => LXD.toast('error', e.message || '登录用户面板失败'));
+  }
+
+  window.ADMIN = { shell, request, logout, fmt, empty, toast: LXD.toast, esc: LXD.esc, MENUS, ICONS, scopeUrl, currentNode, openContainerPanel, loginAsUser };
 })();

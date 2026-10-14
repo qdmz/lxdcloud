@@ -92,6 +92,7 @@
         '<td class="mono">' + ADMIN.fmt.time(uget(u, ['created_at', 'CreatedAt', 'createdAt'], '')) + '</td>' +
         '<td><div class="row-actions">' +
         '<button class="btn btn-ghost btn-xs" onclick="openUserModal(\'edit\',\'' + ADMIN.esc(String(id)) + '\')">编辑</button>' +
+        '<button class="btn btn-ghost btn-xs" onclick="ADMIN.loginAsUser(\'' + ADMIN.esc(String(id)) + '\')">登录</button>' +
         '<button class="btn btn-ghost btn-xs" onclick="adjustBalance(\'' + ADMIN.esc(String(id)) + '\',\'' + ADMIN.esc(nm) + '\')">余额</button>' +
         '<button class="btn btn-ghost btn-xs" onclick="regenerateKey(\'' + ADMIN.esc(String(id)) + '\')">重置密钥</button>' +
         '<button class="btn btn-danger btn-xs" onclick="delOne(\'' + ADMIN.esc(String(id)) + '\')">删除</button>' +

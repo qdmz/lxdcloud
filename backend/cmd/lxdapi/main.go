@@ -484,7 +484,7 @@ func main() {
 	r.GET("/api/port-range/config", admin.GetPortRangeConfig)
 
 	adminAPI := r.Group("/api/admin")
-	adminAPI.Use(middleware.AdminAuth())
+	adminAPI.Use(middleware.AdminAuth(), middleware.AdminNodeProxy())
 	{
 		adminAPI.GET("/dashboard", admin.Dashboard)
 		adminAPI.GET("/host/stats", admin.GetHostStats)
@@ -533,6 +533,7 @@ func main() {
 		adminAPI.POST("/users/batch-delete", admin.BatchDeleteUsers)
 		adminAPI.POST("/users/:id/regenerate-key", admin.RegenerateAPIKey)
 		adminAPI.POST("/users/:id/balance", admin.AdjustUserBalance)
+		adminAPI.POST("/users/:id/impersonate", admin.ImpersonateUser)
 		adminAPI.GET("/users/:id/balance", admin.UserBalanceLogs)
 		adminAPI.GET("/templates", admin.GetTemplateList)
 		adminAPI.GET("/image-options", admin.GetImageOptions)
@@ -588,7 +589,7 @@ func main() {
 	}
 
 	userAPI := r.Group("/api/user")
-	userAPI.Use(middleware.UserAuthOrBasic())
+	userAPI.Use(middleware.UserAuthOrBasic(), middleware.UserNodeProxy())
 	{
 		userAPI.GET("/info", user.GetUserInfo)
 		userAPI.POST("/containers", user.CreateContainer)

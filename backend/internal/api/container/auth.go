@@ -129,6 +129,14 @@ func VerifyAccess(c *gin.Context) {
 
 	cred, err := service.GetContainerByHash(req.Hash)
 	if err != nil {
+		// 节点上的容器：访问码在节点侧校验
+		if node, name := service.ResolveContainerHashNode(req.Hash); node != nil {
+			containerVerifyAttempts.Lock()
+			delete(containerVerifyAttempts.attempts, clientIP)
+			containerVerifyAttempts.Unlock()
+			response.Success(c, gin.H{"container_name": name, "node_id": node.ID, "message": "验证成功"})
+			return
+		}
 		containerVerifyAttempts.Lock()
 		attempt.Count++
 		attempt.LastAttempt = now

@@ -30,7 +30,7 @@ func NewNodeClient(node *models.Node) *NodeClient {
 	return &NodeClient{
 		BaseURL: base,
 		APIHash: node.APIHash,
-		client:  &http.Client{Timeout: 30 * time.Second, Transport: tr},
+		client:  &http.Client{Timeout: 120 * time.Second, Transport: tr},
 	}
 }
 
