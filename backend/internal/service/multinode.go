@@ -1,8 +1,10 @@
 package service
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
+	"os/exec"
 	"strings"
 	"sync"
 	"time"
@@ -27,9 +29,44 @@ import (
 
 const DefaultRegionName = "默认机房"
 
-// LocalLXDAvailable 本机是否安装了 LXD（lxc 命令可用）。主控（如 webhost）通常没有。
+var (
+	localLXDMu      sync.Mutex
+	localLXDOK      bool
+	localLXDChecked time.Time
+)
+
+// LocalLXDAvailable 本机 LXD 是否可用：lxc 命令存在且本进程能连上 LXD 守护进程。
+// 只装了 lxc 但当前运行用户无权访问 LXD socket（如 webhost 主控以 lxdcloud 用户运行、
+// 本机另装了 Debian lxd）时视为不可用，否则会误判为「主控本机有 LXD」。
+// 结果「可用」永久缓存；「不可用」缓存 1 分钟后重新检测。只有明确的「无权限 / socket 不存在」
+// 才判为不可用，超时等其它错误按可用处理（与旧版行为一致，避免节点开机时 LXD 尚未就绪被误判）。
 func LocalLXDAvailable() bool {
-	return lxc.BinaryAvailable()
+	if !lxc.BinaryAvailable() {
+		return false
+	}
+	localLXDMu.Lock()
+	defer localLXDMu.Unlock()
+	if localLXDOK {
+		return true
+	}
+	if !localLXDChecked.IsZero() && time.Since(localLXDChecked) < time.Minute {
+		return false
+	}
+	localLXDChecked = time.Now()
+	ctx, cancel := context.WithTimeout(context.Background(), 20*time.Second)
+	defer cancel()
+	out, err := exec.CommandContext(ctx, "lxc", "query", "/1.0").CombinedOutput()
+	if err == nil {
+		localLXDOK = true
+		return true
+	}
+	msg := strings.ToLower(string(out))
+	if strings.Contains(msg, "permission denied") || strings.Contains(msg, "no such file or directory") {
+		logger.Warn("本机有 lxc 命令但无法连接 LXD（%s），按「本机无 LXD」处理", strings.TrimSpace(string(out)))
+		return false
+	}
+	localLXDOK = true
+	return true
 }
 
 // ---------------- 机房 ----------------
