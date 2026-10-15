@@ -260,6 +260,11 @@ func GetTemplatePermission(c *gin.Context) {
 // @Security SessionAuth
 // @Router /api/admin/image-options [get]
 func GetImageOptions(c *gin.Context) {
-	opts := service.NewTemplateService().ImageOptions(c.Request.Context())
+	svc := service.NewTemplateService()
+	// 打开商品表单/创建入口时先与 LXD 同步一次，剔除节点上已被删除的失效镜像，避免把死镜像当可选值
+	if _, _, _, err := svc.SyncFromLXD(c.Request.Context()); err != nil {
+		logger.Warn("同步镜像模板失败: %v", err)
+	}
+	opts := svc.ImageOptions(c.Request.Context())
 	response.Success(c, gin.H{"images": opts, "count": len(opts)})
 }

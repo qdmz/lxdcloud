@@ -368,7 +368,14 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 			return errors.New(ErrNodeVMUnsupported)
 		}
 		nc := NewNodeClient(node)
-		taskID, err := nc.CreateContainerReq(productCreateRequest(p, name, password, username))
+		req := productCreateRequest(p, name, password, username)
+		// 商品镜像可能指向节点上已被删除的本地镜像：开通前刷新节点镜像并核对，不可用则回退默认镜像
+		if !nodeImagesUsable(node, req.Image) {
+			fb := fallbackImage()
+			logger.Warn("镜像 %s 在节点 %s 上不可用，回退为 %s 开通", req.Image, node.Name, fb)
+			req.Image = fb
+		}
+		taskID, err := nc.CreateContainerReq(req)
 		if err != nil {
 			return err
 		}
@@ -820,4 +827,32 @@ func CountProductSold(productID uint) int64 {
 	var cnt int64
 	db.DB.Model(&models.Order{}).Where("product_id = ? AND status = ?", productID, "paid").Count(&cnt)
 	return cnt
+}
+
+// nodeImagesUsable 校验镜像在节点上是否可用：先触发节点同步 LXD 镜像模板，再核对指纹。
+// 非指纹（别名/remote:alias）交由节点 LXD 解析，一律视为可用；无法确认时保持原值不动。
+func nodeImagesUsable(node *models.Node, image string) bool {
+	image = strings.TrimSpace(image)
+	if image == "" || !imageFingerprintRe.MatchString(image) {
+		return true
+	}
+	nc := NewNodeClientTimeout(node, 30*time.Second)
+	if _, err := nc.do("POST", "/api/admin/templates/sync", nil, nil); err != nil {
+		logger.Warn("节点模板同步失败: %v", err)
+	}
+	res, err := nodeGetJSON(node, "/api/admin/templates", nil, 30*time.Second)
+	if err != nil {
+		logger.Warn("读取节点镜像列表失败，跳过镜像校验: %v", err)
+		return true
+	}
+	if data, ok := res["data"].(map[string]interface{}); ok {
+		if tpls, ok := data["templates"].([]interface{}); ok {
+			for _, t := range tpls {
+				if m, ok := t.(map[string]interface{}); ok && m["fingerprint"] == image {
+					return true
+				}
+			}
+		}
+	}
+	return false
 }

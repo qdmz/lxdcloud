@@ -106,6 +106,7 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 	}
 	
 	logger.Info("开始创建容器: %s, 镜像: %s", req.Name, req.Image)
+	req.Image = s.resolveUsableImage(ctx, req.Image)
 	
 	memory := ""
 	if req.Memory > 0 {
@@ -144,8 +145,17 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 	req.StoragePool = storagePool
 	logger.Info("使用存储池: %s", storagePool)
 	
-	if err := s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit); err != nil {
-		return fmt.Errorf("创建容器失败: %v", err)
+	createErr := s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit)
+	if createErr != nil && isImageNotFoundErr(createErr) {
+		// 商品镜像可能指向节点上已被删除的本地镜像：回退到可用的默认镜像重试一次
+		if fb := fallbackImage(); fb != "" && fb != req.Image {
+			logger.Warn("镜像 %s 不可用（%v），回退默认镜像 %s 后重试", req.Image, createErr, fb)
+			req.Image = fb
+			createErr = s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit)
+		}
+	}
+	if createErr != nil {
+		return fmt.Errorf("创建容器失败: %v", createErr)
 	}
 	
 	if err := s.lxcClient.StartContainer(ctx, req.Name); err != nil {
@@ -1356,4 +1366,40 @@ func (s *ContainerService) autoAllocateSSHPortV6(ctx context.Context, containerN
 	
 	logger.OK("自动分配IPv6 SSH端口: %s -> %s:%d", containerName, displayIP, publicPort)
 	return nil
+}
+
+var imageFingerprintRe = regexp.MustCompile("^[0-9a-f]{64}$")
+
+// isImageNotFoundErr LXD 找不到镜像（典型于本地指纹已被删除）
+func isImageNotFoundErr(err error) bool {
+	return err != nil && strings.Contains(err.Error(), "Failed to find image")
+}
+
+// fallbackImage 回退镜像：优先可解析的远程别名，避免再次命中不存在的本地指纹
+func fallbackImage() string {
+	def := DefaultImage()
+	if def == "" || imageFingerprintRe.MatchString(def) {
+		def = RemoteImagePresets[0].Value
+	}
+	return def
+}
+
+// resolveUsableImage 若镜像是本地已不存在的指纹，预先回退为可用默认镜像；别名/remote:alias 原样返回
+func (s *ContainerService) resolveUsableImage(ctx context.Context, image string) string {
+	image = strings.TrimSpace(image)
+	if !imageFingerprintRe.MatchString(image) {
+		return image
+	}
+	images, err := s.lxcClient.ListImages(ctx)
+	if err != nil {
+		return image
+	}
+	for _, img := range images {
+		if img.Fingerprint == image {
+			return image
+		}
+	}
+	fb := fallbackImage()
+	logger.Warn("镜像指纹 %s 不在本地镜像库中，自动回退为 %s", image, fb)
+	return fb
 }
