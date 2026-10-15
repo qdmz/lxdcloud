@@ -328,6 +328,9 @@ func GetOrCreateUser(username string) (*models.User, error) {
 		Username: username,
 		APIKey:   apiKey,
 		Status:   "active",
+		// email 列有唯一索引：自动创建的账号（如主控开通时在节点上自动建的归属用户）没有邮箱，
+		// 若留空，第二个自动创建的用户会与已有的空邮箱冲突（UNIQUE constraint failed: users.email）
+		Email: autoUserEmail(username),
 	}
 
 	if err := db.DB.Create(&user).Error; err != nil {
@@ -360,3 +363,8 @@ func RegenerateAPIKey(userID, password string) (*models.User, error) {
 	return &user, nil
 }
 
+
+// autoUserEmail 自动创建账号的占位邮箱（与 CreateUser 未填邮箱时的约定一致），保证唯一
+func autoUserEmail(username string) string {
+	return username + "@lxd.local"
+}
