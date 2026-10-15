@@ -1,7 +1,10 @@
 package service
 
 import (
+	"errors"
 	"fmt"
+	"os"
+	"strings"
 
 	"lxdapi/internal/db"
 	"lxdapi/models"
@@ -120,12 +123,45 @@ func validateProductNode(nodeID uint) error {
 	return nil
 }
 
+// ErrNodeVMUnsupported 节点开通接口（/api/system/containers）只创建 LXC 容器，不支持虚拟机
+const ErrNodeVMUnsupported = "所选节点不支持虚拟机（VM）类型：节点开通接口只能创建 LXC 容器，请将类型改为「容器」或改选主控本机"
+
+// localVMSupported 主控本机能否创建 LXD 虚拟机（需要本机 LXD 与 /dev/kvm）
+func localVMSupported() bool {
+	if !LocalLXDAvailable() {
+		return false
+	}
+	_, err := os.Stat("/dev/kvm")
+	return err == nil
+}
+
+// validateProductType 商品类型校验：仅 container / vm；VM 只能由具备 KVM 的主控本机开通
+func validateProductType(nodeID uint, typ string) error {
+	switch typ {
+	case "", "container":
+		return nil
+	case "vm":
+		if nodeID != 0 {
+			return errors.New(ErrNodeVMUnsupported)
+		}
+		if !localVMSupported() {
+			return fmt.Errorf("主控本机不支持虚拟机（未安装 LXD 或缺少 /dev/kvm），请将类型改为「容器」")
+		}
+		return nil
+	default:
+		return fmt.Errorf("无效的商品类型：%s", typ)
+	}
+}
+
 // CreateProduct 新增商品
 func CreateProduct(in *ProductInput) error {
 	if in.Name == "" {
 		return fmt.Errorf("商品名称不能为空")
 	}
 	if err := validateProductNode(in.NodeID); err != nil {
+		return err
+	}
+	if err := validateProductType(in.NodeID, in.Type); err != nil {
 		return err
 	}
 	if in.Memory <= 0 || in.Disk <= 0 {
@@ -191,6 +227,15 @@ func UpdateProduct(id uint, in *ProductInput) error {
 	var p models.Product
 	if err := db.DB.First(&p, id).Error; err != nil {
 		return fmt.Errorf("商品不存在")
+	}
+	if strings.TrimSpace(in.Type) == "" {
+		in.Type = p.Type
+	}
+	// 类型或节点有变化时校验 VM 支持（未变化的旧 VM 商品允许继续编辑其它字段，但下单会被拒绝）
+	if in.Type != p.Type || in.NodeID != p.NodeID {
+		if err := validateProductType(in.NodeID, in.Type); err != nil {
+			return err
+		}
 	}
 	if in.NodeID != p.NodeID {
 		if err := validateProductNode(in.NodeID); err != nil {

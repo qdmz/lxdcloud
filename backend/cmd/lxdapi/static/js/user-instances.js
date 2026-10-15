@@ -36,7 +36,7 @@
       const statusText = expired ? '已到期' : (STATUS[it.status] || it.status);
       return '<div class="card inst-row">' +
         '<div><div style="font-weight:600">' + LXD.esc(productName) + ' <span class="tag">' + (it.type === 'vm' ? 'VM' : '容器') + '</span></div>' +
-        '<div class="sub">' + LXD.esc(it.name || '') + ' · 节点#' + (it.node_id || 0) + '</div>' +
+        '<div class="sub">' + LXD.esc(it.name || '') + ' · ' + LXD.esc((it.region_name ? it.region_name + ' / ' : '') + (it.node_name || ('节点#' + (it.node_id || 0)))) + '</div>' +
         '<div class="sub">到期：' + fmtTime(it.expire_at) + (it.auto_renew ? ' · <span style="color:var(--green)">自动续费(' + (PERIOD[it.renew_period] || '月付') + ')</span>' : '') + '</div></div>' +
         '<div style="text-align:right">' +
         '<div class="inst-status ' + (expired || it.status === 'suspended' ? 'warn' : '') + '">' + statusText + '</div>' +

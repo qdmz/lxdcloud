@@ -53,8 +53,10 @@
   ];
 
   /* ---- 节点切换：容器/模板/存储池等页面可切到远程节点（请求附带 node_id，由主控转发） ---- */
-  const NODE_SCOPE_PAGES = ['containers.html', 'container-detail.html', 'file-manager.html', 'templates.html', 'storage_pools.html', 'tasks.html'];
-  const NODE_SCOPE_API = /^\/api\/admin\/(containers|templates|image-options|storage-pools|tasks|cache|container-templates|console|host|network)(\/|\?|$)/;
+  // v1.1.17：IP 池、端口映射（含 NAT/端口段）、反向代理、防火墙同样是节点本地资源，必须按节点配置
+  const NODE_SCOPE_PAGES = ['containers.html', 'container-detail.html', 'file-manager.html', 'templates.html', 'storage_pools.html', 'tasks.html',
+    'ip_pool_v4.html', 'ip_pool_v6.html', 'port_mapping_v4.html', 'port_mapping_v6.html', 'nginx.html', 'firewall.html'];
+  const NODE_SCOPE_API = /^\/api\/admin\/(containers|templates|image-options|storage-pools|tasks|cache|container-templates|console|host|network|ip|ip-pool|port-mapping|port-range|nat-config|nginx|firewall)(\/|\?|$)/;
   function nodeScoped() {
     const f = (location.pathname.split('/').pop() || '').toLowerCase();
     return NODE_SCOPE_PAGES.indexOf(f) >= 0;
@@ -74,22 +76,44 @@
     sel.id = 'nodeSwitch';
     sel.title = '切换节点';
     sel.style.cssText = 'width:auto;min-width:120px;height:30px;padding:2px 8px;font-size:12.5px';
-    sel.innerHTML = '<option value="0">本机</option>';
+    sel.innerHTML = '<option value="0">主控本机</option>';
     box.insertBefore(sel, box.firstChild);
     fetch('/api/admin/nodes').then((r) => r.json()).then((res) => {
       const list = (res && res.data && (res.data.nodes || res.data.list || res.data)) || [];
       const cur = currentNode();
       let found = cur === '0';
+      // 按机房分组显示节点
+      const groups = {};
       (Array.isArray(list) ? list : []).forEach((n) => {
-        const id = String(n.ID || n.id);
-        if (id === cur) found = true;
-        const o = document.createElement('option');
-        o.value = id;
-        o.textContent = '节点：' + (n.name || ('#' + id));
-        sel.appendChild(o);
+        const g = n.region || '未分机房';
+        (groups[g] = groups[g] || []).push(n);
+      });
+      Object.keys(groups).forEach((g) => {
+        const og = document.createElement('optgroup');
+        og.label = g;
+        groups[g].forEach((n) => {
+          const id = String(n.ID || n.id);
+          if (id === cur) found = true;
+          const o = document.createElement('option');
+          o.value = id;
+          o.textContent = (n.name || ('#' + id)) + (n.status === 'offline' ? '（离线）' : '');
+          og.appendChild(o);
+        });
+        sel.appendChild(og);
       });
       if (!found) { try { localStorage.setItem('lxd_admin_node', '0'); } catch (e) {} }
       sel.value = found ? cur : '0';
+      // 页面标题旁提示当前操作的节点，避免把配置写错节点
+      const t = document.querySelector('.topbar-title');
+      if (t && !document.getElementById('nodeScopeHint')) {
+        const opt = sel.options[sel.selectedIndex];
+        const hint = document.createElement('span');
+        hint.id = 'nodeScopeHint';
+        hint.className = 'tag';
+        hint.style.cssText = 'margin-left:8px;font-size:11.5px;vertical-align:middle';
+        hint.textContent = '当前：' + (opt ? (opt.parentNode && opt.parentNode.label ? opt.parentNode.label + ' / ' : '') + opt.textContent : '主控本机');
+        t.insertBefore(hint, t.querySelector('.sub'));
+      }
     }).catch(() => {});
     sel.addEventListener('change', () => {
       try { localStorage.setItem('lxd_admin_node', sel.value); } catch (e) {}

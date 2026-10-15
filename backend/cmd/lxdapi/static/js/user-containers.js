@@ -129,6 +129,7 @@
 
       let rows = '';
       rows += fmtKv('名称', d.name);
+      rows += '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">机房 / 节点</td><td class="mono" style="padding:6px 0" id="ctNodeLoc">-</td></tr>';
       rows += fmtKv('状态', d.status);
       rows += fmtKv('IPv4', d.ipv4 && d.ipv4.length ? d.ipv4 : (d.ip || ''));
       rows += fmtKv('IPv6', d.ipv6 && d.ipv6.length ? d.ipv6 : (d.ipv6_raw || ''));
@@ -210,6 +211,13 @@
       }
 
       document.getElementById('ctDetailBody').innerHTML = '<table style="width:100%;border-collapse:collapse;font-size:13px">' + rows + '</table>';
+      // 所在机房/节点（v1.1.17）
+      USER.request('/api/user/instances').then((r) => {
+        const list = (r.data && r.data.instances) || [];
+        const hit = list.find((it) => it.name === name);
+        const el = document.getElementById('ctNodeLoc');
+        if (el && hit) el.textContent = (hit.region_name ? hit.region_name + ' / ' : '') + (hit.node_name || '本机');
+      }).catch(() => {});
 
       // 加载容器访问码并绑定复制/重新生成
       (function loadHash(n, m) {

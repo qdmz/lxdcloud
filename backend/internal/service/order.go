@@ -4,6 +4,7 @@ import (
 	"context"
 	"crypto/rand"
 	"encoding/hex"
+	"errors"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -98,6 +99,12 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	}
 
 	isNew := typ != "renew"
+	if isNew {
+		// 虚拟机类型商品只能由具备 KVM 的主控本机开通；节点不支持时拒绝下单，避免付款后开通失败
+		if err := validateProductType(p.NodeID, p.Type); err != nil {
+			return nil, fmt.Errorf("该商品暂不可购买：%v", err)
+		}
+	}
 	// 节点快照：新购取商品所在节点；续费取实例所在节点（商品后来迁移节点不影响已售实例）
 	orderNode := p.NodeID
 	if !isNew && userProductID > 0 {
@@ -296,27 +303,20 @@ func provisionUserProduct(o *models.Order) error {
 	// 先关联订单与实例记录（开通失败时实例状态为 failed，不再计入限购）
 	db.DB.Model(o).Update("user_product_id", up.ID)
 
+	// 登记为本进程开通中：开通核对任务跳过它（主控重启后此登记消失，由核对任务向节点补齐状态）
+	markProvisioning(up.ID, true)
+	defer markProvisioning(up.ID, false)
+
 	// 创建实例
 	if err := createInstanceOnNode(p, up, name, password, user.Username); err != nil {
-		up.Status = "failed"
-		db.DB.Save(up)
-		if o.StockReserved {
-			releaseStock(p.ID)
-			db.DB.Model(&models.Order{}).Where("id = ?", o.ID).Update("stock_reserved", false)
-		}
-		NotifyUser(user.ID, "product", "实例开通失败", fmt.Sprintf("实例 %s 开通失败：%v", name, err), up.ID)
+		failProvision(up, err.Error())
 		return err
 	}
 
-	now := time.Now()
-	up.Status = "active"
-	up.ProvisionedAt = &now
-	if err := db.DB.Save(up).Error; err != nil {
-		return err
+	if !activateProvision(up) {
+		// 已被核对任务处理（极少见）：以数据库当前状态为准
+		return nil
 	}
-
-	// 关联订单与实例
-	db.DB.Model(o).Update("user_product_id", up.ID)
 
 	NotifyUser(user.ID, "product", "实例开通成功",
 		fmt.Sprintf("实例 %s 已开通，到期时间 %s。", name, expire.Format("2006-01-02 15:04")), up.ID)
@@ -364,6 +364,9 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 		if err != nil {
 			return err
 		}
+		if p.Type == "vm" {
+			return errors.New(ErrNodeVMUnsupported)
+		}
 		nc := NewNodeClient(node)
 		taskID, err := nc.CreateContainerReq(productCreateRequest(p, name, password, username))
 		if err != nil {
@@ -372,6 +375,9 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 		if taskID == 0 {
 			return nil // 旧版节点不返回任务 ID
 		}
+		// 记录节点任务 ID：主控若在等待期间重启，核对任务据此查询节点结果
+		up.ProvisionTaskID = taskID
+		db.DB.Model(&models.UserProduct{}).Where("id = ?", up.ID).Update("provision_task_id", taskID)
 		return nc.WaitTask(taskID, nodeProvisionWait)
 	}
 	// 本机
@@ -379,6 +385,9 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 		return fmt.Errorf("主控本机未安装 LXD，商品需配置所属节点")
 	}
 	if p.Type == "vm" {
+		if !localVMSupported() {
+			return fmt.Errorf("主控本机不支持虚拟机（缺少 /dev/kvm）")
+		}
 		return createLocalVM(p, name, password)
 	}
 	return createLocalContainer(p, name, password, username)
@@ -440,8 +449,13 @@ func renewUserProduct(o *models.Order) error {
 	up.ExpireAt = &newExpire
 	if up.Status == "suspended" || up.Status == "expired" {
 		up.Status = "active"
-		// 尝试恢复实例（本机 lxc start；节点通过 client）
-		resumeInstance(&up)
+		// 尝试恢复实例（本机 lxc start；节点通过 client）；失败（如节点离线）时登记待重试，由定时任务补做
+		if err := resumeInstance(&up); err != nil {
+			up.PendingAction = "start"
+			logger.Warn("续费恢复实例 %s 失败，已加入重试队列: %v", up.Name, err)
+		} else {
+			up.PendingAction = ""
+		}
 	}
 	if err := db.DB.Save(&up).Error; err != nil {
 		return err
@@ -454,17 +468,37 @@ func renewUserProduct(o *models.Order) error {
 	return nil
 }
 
-func resumeInstance(up *models.UserProduct) {
+// resumeInstance 启动实例；已在运行视为成功
+func resumeInstance(up *models.UserProduct) error {
+	var err error
 	if up.NodeID == 0 {
-		exec.Command("lxc", "start", up.Name).Run()
-		return
+		if !LocalLXDAvailable() {
+			return fmt.Errorf("主控本机未安装 LXD")
+		}
+		out, e := exec.Command("lxc", "start", up.Name).CombinedOutput()
+		if e != nil {
+			err = fmt.Errorf("%v: %s", e, strings.TrimSpace(string(out)))
+		}
+	} else {
+		node, nerr := GetNode(up.NodeID)
+		if nerr != nil {
+			return nerr
+		}
+		err = NewNodeClient(node).ContainerAction(up.Name, "start")
 	}
-	node, err := GetNode(up.NodeID)
-	if err != nil {
-		return
+	if err != nil && alreadyRunning(err) {
+		return nil
 	}
-	nc := NewNodeClient(node)
-	_ = nc.ContainerAction(up.Name, "start")
+	return err
+}
+
+// alreadyRunning 启动操作返回「已在运行」类错误
+func alreadyRunning(err error) bool {
+	if err == nil {
+		return false
+	}
+	m := strings.ToLower(err.Error())
+	return strings.Contains(m, "already running") || strings.Contains(m, "已在运行") || strings.Contains(m, "正在运行")
 }
 
 // ListUserProducts 用户实例列表
@@ -558,6 +592,7 @@ func SuspendExpiredProducts() {
 			}
 		}
 		up.Status = "suspended"
+		up.PendingAction = "" // 再次到期：不再重试续费恢复
 		if err := db.DB.Save(up).Error; err != nil {
 			continue
 		}
@@ -762,10 +797,14 @@ func StartLifecycleScheduler() {
 		}
 	}()
 	ticker := time.NewTicker(time.Minute)
+	// 启动时立即核对一次：上次运行在开通等待期间被重启而停在 creating 的实例
+	RecoverStuckProvisioning()
 	for range ticker.C {
 		AutoRenewDueProducts()
 		SuspendExpiredProducts()
 		DeleteGracePeriodExpired(7)
+		RecoverStuckProvisioning()
+		RetryPendingActions()
 	}
 }
 

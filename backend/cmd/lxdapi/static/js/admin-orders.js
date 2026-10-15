@@ -15,7 +15,7 @@
       const uName = o.username || info.username || ('用户#' + o.user_id);
       return '<div class="card order-row">' +
         '<div><div style="font-weight:600">' + LXD.esc(info.product_name || ('商品#' + o.product_id)) + '</div>' +
-        '<div class="sub">订单号：' + LXD.esc(o.order_no || '') + ' · ' + LXD.esc(uName) + ' · ' + (PERIOD[o.period] || o.period || '') + '</div>' +
+        '<div class="sub">订单号：' + LXD.esc(o.order_no || '') + ' · ' + LXD.esc(uName) + ' · ' + (PERIOD[o.period] || o.period || '') + (o.node_id ? ' · ' + LXD.esc((o.region_name ? o.region_name + ' / ' : '') + (o.node_name || ('节点#' + o.node_id))) : '') + '</div>' +
         '<div class="sub">' + String(o.created_at || '').replace('T', ' ').slice(0, 16) + (o.paid_at ? ' · 支付 ' + String(o.paid_at).replace('T', ' ').slice(0, 16) : '') + '</div></div>' +
         '<div style="text-align:right">' +
         '<div style="font-weight:700;color:var(--accent)">¥' + Number(o.amount || 0).toFixed(2) + '</div>' +

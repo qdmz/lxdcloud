@@ -23,4 +23,9 @@ type UserProduct struct {
 	AutoRenew     bool       `gorm:"default:false" json:"auto_renew"`
 	RenewPeriod   string     `gorm:"size:20;default:'monthly'" json:"renew_period"` // 自动续费周期
 	ProvisionedAt *time.Time `json:"provisioned_at"`
+
+	// ProvisionTaskID 节点开通任务 ID（主控在开通等待期间重启后，据此向节点核对结果）
+	ProvisionTaskID uint `gorm:"default:0" json:"provision_task_id,omitempty"`
+	// PendingAction 待重试的节点操作（如续费恢复时节点离线未能启动：start），由定时任务重试
+	PendingAction string `gorm:"size:20;default:''" json:"pending_action,omitempty"`
 }

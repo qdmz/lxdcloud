@@ -19,6 +19,11 @@
 - fix: 主控无本机 LXD 时不再启动流量监控与容器缓存自动刷新（由各节点自行负责，不重复）
 - fix: SQLite 增加 busy_timeout，避免并发下单/开通时报 `database is locked`
 - change: nftables 持久化不再执行 `nft list ruleset > /etc/nftables.conf`，只导出自有表 `lxdnat`/`lxdip`/`lxdfilter` 到 `/etc/lxdcloud/nftables-lxdcloud.nft`
+- fix: 主控在节点开通等待期间重启，实例会一直停在「开通中」：现在启动时与每分钟对 creating 实例核对——按记录的节点任务 ID（新增 `user_products.provision_task_id`）或节点上容器是否存在补齐为 active；节点任务失败或超过 15 分钟仍查不到容器则标记失败、归还库存，已付款订单自动退款到账户余额（订单置为「已退款」）并通知用户；节点不可达时下轮重试
+- fix: 开通失败（含即时失败）的付费订单此前不退款，现统一退款到账户余额
+- fix: 续费恢复时节点离线，实例显示正常但节点上仍处于停机：现登记待重试（新增 `user_products.pending_action`），定时任务每分钟重试启动直到成功
+- fix: 虚拟机类型商品：节点开通接口只能创建 LXC 容器，现禁止为节点商品选择「虚拟机」（后台创建/编辑时提示），已存在的节点 VM 商品下单时直接拒绝，避免付款后开通失败；主控本机 VM 另需 /dev/kvm
+- chore: 内嵌静态皮肤（`backend/cmd/lxdapi/static`，直连 lxdapi 端口时的旧页面）同步 v1.1.17 的节点切换、机房、商品表单等前端改动（生产仍由 nginx 提供 frontend/）
 - docs: 使用说明新增「多节点 / 多机房」章节；部署文档新增 v1.1.17 升级与回滚说明
 
 ## v1.1.16 - 2026-10-14

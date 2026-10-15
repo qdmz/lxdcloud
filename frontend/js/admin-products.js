@@ -63,7 +63,7 @@
       '<div class="card-title">' + (id ? '编辑商品' : '新增商品') + '</div>' +
       '<div class="form-grid">' +
       '  <div class="field"><label>名称</label><input class="input" id="pName" value="' + LXD.esc(p.name || '') + '"></div>' +
-      '  <div class="field"><label>类型</label><select class="input" id="pType"><option value="container"' + (p.type !== 'vm' ? ' selected' : '') + '>容器</option><option value="vm"' + (p.type === 'vm' ? ' selected' : '') + '>虚拟机</option></select></div>' +
+      '  <div class="field"><label>类型</label><select class="input" id="pType"><option value="container"' + (p.type !== 'vm' ? ' selected' : '') + '>容器</option><option value="vm"' + (p.type === 'vm' ? ' selected' : '') + '>虚拟机</option></select><div class="sub" id="pTypeHint" style="font-size:12px;color:var(--danger,#e5484d);display:none">节点开通接口只能创建 LXC 容器，所选节点不支持虚拟机；虚拟机仅支持具备 KVM 的主控本机</div></div>' +
       '  <div class="field"><label>所属节点（机房 / 节点）</label><select class="input" id="pNode"><option value="0">主控本机</option>' + nodeOpts + '</select><div class="sub" style="font-size:12px;color:var(--text-2)">镜像与存储池列表取自所选节点</div></div>' +
       '  <div class="field"><label>系统镜像</label><select class="input" id="pImage"><option value="">加载中...</option></select></div>' +
       '  <div class="field"><label>存储池</label><select class="input" id="pPool"><option value="">加载中...</option></select></div>' +
@@ -115,6 +115,12 @@
     }
     loadNodeOptions(true);
     nodeSel.addEventListener('change', () => loadNodeOptions(String(p.node_id || 0) === nodeSel.value));
+    // 虚拟机类型 + 远程节点：节点不支持，给出提示（保存时后端也会拒绝）
+    const typeSel = document.getElementById('pType');
+    function typeHint() { document.getElementById('pTypeHint').style.display = (typeSel.value === 'vm' && nodeSel.value !== '0') ? '' : 'none'; }
+    typeSel.addEventListener('change', typeHint);
+    nodeSel.addEventListener('change', typeHint);
+    typeHint();
 
     document.getElementById('btnSave').addEventListener('click', () => {
       // 以原商品数据为基础，保留表单未展示的字段（带宽、存储池、嵌套等），避免保存时被清零
