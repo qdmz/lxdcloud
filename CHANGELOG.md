@@ -1,5 +1,26 @@
 # 更新日志
 
+## v1.1.17 - 2026-10-15
+
+多节点 / 多机房隔离（主控 + 多节点可同时工作）
+
+- feat: 新增机房（regions）：节点按机房分组，商品自动归属节点所在机房；后台「节点管理」可维护机房（名称/描述/排序/前台显示），编辑节点时输入新机房名自动创建；新增 `GET/POST/PUT/DELETE /api/admin/regions`
+- feat: 数据库自动迁移（幂等）：`nodes.region_id`、`products.region_id`、`orders.node_id`、`containers.storage_pool`；按节点原「地区」建机房（空的归入「默认机房」）；主控无本机 LXD 且只有一个节点时，`node_id=0` 的旧商品/实例归属该节点；订单回填节点快照；迁移记录写入 `app_migrations`
+- feat: 后台 IPv4/IPv6 地址池、端口映射（含 NAT 公网 IP 与端口段）、反向代理、防火墙页面接入节点切换（按机房分组，标题旁显示当前节点），所有读写路由到对应节点执行；主控未启用 nginx/防火墙插件时带 `node_id` 的请求同样鉴权后转发
+- feat: 商品表单的镜像与存储池从所选节点读取，新增存储池选择；商品列表按机房/节点筛选并显示机房/节点名；主控无 LXD 时不允许商品挂在「主控本机」；删除节点前检查商品引用
+- feat: 用户「产品订购」按机房筛选（`/api/user/products?region_id=`、`/api/public/products` 返回机房）；实例/订单/容器详情显示机房与节点；用户「端口映射」「反向代理」页汇总各节点实例上的记录
+- feat: 节点容器网页终端：主控记录节点签发的终端令牌，`/ws/console` 以 WebSocket 反向代理到节点；用户为节点实例申请终端令牌时转发到节点；容器面板在主控未启用插件时的反代接口也转发到节点
+- feat: 节点健康检查（每 5 分钟更新节点在线状态）；后台实例、订单可按节点筛选
+- fix(安全): `/api/admin/nginx/*`、`/api/admin/firewall/*` 插件后台路由此前**没有任何鉴权**（未登录即可读写反代与 SSL 私钥、改防火墙、启停服务），现要求管理员登录或节点 api_hash
+- fix: 节点开通只传了 6 个参数且硬盘按 GB 传给按 MB 解释的节点接口（实例硬盘被建成 1/1024）；现按商品完整规格开通（硬盘 GB→MB、带宽、流量、嵌套、swap、特权、存储池、IP 数量、端口映射配额、归属用户），并等待节点任务完成后才标记开通成功
+- fix: 主控调用节点开机/关机时 action 放在 body，节点从查询参数读取，导致到期停机与续费恢复在节点上从未生效；节点返回非对象 data 时不再误报解析失败
+- fix: 商品「存储池」配置此前被忽略；容器创建优先使用指定存储池，重装沿用原存储池
+- fix: 到期停机/宽限期删除在节点不可达时不再误改状态或删除记录（下轮重试，同一轮跳过离线节点）；宽限期删除另要求已暂停满 24 小时，避免节点恢复后刚暂停即被删除
+- fix: 主控无本机 LXD 时不再启动流量监控与容器缓存自动刷新（由各节点自行负责，不重复）
+- fix: SQLite 增加 busy_timeout，避免并发下单/开通时报 `database is locked`
+- change: nftables 持久化不再执行 `nft list ruleset > /etc/nftables.conf`，只导出自有表 `lxdnat`/`lxdip`/`lxdfilter` 到 `/etc/lxdcloud/nftables-lxdcloud.nft`
+- docs: 使用说明新增「多节点 / 多机房」章节；部署文档新增 v1.1.17 升级与回滚说明
+
 ## v1.1.16 - 2026-10-14
 
 - feat: 新增 scripts/install-plugins.sh 并在 install.sh 中自动执行，补齐 Nginx 反代目录与系统 Nginx 引入、OpenGFW 程序（下载或 go 编译）与 GeoIP 数据、NFQUEUE 模块；插件目录缺失时自动创建，OpenGFW 未安装时给出明确提示
