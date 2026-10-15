@@ -218,6 +218,9 @@ func GetUserInfo(c *gin.Context) {
 		"user": gin.H{
 			"id":                    user.ID,
 			"username":              user.Username,
+			"email":                 user.Email,
+			"nickname":              user.Nickname,
+			"email_verified":        user.EmailVerified,
 			"status":                user.Status,
 			"cpu_quota":             user.CPUQuota,
 			"max_cpu_per_container": user.MaxCPUPerContainer,

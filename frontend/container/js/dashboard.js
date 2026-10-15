@@ -244,16 +244,23 @@
       ipv6Mapping: data.ipv6_mapping_limit || 0,
       reverseProxy: data.reverse_proxy_limit || 0
     };
+    const addBtns = {
+      ipv4Pool: 'allocIpv4Btn',
+      ipv6Pool: 'allocIpv6Btn',
+      ipv4Mapping: 'addIpv4MappingBtn',
+      ipv6Mapping: 'addIpv6MappingBtn',
+      reverseProxy: 'addReverseProxyBtn'
+    };
     Object.entries(limits).forEach(([name, limit]) => {
       const tab = document.querySelector('.tab[data-tab="' + name + '"]');
-      if (tab) {
-        tab.style.display = limit > 0 ? '' : 'none';
+      // 标签始终可见：配额为 0 时仍可查看已有资源
+      if (tab) tab.style.display = '';
+      const b = document.getElementById(addBtns[name]);
+      if (b) {
+        b.disabled = limit <= 0;
+        b.title = limit <= 0 ? '配额为 0，请联系管理员开通' : '';
       }
     });
-    // 若当前标签被隐藏，切回 info
-    if (limits[currentTab] === 0 && currentTab !== 'info' && currentTab !== 'dns') {
-      switchTab('info');
-    }
   }
 
   // ---------- IPv4/IPv6 池 ----------

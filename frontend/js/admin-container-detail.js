@@ -95,7 +95,8 @@
     document.getElementById('detailArea').innerHTML =
       '<div class="card" style="padding:16px;margin-bottom:16px"><div class="card-title" style="margin-bottom:12px">资源监控</div>' + usage + '</div>' +
       '<div class="card" style="padding:16px"><div class="card-title" style="margin-bottom:12px">基本信息</div>' +
-      '<div class="tbl-wrap"><table class="tbl">' + rowsHtml + '</table></div></div>';
+      '<div class="tbl-wrap"><table class="tbl">' + rowsHtml + '</table></div></div>' +
+      '<div class="card" id="rpArea" style="padding:16px;margin-top:16px"><div class="card-title" style="margin-bottom:12px">反向代理</div><div class="empty">加载中...</div></div>';
   }
 
   function fmtMem(d) {
@@ -107,11 +108,35 @@
     return d.disk_usage || '-';
   }
 
+  function loadContainerProxies() {
+    const area = document.getElementById('rpArea');
+    if (!area) return;
+    ADMIN.request('/api/admin/nginx/proxies/container/' + encodeURIComponent(name)).then((res) => {
+      const list = res.data || [];
+      let h = '<div class="card-title" style="margin-bottom:12px">反向代理 <span style="color:var(--text-3);font-weight:400;font-size:12px">（' + list.length + ' 条）</span></div>';
+      if (!list.length) { area.innerHTML = h + '<div class="empty">该容器暂无反向代理规则</div>'; return; }
+      h += '<div class="tbl-wrap"><table class="tbl"><thead><tr><th>域名</th><th>协议</th><th>目标</th><th>SSL</th><th>状态</th></tr></thead><tbody>';
+      list.forEach((r) => {
+        const https = (r.protocol || 'http') === 'https';
+        h += '<tr>' +
+          '<td><code class="mono">' + ADMIN.esc(r.domain || '-') + '</code></td>' +
+          '<td>' + (https ? 'HTTPS' : 'HTTP') + '</td>' +
+          '<td class="mono">' + ADMIN.esc((r.target_ip || '') + ':' + (r.target_port || '')) + '</td>' +
+          '<td>' + ADMIN.esc(r.enable_ssl ? '已启用' : '未启用') + '</td>' +
+          '<td>' + ADMIN.esc(r.status || '-') + '</td>' +
+          '</tr>';
+      });
+      h += '</tbody></table></div><div style="margin-top:10px"><a class="btn btn-ghost btn-sm" href="nginx.html">前往反向代理管理</a></div>';
+      area.innerHTML = h;
+    }).catch(() => { area.innerHTML = '<div class="card-title" style="margin-bottom:12px">反向代理</div><div class="empty">暂无数据或反向代理插件未启用</div>'; });
+  }
+
   function load() {
     ADMIN.request('/api/admin/containers/' + encodeURIComponent(name)).then((res) => {
       renderActions();
       renderDetail(res.data || {});
       loadCred();
+      loadContainerProxies();
       document.title = '容器详情 ' + name + ' - LXD 管理后台';
     }).catch((err) => {
       content.innerHTML = '<div class="card" style="padding:24px"><div class="empty">加载失败：' + ADMIN.esc(err.message || '未知错误') + '</div>' +

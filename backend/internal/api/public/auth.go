@@ -3,12 +3,55 @@ package public
 import (
 	"strings"
 
+	"github.com/gin-contrib/sessions"
 	"github.com/gin-gonic/gin"
+	"github.com/mojocn/base64Captcha"
 
 	"lxdapi/internal/core"
 	"lxdapi/internal/service"
 	"lxdapi/pkg/response"
 )
+var captchaStore = base64Captcha.DefaultMemStore
+
+// GetCaptcha 获取公开页面验证码（注册 / 找回密码）
+func GetCaptcha(c *gin.Context) {
+	driver := base64Captcha.NewDriverDigit(80, 240, 4, 0.7, 80)
+	cap := base64Captcha.NewCaptcha(driver, captchaStore)
+	id, b64s, _, err := cap.Generate()
+	if err != nil {
+		response.Error(c, 500, "生成验证码失败")
+		return
+	}
+	session := sessions.Default(c)
+	session.Set("public_captcha_id", id)
+	session.Save()
+	c.JSON(200, gin.H{
+		"code":       200,
+		"captcha_id": id,
+		"image":      b64s,
+	})
+}
+
+// verifyPublicCaptcha 校验公开页面验证码；未启用验证码时直接通过
+func verifyPublicCaptcha(c *gin.Context, input string) bool {
+	if !core.GlobalConfig.System.Security.EnableCaptcha {
+		return true
+	}
+	session := sessions.Default(c)
+	id := session.Get("public_captcha_id")
+	if id == nil {
+		response.Error(c, 400, "验证码已过期，请刷新")
+		return false
+	}
+	if !captchaStore.Verify(id.(string), input, true) {
+		response.Error(c, 400, "验证码错误")
+		return false
+	}
+	session.Delete("public_captcha_id")
+	session.Save()
+	return true
+}
+
 
 // Register 用户注册
 // @Summary 用户注册
@@ -24,9 +67,13 @@ func Register(c *gin.Context) {
 		Username string `json:"username" binding:"required"`
 		Email    string `json:"email" binding:"required"`
 		Password string `json:"password" binding:"required"`
+		Captcha  string `json:"captcha"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
+		return
+	}
+	if !verifyPublicCaptcha(c, req.Captcha) {
 		return
 	}
 	req.Username = strings.TrimSpace(req.Username)
@@ -93,10 +140,14 @@ func Activate(c *gin.Context) {
 // @Router /api/public/forgot [post]
 func ForgotPassword(c *gin.Context) {
 	var req struct {
-		Email string `json:"email" binding:"required"`
+		Email   string `json:"email" binding:"required"`
+		Captcha string `json:"captcha"`
 	}
 	if err := c.ShouldBindJSON(&req); err != nil {
 		response.Error(c, 400, "参数错误")
+		return
+	}
+	if !verifyPublicCaptcha(c, req.Captcha) {
 		return
 	}
 	user, err := service.GetUserByEmail(req.Email)

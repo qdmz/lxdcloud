@@ -512,6 +512,7 @@ func main() {
 		adminAPI.POST("/containers/:name/action", admin.ContainerAction)
 		adminAPI.GET("/containers/:name/config", admin.GetContainerConfig)
 		adminAPI.PUT("/containers/:name/config", admin.UpdateContainerConfig)
+		adminAPI.POST("/containers/:name/config", admin.UpdateContainerConfig) // 前端使用 POST 保存
 		adminAPI.GET("/containers/:name/dns", admin.GetContainerDNS)
 		adminAPI.PUT("/containers/:name/dns", admin.SetContainerDNS)
 		adminAPI.PUT("/containers/:name/remark", admin.UpdateContainerRemark)
@@ -635,6 +636,7 @@ func main() {
 		userAPI.POST("/containers/:name/ip/release", user.ReleaseContainerIP)
 		userAPI.GET("/templates", user.GetTemplateList)
 		userAPI.GET("/image-options", user.GetImageOptions)
+		userAPI.GET("/tasks", user.ListTasks)
 		userAPI.GET("/tasks/:id", user.GetTask)
 		userAPI.POST("/console/create-token", middleware.UserConsoleNodeProxy(), console.CreateToken)
 		// ---- 容器文件管理 ----
@@ -644,6 +646,11 @@ func main() {
 		userAPI.POST("/containers/:name/files/mkdir", user.MakeDir)
 		userAPI.POST("/containers/:name/files/delete", user.DeleteFile)
 		userAPI.POST("/containers/:name/files/rename", user.RenameFile)
+		userAPI.GET("/containers/:name/files/archive", user.ArchiveFile)
+		userAPI.POST("/containers/:name/files/extract", user.ExtractFile)
+		userAPI.POST("/containers/:name/files/chmod", user.ChmodFile)
+		userAPI.POST("/containers/:name/files/chown", user.ChownFile)
+		userAPI.POST("/containers/:name/files/write", user.WriteFile)
 		// ---- 商业化模块：商品/订单/实例/工单/消息/资料 ----
 		userAPI.GET("/products", user.ListProducts)
 		userAPI.GET("/products/:id", user.GetProduct)
@@ -680,6 +687,7 @@ func main() {
 	r.GET("/api/public/activate", public.Activate)
 	r.POST("/api/public/forgot", public.ForgotPassword)
 	r.POST("/api/public/reset", public.ResetPassword)
+	r.GET("/api/public/captcha", public.GetCaptcha)
 	r.GET("/api/public/site-info", public.SiteInfo)
 	r.GET("/api/public/products", public.ListProducts) // 首页价格方案（公开字段）
 	r.POST("/api/public/pay/notify", public.PayNotify)
@@ -712,6 +720,11 @@ func main() {
 		containerAPI.POST("/files/mkdir", container.MakeDir)
 		containerAPI.POST("/files/delete", container.DeleteFile)
 		containerAPI.POST("/files/rename", container.RenameFile)
+		containerAPI.GET("/files/archive", container.ArchiveFile)
+		containerAPI.POST("/files/extract", container.ExtractFile)
+		containerAPI.POST("/files/chmod", container.ChmodFile)
+		containerAPI.POST("/files/chown", container.ChownFile)
+		containerAPI.POST("/files/write", container.WriteFile)
 	}
 
 	addr := fmt.Sprintf("%s:%d", cfg.System.Server.Host, cfg.System.Server.Port)

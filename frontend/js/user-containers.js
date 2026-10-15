@@ -189,6 +189,8 @@
       rows += '<tr><td colspan="2" style="padding:10px 0 4px;font-weight:600">容器访问</td></tr>';
       rows += '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">访问码 Hash</td><td class="mono" style="padding:6px 0;word-break:break-all"><span id="ctHashCode">加载中...</span> <button class="btn btn-ghost btn-xs" data-hash-copy="1">复制</button></td></tr>';
       rows += '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">快捷连接</td><td style="padding:6px 0"><a class="btn btn-sm btn-primary" id="ctQuickLink" href="javascript:;" target="_blank">打开容器管理面板</a></td></tr>';
+      rows += '<tr><td colspan="2" style="padding:10px 0 4px;font-weight:600">反向代理</td></tr>';
+      rows += '<tr><td colspan="2" style="padding:2px 0 8px"><div id="ctReverseProxy" style="font-size:12px;color:var(--text-2)">加载中...</div></td></tr>';
 
       // 管理操作
       const ACTIONS = [
@@ -240,6 +242,24 @@
           );
         }));
       })(name, mask);
+
+      // 反向代理（按容器过滤）
+      (function loadRP(n) {
+        const el = document.getElementById('ctReverseProxy');
+        USER.request('/api/user/nginx/proxies').then((r) => {
+          const all = Array.isArray(r.data) ? r.data : ((r.data && (r.data.list || r.data.items || r.data.proxies)) || []);
+          const list = all.filter((x) => (x.container_name || x.name || x.container) === n);
+          if (!el) return;
+          if (!list.length) { el.textContent = '暂无反向代理规则'; return; }
+          el.innerHTML = list.map((x) => {
+            const https = (x.protocol || 'http') === 'https';
+            return '<div style="padding:4px 0;border-bottom:1px solid var(--border)">' +
+              '<code style="color:var(--accent)">' + LXD.esc(x.domain || '-') + '</code> → ' +
+              LXD.esc((x.target_ip || '') + ':' + (x.target_port || '')) +
+              ' · ' + (https ? 'HTTPS' : 'HTTP') + (x.enable_ssl ? '（已启用 SSL）' : '') + '</div>';
+          }).join('');
+        }).catch(() => { if (el) el.textContent = '暂无反向代理规则'; });
+      })(name);
 
       // 绑定管理按钮（重装走镜像选择弹窗，其余直接执行）
       mask.querySelectorAll('[data-act]').forEach((btn) => {

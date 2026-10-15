@@ -167,18 +167,45 @@
     mask.className = 'modal-mask show';
     const kv = (k, v) => '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">' + k + '</td><td class="mono" style="padding:6px 0;word-break:break-all">' + esc(v) + '</td></tr>';
     let body = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
-      kv('SFTP 地址', host ? 'sftp://' + user + '@' + host + '（端口 22）' : '未获取到容器 IP，请返回容器管理页查看') +
+      '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">SFTP 地址</td><td class="mono" id="sftpAddr" style="padding:6px 0;word-break:break-all;color:var(--text-3)">查询公网转发端口...</td></tr>' +
       kv('用户名', user) +
       kv('密码', pwd || '未随控制台令牌传递，请以容器详情/管理页展示的 SSH 密码为准') +
       '</table>';
-    body += '<div style="font-size:12px;color:var(--text-3);line-height:1.7;margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">' +
-      '可使用任意 SFTP 客户端（WinSCP / FileZilla / Transmit 等）连接：协议选择 <b>SFTP</b>，主机 ' + esc(host || '-') + '，端口 <b>22</b>，用户名 <b>root</b>，密码为上述 SSH 密码。' +
-      '</div>';
+    body += '<div id="sftpHint" style="font-size:12px;color:var(--text-3);line-height:1.7;margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">正在查询该容器的公网端口映射...</div>';
     mask.innerHTML = '<div class="modal" style="max-width:520px"><h3>SFTP 连接信息</h3><div style="max-height:50vh;overflow:auto">' + body + '</div>' +
       '<div class="modal-actions"><button class="btn btn-ghost" data-act="close">关闭</button></div></div>';
     document.body.appendChild(mask);
     mask.querySelector('[data-act="close"]').onclick = () => mask.remove();
     mask.addEventListener('click', (e) => { if (e.target === mask) mask.remove(); });
+
+    // 优先解析 22 端口的公网映射地址；无映射时回退内网地址并给出提示
+    (function resolveSftp() {
+      const addrEl = mask.querySelector('#sftpAddr');
+      const hintEl = mask.querySelector('#sftpHint');
+      if (!addrEl || !hintEl) return;
+      const fallback = () => {
+        addrEl.style.color = '';
+        addrEl.textContent = host ? ('sftp://' + user + '@' + host + '（端口 22 · 仅内网）') : '未获取到容器 IP，请返回容器管理页查看';
+        hintEl.innerHTML = '该容器暂未配置 <b>22</b> 端口的公网映射，上面地址仅能在宿主机内网访问。请返回容器管理页为 22 端口分配公网转发后，再点击本按钮查看对外地址。';
+      };
+      if (!(window.LXD && typeof LXD.authRequest === 'function')) { fallback(); return; }
+      LXD.authRequest('/api/container/port-mapping?version=all').then((r) => {
+        const d = (r && r.data) || {};
+        const list = ([]).concat(d.ipv4 || [], d.ipv6 || []);
+        const hit = list.find((x) => String(x.container_port) === '22' && (!x.protocol || x.protocol === 'tcp'))
+          || list.find((x) => String(x.container_port) === '22');
+        if (hit && hit.public_ip && hit.public_port) {
+          const sftpUrl = 'sftp://' + user + '@' + hit.public_ip + ':' + hit.public_port;
+          const sshCmd = 'ssh ' + user + '@' + hit.public_ip + ' -p ' + hit.public_port;
+          addrEl.style.color = 'var(--text-1)';
+          addrEl.textContent = sftpUrl;
+          hintEl.innerHTML = '可使用任意 SFTP 客户端（WinSCP / FileZilla / Transmit 等）连接：协议 <b>SFTP</b>，主机 <b>' + esc(hit.public_ip) + '</b>，端口 <b>' + esc(hit.public_port) + '</b>，用户名 <b>' + esc(user) + '</b>，密码为上述 SSH 密码。' +
+            '<br>命令行 SSH：<span class="mono">' + esc(sshCmd) + '</span>';
+        } else {
+          fallback();
+        }
+      }).catch(fallback);
+    })();
   });
 
   window.addEventListener('resize', () => fitAddon.fit());

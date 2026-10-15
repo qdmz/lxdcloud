@@ -33,6 +33,13 @@
             <label>注册邮箱</label>
             <input class="input" name="email" type="email" placeholder="请输入注册邮箱" required>
           </div>
+          <div class="field">
+            <label>验证码</label>
+            <div class="captcha-row">
+              <input class="input" name="captcha" type="text" placeholder="输入验证码" autocomplete="off" maxlength="6">
+              <img class="captcha-img" id="captchaImg" alt="验证码" title="点击刷新验证码">
+            </div>
+          </div>
           <button class="btn btn-primary btn-block" type="submit" style="margin-top:4px">发送重置链接</button>
         </form>
         <div id="errorMsg" class="login-error hidden" style="margin-top:12px"></div>

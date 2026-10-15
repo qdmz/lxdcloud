@@ -8,7 +8,7 @@
     '<div class="grid-2">' +
     '  <div class="card"><div class="card-title">基本资料</div>' +
     '    <div class="field"><label>用户名</label><input class="input" id="pUsername" disabled></div>' +
-    '    <div class="field"><label>邮箱</label><input class="input" id="pEmail" disabled></div>' +
+    '    <div class="field"><label>邮箱</label><input class="input" id="pEmail" placeholder="用于接收通知与找回密码"></div>' +
     '    <div class="field"><label>昵称</label><input class="input" id="pNickname" placeholder="昵称（可选）"></div>' +
     '    <div class="field"><label>账号状态</label><span id="pStatus"></span></div>' +
     '    <button class="btn btn-primary" id="btnSave">保存资料</button>' +
@@ -35,7 +35,7 @@
   loadInfo();
 
   document.getElementById('btnSave').addEventListener('click', function () {
-    USER.request('/api/user/profile', { method: 'POST', body: { nickname: document.getElementById('pNickname').value } })
+    USER.request('/api/user/profile', { method: 'POST', body: { nickname: document.getElementById('pNickname').value, email: document.getElementById('pEmail').value } })
       .then(() => { LXD.toast('success', '资料已保存'); return loadInfo(); })
       .catch(e => LXD.toast('error', e.message));
   });

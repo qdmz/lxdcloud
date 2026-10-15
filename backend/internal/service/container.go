@@ -219,6 +219,11 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 		logger.Warn("首次未获取到容器内网IPv6，将在后台任务中重试")
 	}
 	
+	// 默认端口映射配额：未显式指定(<=0)时给非0默认值，确保“自动转发22端口”等特性可用
+	if req.IPv4MappingLimit <= 0 {
+		req.IPv4MappingLimit = 5
+	}
+
 	container := &models.Container{
 		Name:         req.Name,
 		StoragePool:  req.StoragePool,

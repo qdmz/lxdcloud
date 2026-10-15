@@ -24,6 +24,12 @@
       <form id="forgotForm" style="display:flex;flex-direction:column;gap:16px">
         <div class="field"><label>注册邮箱</label>
           <input class="input" name="email" type="email" placeholder="请输入注册邮箱" autocomplete="email" required></div>
+        <div class="field"><label>验证码</label>
+          <div class="captcha-row">
+            <input class="input" name="captcha" type="text" placeholder="输入验证码" autocomplete="off" maxlength="6">
+            <img class="captcha-img" id="captchaImg" alt="验证码" title="点击刷新验证码">
+          </div>
+        </div>
         <button class="btn btn-primary btn-block" type="submit">发送重置邮件</button>
       </form>
       <div class="login-tip"><span style="flex-shrink:0">ℹ</span>
@@ -34,6 +40,6 @@
   <footer id="siteFooter"></footer>
   <script src="../js/site.js?v=1.1.17"></script>
   <script src="../js/app.js?v=1.1.17"></script>
-  <script src="../js/user-forgot.js?v=1.1.17"></script>
+  <script src="../js/user-forgot.js?v=1.1.18"></script>
 </body>
 </html>

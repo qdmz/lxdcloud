@@ -1,5 +1,20 @@
 # 更新日志
 
+## v1.1.18 - 2026-10-15
+
+用户面板与文件管理增强，及若干修复
+
+- feat(用户): 个人中心支持查看并编辑邮箱与昵称（`/api/user/info` 增加返回 `email/nickname/email_verified`，前端 profile.js 可编辑并保存）
+- feat(用户): 「我的容器」详情展示端口映射 / 反向代理；新增任务日志接口 `GET /api/user/tasks`、`GET /api/user/tasks/:id`，用户端任务页展示真实数据
+- feat(用户/容器): 文件管理增强——打包下载目录/文件（tar.gz，按原文件名下载，修复此前目录下载得到 `download.json` 的问题）、压缩包在线解压（tar.gz / zip）、文件与目录权限及属主属组管理（chmod / chown）
+- feat(用户/容器): 文件管理新增「新建文件」与文本类文件在线编辑，保存走 `POST /api/user/containers/:name/files/write` 与 `POST /api/container/files/write`（内容上限 5MB，支持 base64 编码写入）
+- feat: 新建容器默认端口映射配额由 0 改为 5，使勾选的「自动转发一个 22 端口」默认生效
+- fix: 管理端「编辑容器 → 保存配置」报「接口不存在」——前端用 POST 而后端仅注册 PUT，现同时注册 `POST /api/admin/containers/:name/config`
+- fix: 容器面板「反向代理」标签因 `reverse_proxy_limit=0` 被整块隐藏；改为始终可见，配额为 0 时仅禁用「新增」按钮并给出提示，已有规则始终可查看；管理端容器详情与用户端容器详情新增反向代理展示
+- fix: 容器控制台顶部 SFTP 连接信息显示容器内网 IP；改为按容器自身端口映射优先展示公网可连接地址（`sftp://root@<公网IP>:<映射端口>`），无 22 端口映射时回退内网地址并明确提示
+- fix: 注册、找回密码页面补齐图形验证码校验（与登录一致）
+- chore: VERSION 1.1.17 → 1.1.18
+
 ## v1.1.17 - 2026-10-15
 
 多节点 / 多机房隔离（主控 + 多节点可同时工作）

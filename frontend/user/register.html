@@ -30,6 +30,12 @@
           <input class="input" name="password" type="password" placeholder="至少 6 位" autocomplete="new-password" minlength="6" required></div>
         <div class="field"><label>确认密码</label>
           <input class="input" name="password2" type="password" placeholder="再次输入密码" autocomplete="new-password" minlength="6" required></div>
+        <div class="field"><label>验证码</label>
+          <div class="captcha-row">
+            <input class="input" name="captcha" type="text" placeholder="输入验证码" autocomplete="off" maxlength="6">
+            <img class="captcha-img" id="captchaImg" alt="验证码" title="点击刷新验证码">
+          </div>
+        </div>
         <button class="btn btn-primary btn-block" type="submit" style="margin-top:4px">注 册</button>
       </form>
       <div class="login-tip"><span style="flex-shrink:0">ℹ</span>
@@ -40,6 +46,6 @@
   <footer id="siteFooter"></footer>
   <script src="../js/site.js?v=1.1.17"></script>
   <script src="../js/app.js?v=1.1.17"></script>
-  <script src="../js/user-register.js?v=1.1.17"></script>
+  <script src="../js/user-register.js?v=1.1.18"></script>
 </body>
 </html>
