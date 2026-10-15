@@ -22,11 +22,28 @@
     return allFree || per.key === 'monthly';
   }
 
-  USER.request('/api/user/products').then(res => {
+  // 机房切换（v1.1.17）：多机房时按机房筛选商品
+  let regionSel = '';
+  try { regionSel = localStorage.getItem('lxd_store_region') || ''; } catch (e) {}
+
+  function load() {
+  USER.request('/api/user/products' + (regionSel ? '?region_id=' + encodeURIComponent(regionSel) : '')).then(res => {
     const list = res.data && res.data.products ? res.data.products : [];
     const purchased = (res.data && res.data.purchased) || {};
-    if (!list.length) { c.innerHTML = '<div class="empty">暂无可售商品</div>'; return; }
-    c.innerHTML = list.map(p => {
+    const regions = ((res.data && res.data.regions) || []).filter(r => (r.product_count || 0) > 0);
+    const regionBar = regions.length > 1 || regionSel ?
+      '<div class="region-row" id="regionBar" style="margin-bottom:12px;display:flex;gap:6px;flex-wrap:wrap">' +
+      '<span style="align-self:center;margin-right:6px;color:var(--text-2)">机房：</span>' +
+      '<button class="chip' + (regionSel ? '' : ' active') + '" data-region="">全部</button>' +
+      regions.map(r => '<button class="chip' + (String(r.ID || r.id) === regionSel ? ' active' : '') + '" data-region="' + (r.ID || r.id) + '" title="' + LXD.esc(r.description || '') + '">' + LXD.esc(r.name) + '</button>').join('') +
+      '</div>' : '';
+    const bindRegion = () => c.querySelectorAll('#regionBar [data-region]').forEach(b => b.addEventListener('click', () => {
+      regionSel = b.dataset.region;
+      try { localStorage.setItem('lxd_store_region', regionSel); } catch (e) {}
+      load();
+    }));
+    if (!list.length) { c.innerHTML = regionBar + '<div class="empty">' + (regionSel ? '该机房暂无可售商品' : '暂无可售商品') + '</div>'; bindRegion(); return; }
+    c.innerHTML = regionBar + list.map(p => {
       const pid = p.id || p.ID;
       const stock = (p.stock === undefined || p.stock === null) ? -1 : Number(p.stock);
       const limit = Number(p.per_user_limit || 0);
@@ -46,7 +63,7 @@
       return '<div class="card store-card">' +
         '<div class="card-title">' + LXD.esc(p.name || '') +
         (p.type === 'vm' ? ' <span class="tag tag-vm">VM</span>' : '') +
-        ' <span class="tag">' + (p.node_id ? '节点#' + p.node_id : '主控') + '</span></div>' +
+        ' <span class="tag">' + LXD.esc(p.region_name || p.node_name || (p.node_id ? '节点#' + p.node_id : '默认机房')) + '</span></div>' +
         '<div class="store-desc">' + LXD.esc(p.description || '') + '</div>' +
         '<div class="store-specs">' +
         '<span>CPU ' + (p.cpu || 0) + ' 核</span><span>内存 ' + (p.memory || 0) + ' MB</span>' +
@@ -58,6 +75,8 @@
         '<button class="btn btn-primary btn-block btn-buy" data-id="' + pid + '"' + (blocked ? ' data-blocked="1"' : '') + ' disabled>' + (blocked || '请选择周期') + '</button>' +
         '</div>';
     }).join('');
+
+    bindRegion();
 
     // 周期选择
     c.querySelectorAll('.period-row').forEach(row => {
@@ -94,4 +113,6 @@
       });
     });
   }).catch(e => { c.innerHTML = '<div class="empty">加载失败：' + LXD.esc(e.message) + '</div>'; });
+  }
+  load();
 })();

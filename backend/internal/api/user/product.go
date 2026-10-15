@@ -6,6 +6,7 @@ import (
 	"github.com/gin-gonic/gin"
 
 	"lxdapi/internal/service"
+	"lxdapi/models"
 	"lxdapi/pkg/response"
 )
 
@@ -17,7 +18,11 @@ import (
 // @Success 200 {object} response.Response "商品列表"
 // @Router /api/user/products [get]
 func ListProducts(c *gin.Context) {
-	products, err := service.GetActiveProducts()
+	var regionID uint
+	if v := service.ParseOptionalUint(c.Query("region_id")); v != nil {
+		regionID = *v
+	}
+	products, err := service.GetActiveProductsInRegion(regionID)
 	if err != nil {
 		response.Error(c, 500, "获取商品失败")
 		return
@@ -32,7 +37,12 @@ func ListProducts(c *gin.Context) {
 			}
 		}
 	}
-	response.Success(c, gin.H{"products": products, "purchased": purchased})
+	regions, _ := service.ListRegions(true)
+	response.Success(c, gin.H{
+		"products":  service.AnnotateNodes(products, func(p *models.Product) uint { return p.NodeID }),
+		"purchased": purchased,
+		"regions":   regions,
+	})
 }
 
 // GetProduct 商品详情

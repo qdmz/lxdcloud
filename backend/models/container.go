@@ -6,6 +6,7 @@ type Container struct {
 	gorm.Model
 	Name         string `gorm:"uniqueIndex;size:255"`
 	NodeID       uint   `gorm:"index;default:0"` // 所属节点，0=本机
+	StoragePool  string `gorm:"size:100"`        // 创建时使用的存储池（重装沿用，v1.1.17）
 	UserID       string `gorm:"index;size:255"`
 	Image        string `gorm:"size:255"`
 	Password     string `gorm:"size:255"`
@@ -74,6 +75,7 @@ type CreateContainerRequest struct {
 	IORead          int    `json:"io_read"`
 	IOWrite         int    `json:"io_write"`
 	ProcessesLimit  int    `json:"processes_limit"`
+	StoragePool     string `json:"storage_pool"` // 指定存储池（空=按优先级取默认池，v1.1.17）
 }
 
 type UpdateContainerConfigRequest struct {

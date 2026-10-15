@@ -60,6 +60,7 @@ func CreateContainer(c *gin.Context) {
 		"io_read":            req.IORead,
 		"io_write":           req.IOWrite,
 		"processes_limit":    req.ProcessesLimit,
+		"storage_pool":       req.StoragePool,
 	}
 
 	task, err := executor.CreateTask(req.Name, "create", req.Username, params, func(ctx context.Context) error {

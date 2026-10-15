@@ -81,7 +81,9 @@ func main() {
 	logger.OK("数据库连接成功")
 
 	service.EnsureMailTemplates()
+	service.RunMultiNodeMigration()
 	go service.StartLifecycleScheduler()
+	service.StartNodeHealthChecker()
 
 	logger.Info("正在初始化网络组件...")
 	
@@ -249,16 +251,24 @@ func main() {
 	}
 
 	ctx := context.Background()
-	if traffic.GlobalMonitor != nil {
+	// 流量监控与缓存刷新只针对本机 LXD：主控无 LXD 时不启动（各节点由自己的 lxdapi 负责，互不重复）
+	localLXD := service.LocalLXDAvailable()
+	if traffic.GlobalMonitor != nil && localLXD {
 		go traffic.GlobalMonitor.Start(ctx)
 		logger.OK("流量监控器已启动")
+	} else if !localLXD {
+		logger.Info("本机未安装 LXD：跳过流量监控（节点流量由各节点自行统计）")
 	}
 
 	task.StartAutoCleanup()
 	logger.OK("自动清理任务已启动")
 
-	task.StartCacheAutoRefresh()
-	logger.OK("缓存自动刷新调度器已启动")
+	if localLXD {
+		task.StartCacheAutoRefresh()
+		logger.OK("缓存自动刷新调度器已启动")
+	} else {
+		logger.Info("本机未安装 LXD：跳过容器缓存自动刷新")
+	}
 
 	gin.SetMode(cfg.System.Server.Mode)
 	r := gin.Default()
@@ -350,6 +360,10 @@ func main() {
 	r.NoRoute(func(c *gin.Context) {
 		// API 路径返回 JSON 404，避免前端把首页 JSON 当成接口数据
 		path := c.Request.URL.Path
+		// 主控未注册的后台接口带 node_id（如主控未启用 nginx/防火墙插件）：鉴权后转发到节点
+		if middleware.AdminNodeFallback(c) || middleware.ContainerNodeFallback(c) {
+			return
+		}
 		// 插件未启用/初始化失败时，其路由不会注册：给出明确提示而不是"接口不存在"
 		for _, dp := range disabledPluginAPIs {
 			if !pluginRegistered(pluginManager, dp.plugin) && hasAnyPrefix(path, dp.prefixes) {
@@ -376,6 +390,10 @@ func main() {
 	})
 
 	pluginManager.RegisterRoutes(r)
+	// 主控未启用 nginx 插件时，用户「反向代理」页仍可看到节点实例上的反代
+	if !pluginRegistered(pluginManager, "nginx") {
+		r.GET("/api/user/nginx/proxies", middleware.UserAuthOrBasic(), user.ListNodeReverseProxies)
+	}
 
 	r.GET("/", func(c *gin.Context) {
 		sysInfo := sysinfo.GetSystemInfo()
@@ -402,7 +420,7 @@ func main() {
 	}
 
 	r.GET("/console", handlers.ConsolePage)
-	r.GET("/ws/console", console.HandleWebSocket)
+	r.GET("/ws/console", middleware.ConsoleNodeProxy(), console.HandleWebSocket)
 	r.GET("/container/dashboard/lite", handlers.ContainerDashboardLite)
 	r.GET("/container/dashboard/base", handlers.ContainerDashboardBase)
 	
@@ -561,6 +579,10 @@ func main() {
 		adminAPI.PUT("/nodes/:id", admin.UpdateNode)
 		adminAPI.DELETE("/nodes/:id", admin.DeleteNode)
 		adminAPI.POST("/nodes/:id/test", admin.TestNode)
+		adminAPI.GET("/regions", admin.ListRegions)
+		adminAPI.POST("/regions", admin.CreateRegion)
+		adminAPI.PUT("/regions/:id", admin.UpdateRegion)
+		adminAPI.DELETE("/regions/:id", admin.DeleteRegion)
 		adminAPI.GET("/smtp", admin.GetSMTP)
 		adminAPI.POST("/smtp", admin.SaveSMTP)
 		adminAPI.POST("/smtp/test", admin.TestMail)
@@ -614,7 +636,7 @@ func main() {
 		userAPI.GET("/templates", user.GetTemplateList)
 		userAPI.GET("/image-options", user.GetImageOptions)
 		userAPI.GET("/tasks/:id", user.GetTask)
-		userAPI.POST("/console/create-token", console.CreateToken)
+		userAPI.POST("/console/create-token", middleware.UserConsoleNodeProxy(), console.CreateToken)
 		// ---- 容器文件管理 ----
 		userAPI.GET("/containers/:name/files", user.ListFiles)
 		userAPI.GET("/containers/:name/files/download", user.DownloadFile)

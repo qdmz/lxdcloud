@@ -20,11 +20,14 @@ func ListOrders(c *gin.Context) {
 	if status != "" {
 		q = q.Where("status = ?", status)
 	}
+	if v := service.ParseOptionalUint(c.Query("filter_node")); v != nil {
+		q = q.Where("node_id = ?", *v)
+	}
 	if err := q.Find(&orders).Error; err != nil {
 		response.Error(c, 500, "获取订单失败")
 		return
 	}
-	response.Success(c, gin.H{"orders": orders})
+	response.Success(c, gin.H{"orders": service.AnnotateNodes(orders, func(o *models.Order) uint { return o.NodeID })})
 }
 
 // ListInstances 实例列表
@@ -38,7 +41,16 @@ func ListInstances(c *gin.Context) {
 		response.Error(c, 500, "获取实例失败")
 		return
 	}
-	response.Success(c, gin.H{"instances": ups})
+	if v := service.ParseOptionalUint(c.Query("filter_node")); v != nil {
+		filtered := ups[:0]
+		for _, up := range ups {
+			if up.NodeID == *v {
+				filtered = append(filtered, up)
+			}
+		}
+		ups = filtered
+	}
+	response.Success(c, gin.H{"instances": service.AnnotateNodes(ups, func(u *models.UserProduct) uint { return u.NodeID })})
 }
 
 // DeleteInstance 管理员删除实例

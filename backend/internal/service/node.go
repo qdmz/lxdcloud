@@ -3,6 +3,8 @@ package service
 import (
 	"fmt"
 
+	"gorm.io/gorm"
+
 	"lxdapi/internal/db"
 	"lxdapi/models"
 )
@@ -12,7 +14,8 @@ type NodeInput struct {
 	Name       string `json:"name"`
 	APIBaseURL string `json:"api_base_url"`
 	APIHash    string `json:"api_hash"`
-	Region     string `json:"region"`
+	Region     string `json:"region"`    // 机房名称（不存在时自动创建）
+	RegionID   uint   `json:"region_id"` // 机房 ID（优先于 Region）
 	Remark     string `json:"remark"`
 }
 
@@ -49,8 +52,16 @@ func CreateNode(in NodeInput) (*models.Node, error) {
 	if cnt > 0 {
 		return nil, fmt.Errorf("节点名称已存在")
 	}
-	node := models.Node{Name: in.Name, APIBaseURL: in.APIBaseURL, APIHash: in.APIHash, Region: in.Region, Remark: in.Remark}
-	if err := db.DB.Create(&node).Error; err != nil {
+	node := models.Node{Name: in.Name, APIBaseURL: in.APIBaseURL, APIHash: in.APIHash, Remark: in.Remark}
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		r, err := resolveNodeRegion(tx, in.RegionID, in.Region)
+		if err != nil {
+			return err
+		}
+		node.RegionID, node.Region = r.ID, r.Name
+		return tx.Create(&node).Error
+	})
+	if err != nil {
 		return nil, err
 	}
 	return &node, nil
@@ -62,13 +73,35 @@ func UpdateNode(id uint, in NodeInput) error {
 	if err := db.DB.First(&node, id).Error; err != nil {
 		return fmt.Errorf("节点不存在")
 	}
-	return db.DB.Model(&node).Updates(map[string]interface{}{
-		"name":         in.Name,
-		"api_base_url": in.APIBaseURL,
-		"api_hash":     in.APIHash,
-		"region":       in.Region,
-		"remark":       in.Remark,
-	}).Error
+	if in.Name == "" || in.APIBaseURL == "" {
+		return fmt.Errorf("节点名称、API地址不能为空")
+	}
+	var dup int64
+	db.DB.Model(&models.Node{}).Where("name = ? AND id <> ?", in.Name, id).Count(&dup)
+	if dup > 0 {
+		return fmt.Errorf("节点名称已存在")
+	}
+	return db.DB.Transaction(func(tx *gorm.DB) error {
+		r, err := resolveNodeRegion(tx, in.RegionID, in.Region)
+		if err != nil {
+			return err
+		}
+		updates := map[string]interface{}{
+			"name":         in.Name,
+			"api_base_url": in.APIBaseURL,
+			"region":       r.Name,
+			"region_id":    r.ID,
+			"remark":       in.Remark,
+		}
+		// 密钥留空表示不修改
+		if in.APIHash != "" {
+			updates["api_hash"] = in.APIHash
+		}
+		if err := tx.Model(&node).Updates(updates).Error; err != nil {
+			return err
+		}
+		return SyncProductsRegionOfNode(tx, node.ID, r.ID)
+	})
 }
 
 // DeleteNode 删除节点（存在关联实例时拒绝）
@@ -77,6 +110,10 @@ func DeleteNode(id uint) error {
 	db.DB.Model(&models.UserProduct{}).Where("node_id = ?", id).Count(&cnt)
 	if cnt > 0 {
 		return fmt.Errorf("该节点下仍有 %d 个用户实例，无法删除", cnt)
+	}
+	db.DB.Model(&models.Product{}).Where("node_id = ?", id).Count(&cnt)
+	if cnt > 0 {
+		return fmt.Errorf("仍有 %d 个商品归属该节点，请先修改或删除这些商品", cnt)
 	}
 	if err := db.DB.Delete(&models.Node{}, id).Error; err != nil {
 		return err

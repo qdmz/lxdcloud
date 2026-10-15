@@ -1,6 +1,7 @@
 package nginx
 
 import (
+	"lxdapi/internal/service"
 	"crypto/tls"
 	"crypto/x509"
 	"fmt"
@@ -486,7 +487,17 @@ func (h *APIHandler) GetUserProxies(c *gin.Context) {
 		return
 	}
 	
-	response.Success(c, proxies)
+	// 合并用户在各节点实例上的反代（v1.1.17）
+	nodeProxies := service.UserNodeReverseProxies(username)
+	if len(nodeProxies) == 0 {
+		response.Success(c, proxies)
+		return
+	}
+	out := make([]interface{}, 0, len(proxies)+len(nodeProxies))
+	for _, p := range proxies {
+		out = append(out, p)
+	}
+	response.Success(c, append(out, nodeProxies...))
 }
 
 func (h *APIHandler) CreateUserProxy(c *gin.Context) {

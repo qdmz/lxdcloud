@@ -22,6 +22,11 @@ type NodeClient struct {
 }
 
 func NewNodeClient(node *models.Node) *NodeClient {
+	return NewNodeClientTimeout(node, 120*time.Second)
+}
+
+// NewNodeClientTimeout 指定超时的节点客户端（健康检查等短请求用）
+func NewNodeClientTimeout(node *models.Node, timeout time.Duration) *NodeClient {
 	base := strings.TrimRight(node.APIBaseURL, "/")
 	// 自签证书场景：跳过 TLS 证书校验（节点间为内网 https 直连）
 	tr := &http.Transport{
@@ -30,7 +35,7 @@ func NewNodeClient(node *models.Node) *NodeClient {
 	return &NodeClient{
 		BaseURL: base,
 		APIHash: node.APIHash,
-		client:  &http.Client{Timeout: 120 * time.Second, Transport: tr},
+		client:  &http.Client{Timeout: timeout, Transport: tr},
 	}
 }
 
@@ -69,9 +74,9 @@ func (nc *NodeClient) do(method, path string, query map[string]string, body inte
 	}
 
 	var envelope struct {
-		Code int                    `json:"code"`
-		Msg  string                 `json:"msg"`
-		Data map[string]interface{} `json:"data"`
+		Code int             `json:"code"`
+		Msg  string          `json:"msg"`
+		Data json.RawMessage `json:"data"`
 	}
 	if err := json.Unmarshal(data, &envelope); err != nil {
 		return nil, fmt.Errorf("节点响应解析失败: %v", err)
@@ -79,7 +84,14 @@ func (nc *NodeClient) do(method, path string, query map[string]string, body inte
 	if envelope.Code != 200 {
 		return nil, fmt.Errorf("节点返回错误: %s", envelope.Msg)
 	}
-	return envelope.Data, nil
+	// data 可能是对象、字符串（如「操作成功」）或数组：只有对象才解包，其余视为成功
+	out := map[string]interface{}{}
+	if len(envelope.Data) > 0 && envelope.Data[0] == '{' {
+		if err := json.Unmarshal(envelope.Data, &out); err != nil {
+			return nil, fmt.Errorf("节点响应解析失败: %v", err)
+		}
+	}
+	return out, nil
 }
 
 func encodeQuery(q map[string]string) string {
@@ -149,6 +161,59 @@ func (nc *NodeClient) CreateContainer(name, image, password string, cpu, memMB, 
 	return err
 }
 
+// CreateContainerReq 以完整规格在节点创建容器，返回节点任务 ID（旧版节点可能为 0）
+func (nc *NodeClient) CreateContainerReq(req *models.CreateContainerRequest) (uint, error) {
+	data, err := nc.do("POST", "/api/system/containers", nil, req)
+	if err != nil {
+		return 0, err
+	}
+	if v, ok := data["task_id"].(float64); ok && v > 0 {
+		return uint(v), nil
+	}
+	return 0, nil
+}
+
+// GetTask 查询节点任务
+func (nc *NodeClient) GetTask(id uint) (map[string]interface{}, error) {
+	return nc.do("GET", "/api/system/tasks/detail", map[string]string{"id": fmt.Sprintf("%d", id)}, nil)
+}
+
+// WaitTask 轮询节点任务直到 success/failed 或超时（超时视为失败，避免误报开通成功）
+func (nc *NodeClient) WaitTask(id uint, timeout time.Duration) error {
+	deadline := time.Now().Add(timeout)
+	interval := 2 * time.Second
+	failures := 0
+	for {
+		t, err := nc.GetTask(id)
+		if err != nil {
+			failures++
+			if failures >= 5 {
+				return fmt.Errorf("查询节点任务 #%d 失败: %v", id, err)
+			}
+		} else {
+			failures = 0
+			st, _ := t["status"].(string)
+			switch st {
+			case models.TaskSuccess:
+				return nil
+			case models.TaskFailed:
+				msg, _ := t["error_msg"].(string)
+				if msg == "" {
+					msg = "节点任务失败"
+				}
+				return fmt.Errorf("节点创建失败: %s", msg)
+			}
+		}
+		if time.Now().After(deadline) {
+			return fmt.Errorf("等待节点任务 #%d 超时", id)
+		}
+		time.Sleep(interval)
+		if interval < 10*time.Second {
+			interval += 2 * time.Second
+		}
+	}
+}
+
 // DeleteContainer 删除容器
 func (nc *NodeClient) DeleteContainer(name string) error {
 	_, err := nc.do("DELETE", "/api/system/containers/"+name, nil, nil)
@@ -157,7 +222,9 @@ func (nc *NodeClient) DeleteContainer(name string) error {
 
 // ContainerAction 容器动作 start/stop/restart
 func (nc *NodeClient) ContainerAction(name, action string) error {
-	_, err := nc.do("POST", "/api/system/containers/"+name+"/action", nil, map[string]interface{}{"action": action})
+	// 节点接口从查询参数读取 action（v1.1.16 及之前只放在 body 里，节点返回「缺少操作类型」，
+	// 导致到期停机/续费恢复在节点上从未生效）；同时保留 body 兼容
+	_, err := nc.do("POST", "/api/system/containers/"+name+"/action", map[string]string{"action": action}, map[string]interface{}{"action": action})
 	return err
 }
 

@@ -15,7 +15,7 @@
       try { cfg = it.config_json ? JSON.parse(it.config_json) : {}; } catch (e) {}
       return '<div class="card inst-row">' +
         '<div><div style="font-weight:600">' + LXD.esc(it.product_name || cfg.name || ('商品#' + it.product_id)) + ' <span class="tag">' + (it.type === 'vm' ? 'VM' : '容器') + '</span></div>' +
-        '<div class="sub">' + LXD.esc(it.name || '') + ' · 用户#' + it.user_id + ' · 节点#' + (it.node_id || 0) + '</div>' +
+        '<div class="sub">' + LXD.esc(it.name || '') + ' · 用户#' + it.user_id + ' · ' + LXD.esc((it.region_name ? it.region_name + ' / ' : '') + (it.node_name || ('节点#' + (it.node_id || 0)))) + '</div>' +
         '<div class="sub">到期：' + fmtTime(it.expire_at) + (it.auto_renew ? ' · 自动续费' : '') + '</div></div>' +
         '<div style="text-align:right">' +
         '<div class="inst-status ' + (it.status === 'suspended' || it.status === 'expired' ? 'warn' : '') + '">' + (STATUS[it.status] || it.status) + '</div>' +
@@ -30,8 +30,26 @@
     }));
   }
 
+  let nodeFilter = '';
+  function mountFilter() {
+    ADMIN.request('/api/admin/nodes').then(r => {
+      const nodes = (r.data && r.data.nodes) || [];
+      if (!nodes.length) return;
+      const box = document.querySelector('.topbar-actions');
+      if (!box || document.getElementById('instNodeFilter')) return;
+      const sel = document.createElement('select');
+      sel.id = 'instNodeFilter';
+      sel.className = 'form-control';
+      sel.style.cssText = 'width:auto;min-width:120px;height:30px;padding:2px 8px;font-size:12.5px';
+      sel.innerHTML = '<option value="">全部节点</option>' + nodes.map(n => '<option value="' + (n.ID || n.id) + '">' + LXD.esc((n.region ? n.region + ' / ' : '') + n.name) + '</option>').join('');
+      sel.addEventListener('change', () => { nodeFilter = sel.value; load(); });
+      box.insertBefore(sel, box.firstChild);
+    }).catch(() => {});
+  }
+  mountFilter();
+
   function load() {
-    ADMIN.request('/api/admin/instances').then(res => render(res.data && res.data.instances || [])).catch(e => {
+    ADMIN.request('/api/admin/instances' + (nodeFilter ? '?filter_node=' + encodeURIComponent(nodeFilter) : '')).then(res => render(res.data && res.data.instances || [])).catch(e => {
       c.innerHTML = '<div class="empty">加载失败：' + LXD.esc(e.message) + '</div>';
     });
   }

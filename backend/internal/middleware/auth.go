@@ -1,7 +1,10 @@
 package middleware
 
 import (
+	"bytes"
 	"crypto/subtle"
+	"encoding/json"
+	"io"
 	"strconv"
 	"strings"
 
@@ -224,7 +227,7 @@ func ContainerAuth() gin.HandlerFunc {
 func AdminNodeProxy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		nid := c.Query("node_id")
-		if nid == "" || nid == "0" || strings.HasPrefix(c.Request.URL.Path, "/api/admin/nodes") {
+		if nid == "" || nid == "0" || strings.HasPrefix(c.Request.URL.Path, "/api/admin/nodes") || strings.HasPrefix(c.Request.URL.Path, "/api/admin/regions") {
 			c.Next()
 			return
 		}
@@ -279,4 +282,87 @@ func UserNodeProxy() gin.HandlerFunc {
 		}
 		service.ProxyToNode(c, node, userToAdminPath(c.Request.URL.Path), true)
 	}
+}
+
+// UserConsoleNodeProxy 用户为节点实例申请网页终端令牌时转发到节点（body.hostname 为实例名）
+func UserConsoleNodeProxy() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		uname := c.GetString("username")
+		if uname == "" || c.Request.Body == nil {
+			c.Next()
+			return
+		}
+		body, err := io.ReadAll(io.LimitReader(c.Request.Body, 1<<16))
+		c.Request.Body = io.NopCloser(bytes.NewReader(body))
+		if err != nil {
+			c.Next()
+			return
+		}
+		var req struct {
+			Hostname string `json:"hostname"`
+		}
+		_ = json.Unmarshal(body, &req)
+		if req.Hostname == "" {
+			c.Next()
+			return
+		}
+		up, node := service.UserNodeInstance(uname, req.Hostname)
+		if up == nil || node == nil {
+			c.Next()
+			return
+		}
+		c.Request.ContentLength = int64(len(body))
+		service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
+	}
+}
+
+// ConsoleNodeProxy /ws/console：令牌由节点签发时以 WebSocket 反向代理到该节点
+func ConsoleNodeProxy() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		if node := service.ConsoleTokenNode(c.Query("token")); node != nil {
+			service.ProxyToNode(c, node, "/ws/console", false)
+			return
+		}
+		c.Next()
+	}
+}
+
+// AdminNodeFallback 主控未注册的后台接口（如主控未启用 nginx/防火墙插件）带 node_id 时，
+// 先做管理员鉴权再转发到节点；返回 true 表示已处理
+func AdminNodeFallback(c *gin.Context) bool {
+	p := c.Request.URL.Path
+	nid := c.Query("node_id")
+	if !strings.HasPrefix(p, "/api/admin/") || nid == "" || nid == "0" {
+		return false
+	}
+	AdminAuth()(c)
+	if c.IsAborted() {
+		return true
+	}
+	AdminNodeProxy()(c)
+	if !c.IsAborted() {
+		response.Error(c, 404, "接口不存在")
+		c.Abort()
+	}
+	return true
+}
+
+// ContainerNodeFallback 主控未注册的容器面板接口（如主控未启用 nginx 插件时的 /api/container/nginx/*）
+// 若访问码属于节点容器则转发到节点；返回 true 表示已处理
+func ContainerNodeFallback(c *gin.Context) bool {
+	if !strings.HasPrefix(c.Request.URL.Path, "/api/container/") {
+		return false
+	}
+	h := c.GetHeader("X-Container-Hash")
+	if h == "" {
+		return false
+	}
+	if _, err := service.GetContainerByHash(h); err == nil {
+		return false // 本机容器，按本机逻辑处理
+	}
+	if node, _ := service.ResolveContainerHashNode(h); node != nil {
+		service.ProxyToNode(c, node, c.Request.URL.Path, false)
+		return true
+	}
+	return false
 }

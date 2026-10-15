@@ -137,9 +137,8 @@ func (p *NginxPlugin) RegisterRoutes(r *gin.Engine) {
 	api := NewAPIHandler(p)
 	
 	adminAPI := r.Group("/api/admin/nginx")
-	adminAPI.Use(func(c *gin.Context) {
-		c.Next()
-	})
+	// v1.1.17 安全修复：原先此组没有任何鉴权（未登录即可读写）；同时支持 node_id 转发到节点
+	adminAPI.Use(middleware.AdminAuth(), middleware.AdminNodeProxy())
 	{
 		adminAPI.GET("/config", api.GetConfig)
 		adminAPI.PUT("/config", api.UpdateConfig)

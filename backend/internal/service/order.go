@@ -98,10 +98,19 @@ func CreateOrder(userID, productID uint, period, typ string, userProductID uint)
 	}
 
 	isNew := typ != "renew"
+	// 节点快照：新购取商品所在节点；续费取实例所在节点（商品后来迁移节点不影响已售实例）
+	orderNode := p.NodeID
+	if !isNew && userProductID > 0 {
+		var up models.UserProduct
+		if err := db.DB.Select("id, node_id").First(&up, userProductID).Error; err == nil {
+			orderNode = up.NodeID
+		}
+	}
 	order := &models.Order{
 		OrderNo:       genOrderNo(),
 		UserID:        userID,
 		ProductID:     productID,
+		NodeID:        orderNode,
 		UserProductID: userProductID,
 		Type:          typ,
 		Period:        period,
@@ -320,17 +329,55 @@ func provisionUserProduct(o *models.Order) error {
 	return nil
 }
 
-// createInstanceOnNode 在本机或节点创建容器/VM
+// productCreateRequest 由商品规格构建容器创建请求（本机与节点共用，保证两边参数一致）
+func productCreateRequest(p *models.Product, name, password, username string) *models.CreateContainerRequest {
+	return &models.CreateContainerRequest{
+		Name:             name,
+		Password:         password,
+		Image:            p.Image,
+		Username:         username, // 归属下单用户，用户面板才能看到并管理
+		CPU:              p.CPU,
+		Memory:           p.Memory,
+		Disk:             productDiskMB(p.Disk), // 商品 GB → 创建接口 MB
+		Ingress:          p.Ingress,
+		Egress:           p.Egress,
+		TrafficLimit:     int(p.TrafficLimit),
+		AllowNesting:     p.AllowNesting,
+		MemorySwap:       p.MemorySwap,
+		Privileged:       p.Privileged,
+		StoragePool:      strings.TrimSpace(p.StoragePool),
+		IPv4PoolLimit:    p.IPv4Count,
+		IPv6PoolLimit:    p.IPv6Count,
+		IPv4MappingLimit: p.PortMappings,
+		IPv6MappingLimit: p.PortMappings,
+	}
+}
+
+// nodeProvisionWait 节点开通任务最长等待时间
+var nodeProvisionWait = 10 * time.Minute
+
+// createInstanceOnNode 在本机或节点创建容器/VM。
+// 实例归属以 up.NodeID（开通时快照）为准；节点开通为异步任务，这里轮询任务直到成功/失败。
 func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, password, username string) error {
-	if p.NodeID != 0 {
-		node, err := GetNode(p.NodeID)
+	if up.NodeID != 0 {
+		node, err := GetNode(up.NodeID)
 		if err != nil {
 			return err
 		}
 		nc := NewNodeClient(node)
-		return nc.CreateContainer(name, p.Image, password, p.CPU, p.Memory, p.Disk)
+		taskID, err := nc.CreateContainerReq(productCreateRequest(p, name, password, username))
+		if err != nil {
+			return err
+		}
+		if taskID == 0 {
+			return nil // 旧版节点不返回任务 ID
+		}
+		return nc.WaitTask(taskID, nodeProvisionWait)
 	}
 	// 本机
+	if !LocalLXDAvailable() {
+		return fmt.Errorf("主控本机未安装 LXD，商品需配置所属节点")
+	}
 	if p.Type == "vm" {
 		return createLocalVM(p, name, password)
 	}
@@ -339,23 +386,7 @@ func createInstanceOnNode(p *models.Product, up *models.UserProduct, name, passw
 
 // createLocalContainer 本机创建容器（复用 ContainerService）
 func createLocalContainer(p *models.Product, name, password, username string) error {
-	svc := NewContainerService()
-	req := &models.CreateContainerRequest{
-		Name:         name,
-		Password:     password,
-		Image:        p.Image,
-		Username:     username, // 归属下单用户，用户面板才能看到并管理
-		CPU:          p.CPU,
-		Memory:       p.Memory,
-		Disk:         productDiskMB(p.Disk),
-		Ingress:      p.Ingress,
-		Egress:       p.Egress,
-		TrafficLimit: int(p.TrafficLimit),
-		AllowNesting: p.AllowNesting,
-		MemorySwap:   p.MemorySwap,
-		Privileged:   p.Privileged,
-	}
-	return svc.Create(context.Background(), req)
+	return NewContainerService().Create(context.Background(), productCreateRequest(p, name, password, username))
 }
 
 // productDiskMB 商品硬盘单位为 GB，容器创建接口单位为 MB。
@@ -472,21 +503,63 @@ func DeleteUserProduct(userID, id uint) error {
 	return db.DB.Delete(up).Error
 }
 
-// SuspendExpiredProducts 到期暂停（宽限期后删除由定时任务调用）
+// nodeGone 节点返回「容器不存在」类错误：视为目标已达成（已删除/不存在）
+func nodeGone(err error) bool {
+	if err == nil {
+		return false
+	}
+	m := strings.ToLower(err.Error())
+	return strings.Contains(m, "不存在") || strings.Contains(m, "not found")
+}
+
+// lifecycleRound 一轮生命周期处理中记录调用失败的节点，同一轮跳过该节点其余实例，
+// 避免一个离线节点（每次请求最长 120s 超时）拖住整个调度器。
+type lifecycleRound struct{ failed map[uint]bool }
+
+func newLifecycleRound() *lifecycleRound { return &lifecycleRound{failed: map[uint]bool{}} }
+
+// nodeCall 对实例所在节点执行操作；返回 skipped=true 表示本轮跳过（节点已失败）
+func (r *lifecycleRound) nodeCall(nodeID uint, fn func(nc *NodeClient) error) (skipped bool, err error) {
+	if r.failed[nodeID] {
+		return true, nil
+	}
+	node, err := GetNode(nodeID)
+	if err != nil {
+		return false, err
+	}
+	err = fn(NewNodeClient(node))
+	if err != nil && !nodeGone(err) && strings.Contains(err.Error(), "节点连接失败") {
+		r.failed[nodeID] = true
+	}
+	return false, err
+}
+
+// SuspendExpiredProducts 到期暂停（宽限期后删除由定时任务调用）。
+// 节点实例只有在节点确认停机（或容器已不存在）后才标记 suspended，节点不可达时下一轮重试。
 func SuspendExpiredProducts() {
 	now := time.Now()
 	var ups []models.UserProduct
 	db.DB.Where("status = ? AND expire_at < ?", "active", now).Find(&ups)
+	round := newLifecycleRound()
 	for i := range ups {
 		up := &ups[i]
+		if up.NodeID == 0 {
+			if LocalLXDAvailable() {
+				exec.Command("lxc", "stop", up.Name).Run()
+			}
+		} else {
+			skipped, err := round.nodeCall(up.NodeID, func(nc *NodeClient) error { return nc.ContainerAction(up.Name, "stop") })
+			if skipped {
+				continue
+			}
+			if err != nil && !nodeGone(err) && !strings.Contains(err.Error(), "已停止") && !strings.Contains(strings.ToLower(err.Error()), "already stopped") {
+				logger.Warn("到期停机失败（节点#%d %s），下轮重试: %v", up.NodeID, up.Name, err)
+				continue
+			}
+		}
 		up.Status = "suspended"
 		if err := db.DB.Save(up).Error; err != nil {
 			continue
-		}
-		if up.NodeID == 0 {
-			exec.Command("lxc", "stop", up.Name).Run()
-		} else if node, err := GetNode(up.NodeID); err == nil {
-			_ = NewNodeClient(node).ContainerAction(up.Name, "stop")
 		}
 		var user models.User
 		if err := db.DB.First(&user, up.UserID).Error; err == nil {
@@ -498,20 +571,37 @@ func SuspendExpiredProducts() {
 	}
 }
 
-// DeleteGracePeriodExpired 删除超过宽限期的实例（默认宽限 7 天）
+// DeleteGracePeriodExpired 删除超过宽限期的实例（默认宽限 7 天）。
+// 节点删除成功（或容器已不存在）才删除主控记录，否则保留记录下轮重试，避免节点上留下孤儿容器。
 func DeleteGracePeriodExpired(graceDays int) {
 	if graceDays <= 0 {
 		graceDays = 7
 	}
 	cutoff := time.Now().Add(-time.Duration(graceDays) * 24 * time.Hour)
+	// 另要求实例至少已暂停 24 小时（updated_at 为暂停时间）：节点长时间离线恢复后，
+	// 不会在同一轮里刚暂停就被删除，给用户留出续费时间
+	suspendedBefore := time.Now().Add(-24 * time.Hour)
 	var ups []models.UserProduct
-	db.DB.Where("status = ? AND expire_at < ?", "suspended", cutoff).Find(&ups)
+	db.DB.Where("status = ? AND expire_at < ? AND updated_at < ?", "suspended", cutoff, suspendedBefore).Find(&ups)
+	round := newLifecycleRound()
 	for i := range ups {
 		up := &ups[i]
 		if up.NodeID == 0 {
-			exec.Command("lxc", "delete", "-f", up.Name).Run()
-		} else if node, err := GetNode(up.NodeID); err == nil {
-			_ = NewNodeClient(node).DeleteContainer(up.Name)
+			if LocalLXDAvailable() {
+				if err := deleteLocalContainer(up.Name, up.Type == "vm"); err != nil && !nodeGone(err) {
+					logger.Warn("宽限期删除本机实例 %s 失败，下轮重试: %v", up.Name, err)
+					continue
+				}
+			}
+		} else {
+			skipped, err := round.nodeCall(up.NodeID, func(nc *NodeClient) error { return nc.DeleteContainer(up.Name) })
+			if skipped {
+				continue
+			}
+			if err != nil && !nodeGone(err) {
+				logger.Warn("宽限期删除失败（节点#%d %s），下轮重试: %v", up.NodeID, up.Name, err)
+				continue
+			}
 		}
 		db.DB.Delete(up)
 	}

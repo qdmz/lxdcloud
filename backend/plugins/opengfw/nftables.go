@@ -1,6 +1,7 @@
 package opengfw
 
 import (
+	"lxdapi/pkg/nftpersist"
 	"fmt"
 	"lxdapi/pkg/logger"
 	"os"
@@ -47,7 +48,7 @@ func (m *NFTablesManager) Setup() error {
 	
 	logger.OK("nftables NFQueue 规则已添加")
 	// 持久化
-	exec.Command("sh", "-c", "nft list ruleset > /etc/nftables.conf").Run()
+	nftpersist.Save()
 	return nil
 }
 
@@ -63,7 +64,7 @@ func (m *NFTablesManager) Remove() error {
 	}
 	
 	logger.OK("nftables NFQueue 规则已删除")
-	exec.Command("sh", "-c", "nft list ruleset > /etc/nftables.conf").Run()
+	nftpersist.Save()
 	return nil
 }
 

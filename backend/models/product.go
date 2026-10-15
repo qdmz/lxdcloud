@@ -8,6 +8,7 @@ type Product struct {
 	Name        string `gorm:"size:100" json:"name"`
 	Description string `gorm:"type:text" json:"description"`
 	NodeID      uint   `gorm:"index" json:"node_id"`
+	RegionID    uint   `gorm:"index;default:0" json:"region_id"` // 机房（随所属节点自动同步，v1.1.17）
 	Type        string `gorm:"size:20;default:'container'" json:"type"` // container / vm
 	Image       string `gorm:"size:255" json:"image"`                   // 系统模板/镜像
 	StoragePool string `gorm:"size:100" json:"storage_pool"`

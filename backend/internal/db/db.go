@@ -39,7 +39,8 @@ func Init() error {
 		)
 		DB, err = gorm.Open(postgres.Open(dsn), &gorm.Config{})
 	default:
-		dsn := cfg.SQLite.Path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)"
+		// busy_timeout：并发写（如开通协程与下单同时写库）时等待而不是立即报 SQLITE_BUSY（v1.1.17）
+		dsn := cfg.SQLite.Path + "?_pragma=foreign_keys(1)&_pragma=journal_mode(WAL)&_pragma=synchronous(NORMAL)&_pragma=busy_timeout(5000)"
 		sqlDB, err := sql.Open("sqlite", dsn)
 		if err != nil {
 			return err
@@ -87,6 +88,8 @@ func Init() error {
 		&models.Ticket{},
 		&models.TicketReply{},
 		&models.Notification{},
+		&models.Region{},
+		&models.AppMigration{},
 	); err != nil {
 		return err
 	}

@@ -74,6 +74,7 @@
       else if (stock > 0) badges.push('<span class="h-tag t-amber">仅剩 ' + stock + ' 台</span>');
       if (limit > 0) badges.push('<span class="h-tag">每人限购 ' + limit + '</span>');
       if (p.type === 'vm') badges.push('<span class="h-tag">虚拟机</span>');
+      if (p.region_name) badges.push('<span class="h-tag">' + esc(p.region_name) + '</span>');
       var priceHtml = !open
         ? '<div class="h-price"><b class="h-na">—</b><span>该周期暂不提供</span></div>'
         : price === 0

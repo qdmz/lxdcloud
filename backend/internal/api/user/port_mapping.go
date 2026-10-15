@@ -392,6 +392,12 @@ func ListPortMappings(c *gin.Context) {
 	if containerName != "" {
 		var container models.Container
 		if err := db.DB.Where("name = ?", containerName).First(&container).Error; err != nil {
+			// 节点上的实例：从所在节点读取
+			if up, _ := service.UserNodeInstance(username, containerName); up != nil {
+				v4, v6 := service.UserNodePortMappings(username, containerName)
+				response.Success(c, gin.H{"ipv4": nonNil(v4), "ipv4_count": len(v4), "ipv6": nonNil(v6), "ipv6_count": len(v6)})
+				return
+			}
 			response.Error(c, 404, "容器不存在")
 			return
 		}
@@ -443,5 +449,36 @@ func ListPortMappings(c *gin.Context) {
 		result["ipv6_count"] = len(mappingsV6)
 	}
 
+	// 合并用户在各节点实例上的端口映射（v1.1.17）
+	if containerName == "" {
+		nv4, nv6 := service.UserNodePortMappings(username, "")
+		if len(nv4) > 0 || len(nv6) > 0 {
+			if v, ok := result["ipv4"].([]models.PortMappingV4); ok && len(nv4) > 0 {
+				result["ipv4"] = mergeList(v, nv4)
+				result["ipv4_count"] = len(v) + len(nv4)
+			}
+			if v, ok := result["ipv6"].([]models.PortMappingV6); ok && len(nv6) > 0 {
+				result["ipv6"] = mergeList(v, nv6)
+				result["ipv6_count"] = len(v) + len(nv6)
+			}
+		}
+	}
+
 	response.Success(c, result)
+}
+
+func nonNil(v []interface{}) []interface{} {
+	if v == nil {
+		return []interface{}{}
+	}
+	return v
+}
+
+// mergeList 本机记录 + 节点记录（节点记录已带 node_id/node_name）
+func mergeList[T any](local []T, remote []interface{}) []interface{} {
+	out := make([]interface{}, 0, len(local)+len(remote))
+	for _, x := range local {
+		out = append(out, x)
+	}
+	return append(out, remote...)
 }

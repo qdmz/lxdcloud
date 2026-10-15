@@ -12,6 +12,7 @@ type Order struct {
 	OrderNo       string     `gorm:"uniqueIndex;size:64" json:"order_no"`
 	UserID        uint       `gorm:"index" json:"user_id"`
 	ProductID     uint       `gorm:"index" json:"product_id"`
+	NodeID        uint       `gorm:"index;default:0" json:"node_id"` // 下单时商品/实例所在节点快照（v1.1.17）
 	UserProductID uint       `gorm:"index" json:"user_product_id"` // 续费订单关联实例
 	Type          string     `gorm:"size:20;default:'new'" json:"type"` // new / renew
 	Period        string     `gorm:"size:20" json:"period"` // monthly / quarterly / halfyear / yearly

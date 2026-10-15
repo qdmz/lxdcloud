@@ -1,6 +1,7 @@
 package user
 
 import (
+	"lxdapi/models"
 	"strconv"
 
 	"github.com/gin-gonic/gin"
@@ -23,7 +24,7 @@ func ListInstances(c *gin.Context) {
 		response.Error(c, 500, "获取实例失败")
 		return
 	}
-	response.Success(c, gin.H{"instances": ups})
+	response.Success(c, gin.H{"instances": service.AnnotateNodes(ups, func(u *models.UserProduct) uint { return u.NodeID })})
 }
 
 // GetInstance 实例详情
@@ -43,6 +44,11 @@ func GetInstance(c *gin.Context) {
 	up, err := service.GetUserProduct(uid, uint(id))
 	if err != nil {
 		response.Error(c, 404, err.Error())
+		return
+	}
+	one := service.AnnotateNodes([]models.UserProduct{*up}, func(u *models.UserProduct) uint { return u.NodeID })
+	if len(one) == 1 {
+		response.Success(c, gin.H{"instance": one[0]})
 		return
 	}
 	response.Success(c, gin.H{"instance": up})

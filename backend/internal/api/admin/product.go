@@ -1,6 +1,7 @@
 package admin
 
 import (
+	"lxdapi/models"
 	"github.com/gin-gonic/gin"
 
 	"lxdapi/internal/service"
@@ -12,12 +13,16 @@ import (
 // @Tags Admin API - 商品
 // @Router /api/admin/products [get]
 func ListProducts(c *gin.Context) {
-	products, err := service.ListProducts()
+	// 可选筛选：?filter_node=<id>&filter_region=<id>（不用 node_id，避免被节点转发中间件当成转发请求）
+	products, err := service.ListProductsFiltered(service.ProductFilter{
+		NodeID:   service.ParseOptionalUint(c.Query("filter_node")),
+		RegionID: service.ParseOptionalUint(c.Query("filter_region")),
+	})
 	if err != nil {
 		response.Error(c, 500, "获取商品失败")
 		return
 	}
-	response.Success(c, gin.H{"products": products})
+	response.Success(c, gin.H{"products": service.AnnotateNodes(products, func(p *models.Product) uint { return p.NodeID })})
 }
 
 // CreateProduct 新增商品

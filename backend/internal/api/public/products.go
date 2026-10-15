@@ -28,6 +28,8 @@ type publicProduct struct {
 	PriceYearly    float64 `json:"price_yearly"`
 	Stock          int     `json:"stock"`
 	PerUserLimit   int     `json:"per_user_limit"`
+	RegionID       uint    `json:"region_id"`
+	RegionName     string  `json:"region_name"`
 }
 
 // ListProducts 公开商品列表（首页价格展示）
@@ -38,11 +40,16 @@ type publicProduct struct {
 // @Success 200 {object} response.Response "商品列表"
 // @Router /api/public/products [get]
 func ListProducts(c *gin.Context) {
-	list, err := service.GetActiveProducts()
+	var regionID uint
+	if v := service.ParseOptionalUint(c.Query("region_id")); v != nil {
+		regionID = *v
+	}
+	list, err := service.GetActiveProductsInRegion(regionID)
 	if err != nil {
 		response.Error(c, 500, "获取商品失败")
 		return
 	}
+	regionNames := service.RegionNameMap()
 	out := make([]publicProduct, 0, len(list))
 	for _, p := range list {
 		out = append(out, publicProduct{
@@ -53,7 +60,15 @@ func ListProducts(c *gin.Context) {
 			PriceMonthly: p.PriceMonthly, PriceQuarterly: p.PriceQuarterly,
 			PriceHalfYear: p.PriceHalfYear, PriceYearly: p.PriceYearly,
 			Stock: p.Stock, PerUserLimit: p.PerUserLimit,
+			RegionID: p.RegionID, RegionName: regionNames[p.RegionID],
 		})
 	}
-	response.Success(c, gin.H{"products": out})
+	regions, _ := service.ListRegions(true)
+	pubRegions := make([]gin.H, 0, len(regions))
+	for _, r := range regions {
+		if r.ProductCount > 0 {
+			pubRegions = append(pubRegions, gin.H{"id": r.ID, "name": r.Name, "description": r.Description})
+		}
+	}
+	response.Success(c, gin.H{"products": out, "regions": pubRegions})
 }

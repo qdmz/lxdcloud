@@ -16,7 +16,8 @@ type Node struct {
 	CPU        int        `json:"cpu"`
 	Memory     int64      `json:"memory"` // MB
 	Disk       int64      `json:"disk"`   // GB
-	Region     string     `gorm:"size:100" json:"region"`
+	Region     string     `gorm:"size:100" json:"region"`    // 机房名称（与 RegionID 同步，兼容旧数据）
+	RegionID   uint       `gorm:"index;default:0" json:"region_id"` // 所属机房
 	Remark     string     `gorm:"size:255" json:"remark"`
 	LastPingAt *time.Time `json:"last_ping_at"`
 }

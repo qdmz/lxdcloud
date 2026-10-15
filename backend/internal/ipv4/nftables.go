@@ -1,6 +1,7 @@
 package ipv4
 
 import (
+	"lxdapi/pkg/nftpersist"
 	"fmt"
 	"lxdapi/pkg/logger"
 	"os/exec"
@@ -296,11 +297,9 @@ func (m *Manager) removeAllRules(publicIP string) error {
 	return nil
 }
 
+// saveNftRules 只导出本程序自有表（lxdnat/lxdip/lxdfilter）到单独文件，不再覆盖 /etc/nftables.conf
 func (m *Manager) saveNftRules() {
-	cmd := exec.Command("sh", "-c", "nft list ruleset > /etc/nftables.conf")
-	if err := cmd.Run(); err != nil {
-		logger.Warn("导出nftables规则失败: %v", err)
-	}
+	nftpersist.Save()
 }
 
 func (m *Manager) addIPToInterface(ip, iface string) error {

@@ -136,7 +136,12 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 		ioWrite = fmt.Sprintf("%dMB", req.IOWrite)
 	}
 	
-	storagePool := NewStorageService().GetDefault()
+	// 商品/请求指定了存储池则优先使用，否则按优先级取默认池
+	storagePool := strings.TrimSpace(req.StoragePool)
+	if storagePool == "" {
+		storagePool = NewStorageService().GetDefault()
+	}
+	req.StoragePool = storagePool
 	logger.Info("使用存储池: %s", storagePool)
 	
 	if err := s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit); err != nil {
@@ -216,6 +221,7 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 	
 	container := &models.Container{
 		Name:         req.Name,
+		StoragePool:  req.StoragePool,
 		UserID:       req.Username,
 		Image:        imageAlias,
 		Password:     actualPassword,
@@ -446,7 +452,11 @@ func (s *ContainerService) Reinstall(ctx context.Context, name, image, password 
 		if container.IOWrite > 0 {
 			ioWrite = fmt.Sprintf("%dMB", container.IOWrite)
 		}
-		storagePool := NewStorageService().GetDefault()
+		// 重装保持原存储池（旧数据无记录时取默认池）
+		storagePool := strings.TrimSpace(container.StoragePool)
+		if storagePool == "" {
+			storagePool = NewStorageService().GetDefault()
+		}
 		if err := s.lxcClient.CreateContainerWithConfig(ctx, name, image, storagePool,
 			container.CPU, memory, disk, ingress, egress,
 			container.AllowNesting, container.MemorySwap, container.Privileged,

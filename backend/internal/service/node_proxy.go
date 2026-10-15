@@ -1,6 +1,7 @@
 package service
 
 import (
+	"bytes"
 	"crypto/tls"
 	"encoding/json"
 	"fmt"
@@ -8,6 +9,7 @@ import (
 	"net/http"
 	"net/http/httputil"
 	"net/url"
+	"strconv"
 	"strings"
 	"sync"
 	"time"
@@ -58,6 +60,10 @@ func ProxyToNode(c *gin.Context, node *models.Node, targetPath string, withHash 
 		Transport: nodeTransport,
 		ModifyResponse: func(resp *http.Response) error {
 			resp.Header.Del("Set-Cookie")
+			// 网页终端：记录节点签发的令牌属于哪个节点，WebSocket 连接到主控时据此转发
+			if strings.HasSuffix(targetPath, "/console/create-token") {
+				recordConsoleToken(resp, node.ID)
+			}
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, e error) {
@@ -229,4 +235,170 @@ func ResolveContainerHashNode(hash string) (*models.Node, string) {
 	}
 	hashNodeCache.Unlock()
 	return found, name
+}
+
+// ---- 网页终端令牌 → 节点（v1.1.17：补上节点容器 WebSocket 终端未经主控转发的缺口） ----
+
+var consoleTokenNodes = struct {
+	sync.Mutex
+	m map[string]consoleTokenEntry
+}{m: map[string]consoleTokenEntry{}}
+
+type consoleTokenEntry struct {
+	nodeID uint
+	at     time.Time
+}
+
+// recordConsoleToken 从节点 create-token 响应中取出令牌并记录所属节点（不改变响应内容）
+func recordConsoleToken(resp *http.Response, nodeID uint) {
+	if resp.Body == nil {
+		return
+	}
+	body, err := io.ReadAll(io.LimitReader(resp.Body, 1<<20))
+	resp.Body.Close()
+	resp.Body = io.NopCloser(bytes.NewReader(body))
+	resp.ContentLength = int64(len(body))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(body)))
+	if err != nil {
+		return
+	}
+	var env struct {
+		Code int `json:"code"`
+		Data struct {
+			Token string `json:"token"`
+		} `json:"data"`
+	}
+	if json.Unmarshal(body, &env) != nil || env.Code != 200 || env.Data.Token == "" {
+		return
+	}
+	consoleTokenNodes.Lock()
+	defer consoleTokenNodes.Unlock()
+	now := time.Now()
+	for k, v := range consoleTokenNodes.m { // 令牌一次性且短时有效，顺带清理过期记录
+		if now.Sub(v.at) > 10*time.Minute {
+			delete(consoleTokenNodes.m, k)
+		}
+	}
+	consoleTokenNodes.m[env.Data.Token] = consoleTokenEntry{nodeID: nodeID, at: now}
+}
+
+// ConsoleTokenNode 令牌由节点签发时返回节点（取出即删除，令牌只能用一次）
+func ConsoleTokenNode(token string) *models.Node {
+	if token == "" {
+		return nil
+	}
+	consoleTokenNodes.Lock()
+	e, ok := consoleTokenNodes.m[token]
+	if ok {
+		delete(consoleTokenNodes.m, token)
+	}
+	consoleTokenNodes.Unlock()
+	if !ok || time.Since(e.at) > 10*time.Minute {
+		return nil
+	}
+	node, err := GetNode(e.nodeID)
+	if err != nil {
+		return nil
+	}
+	return node
+}
+
+// ---- 用户端聚合：节点上属于该用户实例的端口映射 / 反向代理 ----
+
+// userNodeNames 用户在各节点上的实例名
+func userNodeNames(username string) map[uint]map[string]bool {
+	user, err := GetUserByUsername(username)
+	if err != nil {
+		return nil
+	}
+	var ups []models.UserProduct
+	db.DB.Where("user_id = ? AND node_id > 0 AND status <> ?", user.ID, "failed").Find(&ups)
+	byNode := map[uint]map[string]bool{}
+	for _, up := range ups {
+		if byNode[up.NodeID] == nil {
+			byNode[up.NodeID] = map[string]bool{}
+		}
+		byNode[up.NodeID][up.Name] = true
+	}
+	return byNode
+}
+
+// forEachUserNode 并发遍历用户实例所在节点
+func forEachUserNode(username string, only string, fn func(node *models.Node, names map[string]bool)) {
+	byNode := userNodeNames(username)
+	var wg sync.WaitGroup
+	for nid, names := range byNode {
+		if only != "" {
+			if !names[only] {
+				continue
+			}
+			names = map[string]bool{only: true}
+		}
+		node, err := GetNode(nid)
+		if err != nil {
+			continue
+		}
+		wg.Add(1)
+		go func(node *models.Node, names map[string]bool) {
+			defer wg.Done()
+			fn(node, names)
+		}(node, names)
+	}
+	wg.Wait()
+}
+
+func filterTag(list []interface{}, names map[string]bool, node *models.Node) []interface{} {
+	out := []interface{}{}
+	for _, it := range list {
+		m, ok := it.(map[string]interface{})
+		if !ok {
+			continue
+		}
+		n, _ := m["container_name"].(string)
+		if !names[n] {
+			continue
+		}
+		m["node_id"] = node.ID
+		m["node_name"] = node.Name
+		out = append(out, m)
+	}
+	return out
+}
+
+// UserNodePortMappings 用户节点实例上的端口映射（only 非空时只取该实例）
+func UserNodePortMappings(username, only string) (v4, v6 []interface{}) {
+	var mu sync.Mutex
+	forEachUserNode(username, only, func(node *models.Node, names map[string]bool) {
+		res, err := nodeGetJSON(node, "/api/admin/port-mapping?version=all", nil, 20*time.Second)
+		if err != nil {
+			return
+		}
+		data, _ := res["data"].(map[string]interface{})
+		a, _ := data["ipv4"].([]interface{})
+		b, _ := data["ipv6"].([]interface{})
+		fa, fb := filterTag(a, names, node), filterTag(b, names, node)
+		mu.Lock()
+		v4 = append(v4, fa...)
+		v6 = append(v6, fb...)
+		mu.Unlock()
+	})
+	return
+}
+
+// UserNodeReverseProxies 用户节点实例上的反向代理
+func UserNodeReverseProxies(username string) []interface{} {
+	var mu sync.Mutex
+	out := []interface{}{}
+	forEachUserNode(username, "", func(node *models.Node, names map[string]bool) {
+		res, err := nodeGetJSON(node, "/api/admin/nginx/proxies", nil, 20*time.Second)
+		if err != nil {
+			return
+		}
+		list, _ := res["data"].([]interface{})
+		f := filterTag(list, names, node)
+		mu.Lock()
+		out = append(out, f...)
+		mu.Unlock()
+	})
+	return out
 }
