@@ -1,6 +1,7 @@
 package service
 
 import (
+	"context"
 	"fmt"
 	"os/exec"
 	"strings"
@@ -8,8 +9,11 @@ import (
 	"time"
 
 	"lxdapi/internal/db"
+	"lxdapi/internal/lxc"
 	"lxdapi/models"
 	"lxdapi/pkg/logger"
+
+	"gorm.io/gorm"
 )
 
 // ---------------------------------------------------------------------------
@@ -79,33 +83,54 @@ func failProvision(up *models.UserProduct, reason string) bool {
 }
 
 // refundOrderToBalance 已支付订单退款到余额并把订单置为 refunded；0 元订单不处理。返回退款金额。
-// 以订单状态条件更新保证幂等。
+// 订单状态翻转、余额到账、退款流水写入在同一个 DB 事务里完成：任何一步失败整体回滚，
+// 不存在"订单已标退款但余额没到账"的 crash 中间态；以订单状态条件更新 + 退款流水去重保证幂等。
 func refundOrderToBalance(o *models.Order, remark string) (float64, error) {
-	if round2(o.Amount) <= 0 {
-		return 0, nil // 0 元订单无需退款，保持 paid
-	}
-	res := db.DB.Model(&models.Order{}).Where("id = ? AND status = ?", o.ID, "paid").Update("status", "refunded")
-	if res.Error != nil {
-		return 0, res.Error
-	}
-	if res.RowsAffected == 0 {
-		return 0, nil // 未支付或已退款
-	}
-	o.Status = "refunded"
 	amt := round2(o.Amount)
 	if amt <= 0 {
-		return 0, nil
+		return 0, nil // 0 元订单无需退款，保持 paid
 	}
-	var exists int64
-	db.DB.Model(&models.BalanceLog{}).Where("order_no = ? AND type = ?", o.OrderNo, "refund").Count(&exists)
-	if exists > 0 {
-		return 0, nil
-	}
-	if _, err := adjustBalance(o.UserID, amt, "refund", remark, o.OrderNo); err != nil {
-		// 退款失败：订单状态回滚为 paid，便于人工处理
-		db.DB.Model(&models.Order{}).Where("id = ?", o.ID).Update("status", "paid")
+	var after float64
+	err := db.DB.Transaction(func(tx *gorm.DB) error {
+		// 1. 订单 paid → refunded（条件更新：并发下只有一方能推进）
+		res := tx.Model(&models.Order{}).Where("id = ? AND status = ?", o.ID, "paid").Update("status", "refunded")
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return nil // 未支付或已退款：幂等直接返回
+		}
+		// 2. 退款流水去重（同一订单绝不重复入账）
+		var exists int64
+		if err := tx.Model(&models.BalanceLog{}).Where("order_no = ? AND type = ?", o.OrderNo, "refund").Count(&exists).Error; err != nil {
+			return err
+		}
+		if exists > 0 {
+			return nil
+		}
+		// 3. 余额到账 + 写流水（同一事务）
+		res = tx.Model(&models.User{}).Where("id = ?", o.UserID).UpdateColumn("balance", gorm.Expr("balance + ?", amt))
+		if res.Error != nil {
+			return res.Error
+		}
+		if res.RowsAffected == 0 {
+			return fmt.Errorf("用户不存在")
+		}
+		var u models.User
+		if err := tx.Select("id", "balance").First(&u, o.UserID).Error; err != nil {
+			return err
+		}
+		after = round2(u.Balance)
+		return tx.Create(&models.BalanceLog{UserID: o.UserID, Amount: amt, Balance: after, Type: "refund", Remark: remark, OrderNo: o.OrderNo}).Error
+	})
+	if err != nil {
 		return 0, err
 	}
+	if after <= 0 {
+		return 0, nil // 幂等未执行（已退款/未支付/已有流水）
+	}
+	o.Status = "refunded"
+	NotifyUser(o.UserID, "order", "余额到账", fmt.Sprintf("账户余额增加 ￥%.2f，当前余额 ￥%.2f。%s", amt, after, remark), 0)
 	return amt, nil
 }
 
@@ -142,13 +167,27 @@ func recoverOne(round *lifecycleRound, up *models.UserProduct) {
 	expired := age > nodeProvisionWait+provisionRecoverGrace
 
 	if up.NodeID == 0 {
-		if !LocalLXDAvailable() {
+		if !lxc.BinaryAvailable() {
+			// 本机根本没装 lxc：永久性缺失，直接判失败
 			if failProvision(up, "主控本机未安装 LXD") {
 				logger.Warn("开通核对：本机实例 %s 无法开通（无 LXD），已标记失败", up.Name)
 			}
 			return
 		}
-		if exec.Command("lxc", "info", up.Name).Run() == nil {
+		if !LocalLXDAvailable() {
+			// lxc 命令在但连不上守护进程：可能是短暂抖动，与节点路径一致，等宽限期后再判失败
+			if expired {
+				if failProvision(up, "主控本机 LXD 不可用") {
+					logger.Warn("开通核对：本机实例 %s 无法开通（LXD 不可用），已标记失败", up.Name)
+				}
+			}
+			return
+		}
+		// lxc info 加超时：socket 异常时进程可能 hang 住，不能让它卡住核对任务（持有 recoverMu 全局锁）
+		infoCtx, infoCancel := context.WithTimeout(context.Background(), 30*time.Second)
+		infoErr := exec.CommandContext(infoCtx, "lxc", "info", up.Name).Run()
+		infoCancel()
+		if infoErr == nil {
 			if expired || age > nodeProvisionWait {
 				if activateProvision(up) {
 					logger.OK("开通核对：本机实例 %s 已存在，补齐为 active", up.Name)

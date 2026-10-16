@@ -334,10 +334,26 @@ func GetOrCreateUser(username string) (*models.User, error) {
 	}
 
 	if err := db.DB.Create(&user).Error; err != nil {
+		// 并发下两个请求可能同时查不到并同时 Create：唯一冲突时重查一次，返回已存在的用户
+		if isUniqueConflict(err) {
+			var existing models.User
+			if err2 := db.DB.Where("username = ?", username).First(&existing).Error; err2 == nil {
+				return &existing, nil
+			}
+		}
 		return nil, fmt.Errorf("创建用户失败: %v", err)
 	}
 
 	return &user, nil
+}
+
+// isUniqueConflict 判断是否为唯一索引冲突（SQLite/MySQL/Postgres 的常见报错都覆盖）
+func isUniqueConflict(err error) bool {
+	if err == nil {
+		return false
+	}
+	msg := strings.ToLower(err.Error())
+	return strings.Contains(msg, "unique") || strings.Contains(msg, "duplicate")
 }
 
 func RegenerateAPIKey(userID, password string) (*models.User, error) {

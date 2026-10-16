@@ -314,7 +314,9 @@ func provisionUserProduct(o *models.Order) error {
 	}
 
 	if !activateProvision(up) {
-		// 已被核对任务处理（极少见）：以数据库当前状态为准
+		// 已被核对任务处理（极少见）：以数据库当前状态为准。
+		// 注意：此时节点/节点上的容器可能已创建成功，成为孤儿容器占用资源——打 Error 日志便于事后核查清理。
+		logger.Error("开通竞态：实例 %d（%s）在开通成功后未能翻为 active（核对任务已先处理），请检查节点上是否有孤儿容器", up.ID, name)
 		return nil
 	}
 
@@ -482,7 +484,10 @@ func resumeInstance(up *models.UserProduct) error {
 		if !LocalLXDAvailable() {
 			return fmt.Errorf("主控本机未安装 LXD")
 		}
-		out, e := exec.Command("lxc", "start", up.Name).CombinedOutput()
+		// lxc start 加超时：socket 异常时可能 hang 住，不能无限等待
+		startCtx, startCancel := context.WithTimeout(context.Background(), 60*time.Second)
+		out, e := exec.CommandContext(startCtx, "lxc", "start", up.Name).CombinedOutput()
+		startCancel()
 		if e != nil {
 			err = fmt.Errorf("%v: %s", e, strings.TrimSpace(string(out)))
 		}
@@ -829,17 +834,28 @@ func CountProductSold(productID uint) int64 {
 	return cnt
 }
 
-// nodeImagesUsable 校验镜像在节点上是否可用：先触发节点同步 LXD 镜像模板，再核对指纹。
+// nodeImagesUsable 校验镜像在节点上是否可用：先快速核对一次，命中则直接返回；
+// 未命中时触发节点同步 LXD 镜像模板（剔除已被删除的失效镜像）后再核对一次。
 // 非指纹（别名/remote:alias）交由节点 LXD 解析，一律视为可用；无法确认时保持原值不动。
+// 注意：即使此处误判为可用，节点侧 Create 的镜像回退重试仍是最后一道防线。
 func nodeImagesUsable(node *models.Node, image string) bool {
 	image = strings.TrimSpace(image)
 	if image == "" || !imageFingerprintRe.MatchString(image) {
+		return true
+	}
+	// 快速路径：命中则直接可用，避免每次开通都触发一次全量模板同步
+	if nodeTemplateHasFingerprint(node, image) {
 		return true
 	}
 	nc := NewNodeClientTimeout(node, 30*time.Second)
 	if _, err := nc.do("POST", "/api/admin/templates/sync", nil, nil); err != nil {
 		logger.Warn("节点模板同步失败: %v", err)
 	}
+	return nodeTemplateHasFingerprint(node, image)
+}
+
+// nodeTemplateHasFingerprint 读取节点镜像模板列表并核对指纹；读不到时视为可用（保持原值不动）
+func nodeTemplateHasFingerprint(node *models.Node, image string) bool {
 	res, err := nodeGetJSON(node, "/api/admin/templates", nil, 30*time.Second)
 	if err != nil {
 		logger.Warn("读取节点镜像列表失败，跳过镜像校验: %v", err)
