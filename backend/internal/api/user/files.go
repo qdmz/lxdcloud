@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"net"
 	"net/http"
+	"time"
 	"net/url"
 	"path"
 	"strings"
@@ -20,6 +21,8 @@ import (
 func lxdFileHTTPClient() *http.Client {
 	socket := core.GlobalConfig.LXC.Socket
 	return &http.Client{
+		// L1: 写文件是大 POST，LXD 侧 stall 时不能让 gin handler 永久挂起（读/写已有 5MB 上限，60s 够用）
+		Timeout: 60 * time.Second,
 		Transport: &http.Transport{
 			DialContext: func(ctx context.Context, _, _ string) (net.Conn, error) {
 				return net.Dial("unix", socket)

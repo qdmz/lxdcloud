@@ -8,6 +8,7 @@ import (
 	"net/url"
 	"path"
 	"regexp"
+	"strconv"
 	"strings"
 
 	"github.com/gin-gonic/gin"
@@ -40,14 +41,30 @@ func ArchiveFile(c *gin.Context) {
 		return
 	}
 	parent := path.Dir(p)
-	cmd := fmt.Sprintf("tar -czf - -C %s %s | base64 -w0", shQuote(parent), shQuote(base))
+	// M2: 打包前先估算体积——ExecInContainer 会把全部输出缓冲进内存，大归档（2~3 倍内存占用）
+	// 可能把 lxdapi 进程打爆；超 500MB 直接拒绝，请分批打包
+	const maxArchiveBytes = 500 * 1024 * 1024
+	if szOut, szErr := execIn(c, name, "sh", "-c", fmt.Sprintf("du -sb %s | cut -f1", shQuote(p))); szErr == nil {
+		if sz, convErr := strconv.ParseInt(strings.TrimSpace(szOut), 10, 64); convErr == nil && sz > maxArchiveBytes {
+			response.Error(c, 400, fmt.Sprintf("打包目标过大（约 %.1f MB），超过 500MB 上限，请分批打包", float64(sz)/1048576))
+			return
+		}
+	}
+	// L7: busybox 的 base64（Alpine 容器）不支持 -w0；去掉参数，解码前由 Go 去掉所有空白字符兼容换行输出
+	cmd := fmt.Sprintf("tar -czf - -C %s %s | base64", shQuote(parent), shQuote(base))
 	out, err := execIn(c, name, "sh", "-c", cmd)
 	if err != nil {
 		logger.Error("打包失败: %v", err)
 		response.Error(c, 500, "打包失败: "+err.Error())
 		return
 	}
-	raw, err := base64.StdEncoding.DecodeString(strings.TrimSpace(out))
+	cleaned := strings.Map(func(r rune) rune {
+		if r == '\n' || r == '\r' || r == ' ' || r == '\t' {
+			return -1
+		}
+		return r
+	}, out)
+	raw, err := base64.StdEncoding.DecodeString(cleaned)
 	if err != nil {
 		response.Error(c, 500, "打包数据解码失败")
 		return
@@ -97,7 +114,7 @@ func ExtractFile(c *gin.Context) {
 		response.Error(c, 500, "解压失败: "+err.Error()+" "+txt)
 		return
 	}
-	if strings.Contains(out, "__NEED_UNZIP__") || strings.Contains(txt, "not found") {
+	if strings.Contains(out, "__NEED_UNZIP__") {
 		response.Error(c, 400, "容器内缺少 unzip，无法解压 zip（请先安装 unzip 或改用 tar.gz）")
 		return
 	}
