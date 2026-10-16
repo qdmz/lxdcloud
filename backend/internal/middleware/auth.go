@@ -376,10 +376,8 @@ func ContainerConsoleNodeProxy() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		if _, err := service.GetContainerByHash(h); err == nil {
-			c.Next() // 本机容器
-			return
-		}
+		// 直接用 ResolveContainerHashNode 判断：本机容器返回 nil，走本机逻辑；
+		// 节点容器返回所属节点，转发到节点（不能先查本地凭证表，主控库也可能有节点容器的凭证记录）
 		if node, _ := service.ResolveContainerHashNode(h); node != nil {
 			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
 			return
@@ -395,10 +393,6 @@ func ContainerNodeProxy(targetPath string) gin.HandlerFunc {
 		h := c.GetHeader("X-Container-Hash")
 		if h == "" {
 			c.Next()
-			return
-		}
-		if _, err := service.GetContainerByHash(h); err == nil {
-			c.Next() // 本机容器
 			return
 		}
 		if node, _ := service.ResolveContainerHashNode(h); node != nil {
