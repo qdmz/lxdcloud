@@ -609,6 +609,12 @@ func main() {
 		adminAPI.POST("/containers/:name/files/mkdir", admin.MakeDir)
 		adminAPI.POST("/containers/:name/files/delete", admin.DeleteFile)
 		adminAPI.POST("/containers/:name/files/rename", admin.RenameFile)
+		// v1.1.18 新增的文件扩展接口：用户侧经 UserNodeProxy 转发到节点时需要这组 admin 路由存在
+		adminAPI.GET("/containers/:name/files/archive", admin.ArchiveFile)
+		adminAPI.POST("/containers/:name/files/extract", admin.ExtractFile)
+		adminAPI.POST("/containers/:name/files/chmod", admin.ChmodFile)
+		adminAPI.POST("/containers/:name/files/chown", admin.ChownFile)
+		adminAPI.POST("/containers/:name/files/write", admin.WriteFile)
 	}
 
 	userAPI := r.Group("/api/user")
