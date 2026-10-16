@@ -1,1 +1,151 @@
-IyBMWEQgQ2xvdWQKCiFbdmVyc2lvbl0oaHR0cHM6Ly9pbWcuc2hpZWxkcy5pby9iYWRnZS92ZXJzaW9uLTEuMS4yMC0zOGJkZjgpICFbZ29dKGh0dHBzOi8vaW1nLnNoaWVsZHMuaW8vYmFkZ2UvR28tMS4yMyUyQi0wMEFERDgpICFbbGljZW5zZV0oaHR0cHM6Ly9pbWcuc2hpZWxkcy5pby9iYWRnZS9VSS1yZXNwb25zaXZlJTIwJTdDJTIwZGFyayUyRmxpZ2h0LTYzNjZmMSkKCuWfuuS6jiAqKkxYRCoqIOeahOS6keS4u+acuueuoeeQhumdouadv++8iOWVhuS4muWMlueJiO+8ie+8jOeUsSBHbyDlkI7nq6/vvIhseGRhcGnvvInkuI7ljp/nlJ/pnZnmgIHliY3nq6/vvIhseGRwYW5lbO+8iee7hOaIkO+8jOaPkOS+myAqKueuoeeQhuWQjuWPsCAvIOeUqOaIt+S4reW/gyAvIOWuueWZqOmdouadvyoqIOS4ieerr+iDveWKm++8jOaUr+aMgeWuueWZqOWFqOeUn+WRveWRqOacn+euoeeQhuOAgUlQL+err+WPo+aYoOWwhOOAgU5BVCDphY3nva7jgIHlj43lkJHku6PnkIbjgIHlnKjnur/mlofku7bnrqHnkIbjgIHllYblk4HorqLljZXkuI7mlK/ku5jnrYnmqKHlnZfjgIIKCi0g5b2T5YmN54mI5pys77ya6KeBIFtgVkVSU0lPTmBdKFZFUlNJT04p77yM5pu05paw6K6w5b2V6KeBIFtgQ0hBTkdFTE9HLm1kYF0oQ0hBTkdFTE9HLm1kKQotIOWcqOe6v+a8lOekuu+8iOaXoCBMWEQg55qE5ryU56S65qih5byP77yM5a655Zmo5pON5L2c5Lya5o+Q56S6IuW9k+WJjeiKgueCueacquWuieijhUxYRCLvvInvvJo8aHR0cHM6Ly9seGQuZnJlZWhvc3QueXB2cHMuY29tPgogIC0g566h55CG5ZCO5Y+wIGAvYWRtaW4vbG9naW4uaHRtbGAgwrcg55So5oi35Lit5b+DIGAvdXNlci9sb2dpbi5odG1sYO+8iOWPr+iHquihjOazqOWGjO+8iSDCtyDlrrnlmajpnaLmnb8gYC9jb250YWluZXIvbG9naW4uaHRtbGAKCiMjIOeVjOmdoueJueaAp++8iHYxLjHvvIkKCi0g5ZON5bqU5byP5Y2h54mH5biD5bGA77ya5qGM6Z2iIC8g5bmz5p2/IC8g5omL5py66Ieq6YCC5bqU77yb566h55CG5ZCO5Y+w5omL5py656uv5oq95bGJ6I+c5Y2V44CB5qGM6Z2i56uv5L6n5qCP5Y+v5pS26LW377yb55So5oi35Lit5b+D5omL5py656uv5oqY5Y+g5a+86IiqCi0g5rex6ImyIC8g5rWF6Imy5Li76aKY5LiA6ZSu5YiH5o2i77yM6YCJ5oup6K6w5b+G5Zyo5rWP6KeI5Zmo5pys5Zyw77yM5pyq6YCJ5oup5pe26Lef6ZqP57O757ufCi0g57uf6K6h5Y2h54mH44CB6KGo5qC856qE5bGP5qiq5ZCR5rua5Yqo44CBVG9hc3Qg5o+Q56S644CB5Y2x6Zmp5pON5L2c56Gu6K6k5qGG44CB5o+Q5Lqk6Ziy6YeN5aSN54K55Ye744CBSVAgLyDorr/pl67noIHkuIDplK7lpI3liLYKLSDkuInnq6/lhbHkuqvkuIDlpZforr7orqHns7vnu5/vvJpgZnJvbnRlbmQvY3NzL3N0eWxlLmNzc2DvvIjkuLvpopjlj5jph4/vvIkrIGBmcm9udGVuZC9qcy90aGVtZS5qc2DvvIjkuLvpopjliJ3lp4vljJbvvIkrIGBmcm9udGVuZC9qcy9hcHAuanNg77yI6YCa55So5aKe5by677yJCgojIyDpobnnm67mpoLop4gKCnwg57uE5Lu2IHwg55uu5b2VIHwg5oqA5pyv5qCIIHwg6K+05piOIHwKfC0tLXwtLS18LS0tfC0tLXwKfCDlkI7nq68gQVBJIHwgYGJhY2tlbmQvYCB8IEdvICsgR2luICsgTFhEICsgU1FMaXRlL015U1FML1Bvc3RncmVTUUwgfCDnvJbor5HkuqfniankuLrljZXmlofku7bkuozov5vliLYgYGx4ZGFwaWAgfAp8IOWJjeerr+mdouadvyB8IGBmcm9udGVuZC9gIHwg5Y6f55SfIEhUTUwvQ1NTL0pTICsgeHRlcm0uanMgfCDnuq/pnZnmgIHvvIxOZ2lueCDmiJYgR28g5Luj55CG5omY566hIHwKfCDphY3nva7npLrkvosgfCBgY29uZmlncy9gIHwgWUFNTCB8IOWQjuerr+mFjee9ruaooeadv++8iOiEseaVj++8iSB8CnwgRG9ja2VyIHwgYERvY2tlcmZpbGVgICsgYGRvY2tlci1jb21wb3NlLnltbGAgfCDlpJrpmLbmrrXmnoTlu7ogfCDkuIDplK7lrrnlmajljJbpg6jnvbIgfAp8IOaWh+ahoyB8IGBkb2NzL2AgfCBNYXJrZG93biB8IOmDqOe9suaWh+aho+OAgeS9v+eUqOivtOaYjiB8CgojIyDnm67lvZXnu5PmnoQKCmBgYApseGRjbG91ZC8K4pSc4pSA4pSAIGJhY2tlbmQvICAgICAgICAgICAgICAgICAgIyBseGRhcGkgR28g5ZCO56uv5rqQ56CBCuKUgiAgIOKUnOKUgOKUgCBjbWQvbHhkYXBpLyAgICAgICAgICAgIyDkuLvnqIvluo/vvIhtYWluLmdv44CB5YaF5bWM5qih5p2/L+mdmeaAgei1hOa6kO+8iQrilIIgICDilJzilIDilIAgaW50ZXJuYWwvYXBpLyAgICAgICAgICMg5ZCE56uvIEFQSSDlrp7njrAK4pSCICAg4pSCICAg4pSc4pSA4pSAIGFkbWluLyAgICAgICAgICAgICMg566h55CG5ZCO5Y+w5o6l5Y+j77yI5ZCr5Zyo57q/5paH5Lu2566h55CG77yJCuKUgiAgIOKUgiAgIOKUnOKUgOKUgCBjb250YWluZXIvICAgICAgICAjIOWuueWZqOmdouadv+aOpeWPo++8iOWQq+WcqOe6v+aWh+S7tueuoeeQhu+8iQrilIIgICDilIIgICDilJzilIDilIAgdXNlci8gICAgICAgICAgICAgIyDnlKjmiLfkuK3lv4PmjqXlj6PvvIjlkKvlnKjnur/mlofku7bnrqHnkIbvvIkK4pSCICAg4pSCICAg4pSc4pSA4pSAIGNvbnNvbGUvICAgICAgICAgICMgV2ViIOaOp+WItuWPsO+8iFdlYlNvY2tldO+8iQrilIIgICDilIIgICDilJzilIDilIAgcHVibGljLyAgICAgICAgICAgIyDlhazlvIDmjqXlj6PvvIjms6jlhowv55m75b2VL+WVhuWTge+8iQrilIIgICDilIIgICDilJTilIDilIAgc3lzdGVtLyAgICAgICAgICAgIyDns7vnu5/nuqfmjqXlj6PvvIjoioLngrkv5qih5p2/L+e9kee7nO+8iQrilIIgICDilJzilIDilIAgaW50ZXJuYWwvc2VydmljZS8gICAgICMg5Lia5Yqh6YC76L6RCuKUgiAgIOKUnOKUgOKUgCBtb2RlbHMvIHBrZy8gcGx1Z2lucy8gIyDmlbDmja7mqKHlnosgLyDlt6XlhbflupMgLyDmj5Lku7bvvIhuZ2lueCDlj43ku6PjgIHpmLLngavlopnnrYnvvIkK4pSCICAg4pSU4pSA4pSAIGJ1aWxkLnNoICAgICAgICAgICAgICAjIOe8luivkeaJk+WMheiEmuacrO+8iGFtZDY0L2FybTY077yMdjEuMS4wIOW3suS/ruWkje+8iQrilJzilIDilIAgZnJvbnRlbmQvICAgICAgICAgICAgICAgICAjIGx4ZHBhbmVsIOmdmeaAgeWJjeerrwrilIIgICDilJzilIDilIAgYWRtaW4vICAgICAgICAgICAgICAgICMg566h55CG5ZCO5Y+w77yI5a655ZmoL+eUqOaIty/orqLljZUv5qih5p2/L0lQ5rGgL+err+WPo+aYoOWwhC9OZ2lueC/pmLLngavlopnigKbvvIkK4pSCICAg4pSc4pSA4pSAIHVzZXIvICAgICAgICAgICAgICAgICAjIOeUqOaIt+S4reW/g++8iOaIkeeahOWuueWZqC/orqLljZUv5bel5Y2VL+S4quS6uui1hOaWmeKApu+8iQrilIIgICDilJzilIDilIAgY29udGFpbmVyLyAgICAgICAgICAgICMg5a655Zmo6Z2i5p2/77yI6LWE5rqQ55uR5o6nL+aWh+S7tueuoeeQhi9XZWLnu4jnq6/igKbvvIkK4pSCICAg4pSc4pSA4pSAIGpzLyBjc3MvICAgICAgICAgICAgICAjIOWFrOWFsSBKUyDkuI7orr7orqHns7vnu58K4pSCICAg4pSU4pSA4pSAIGRlcGxveS5zaCAgICAgICAgICAgICAjIOWJjeerr+S4gOmUrumDqOe9suiEmuacrO+8iOeUn+aIkCBOZ2lueCDnq5nngrnphY3nva7vvIkK4pSc4pSA4pSAIGNvbmZpZ3MvY29uZmlnLnlhbWwgICAgICAgIyDlkI7nq6/phY3nva7npLrkvovvvIjpg6jnvbLml7bmjInpnIDkv67mlLnvvIkK4pSc4pSA4pSAIHNjcmlwdHMvcmVsZWFzZS5zaCAgICAgICAgIyDniYjmnKzlj5HluIPvvJrpgJLlop7niYjmnKzlj7cg4oaSIOabtOaWsCBDSEFOR0VMT0cg4oaSIOaPkOS6pCDihpIg5omTIHRhZyDihpIg5o6o6YCBCuKUnOKUgOKUgCBWRVJTSU9OIC8gQ0hBTkdFTE9HLm1kICAgICMg54mI5pys5Y+35LiO5pu05paw5pel5b+XCuKUnOKUgOKUgCBEb2NrZXJmaWxlICAgICAgICAgICAgICAgICMg5ZCO56uv5aSa6Zi25q615p6E5bu6CuKUnOKUgOKUgCBkb2NrZXItY29tcG9zZS55bWwgICAgICAgICMg5LiA6ZSuIERvY2tlciDpg6jnvbLvvIjlkKvliY3nq68gTmdpbnjvvIkK4pSU4pSA4pSAIGRvY3MvCiAgICDilJzilIDilIAg6YOo572y5paH5qGjLm1kICAgICAgICAgICAjIOS6jOi/m+WItumDqOe9siArIERvY2tlciDpg6jnvbIgKyDljYfnuqfmtYHnqIsKICAgIOKUlOKUgOKUgCDkvb/nlKjor7TmmI4ubWQgICAgICAgICAgICMg5LiJ56uv5L2/55So5oyH5Y2XCmBgYAoKIyMg5b+r6YCf5byA5aeLCgojIyMg5pa55byP5LiA77yaRG9ja2Vy77yI5LiA6ZSu77yJCgpgYGBiYXNoCiMgMS4g5YeG5aSH6YWN572u77yI6aaW5qyh77yJCmNwIGNvbmZpZ3MvY29uZmlnLnlhbWwgY29uZmlncy9jb25maWcucHJvZC55YW1sCiMg57yW6L6RIGNvbmZpZy5wcm9kLnlhbWzvvJrkv67mlLkgYWRtaW4ucGFzc3dvcmTvvIhiY3J5cHQg5ZOI5biM77yJ44CBYXBpX2hhc2jjgIFzZXNzaW9uX3NlY3JldAoKIyAyLiDlkK/liqgKZG9ja2VyIGNvbXBvc2UgdXAgLWQgLS1idWlsZAoKIyAzLiDorr/pl64KIyBodHRwOi8vPOacjeWKoeWZqElQPi9hZG1pbi9sb2dpbi5odG1sCmBgYAoKPiBEb2NrZXIg6YOo572y6KaB5rGC5a6/5Li75py65bey5a6J6KOFIExYRO+8iOaMgui9vSB1bml4IHNvY2tldO+8ieOAguivpuingSBgZG9jcy/pg6jnvbLmlofmoaMubWRgIOesrOWbm+eroOOAggoKIyMjIOaWueW8j+S6jO+8muS6jOi/m+WItiArIE5naW5477yI5Lyg57uf77yJCgpgYGBiYXNoCiMgMS4g57yW6K+R5ZCO56uv77yI57qvIEdv77yM5peg6ZyAIENHT++8jOWPr+S6pOWPiee8luivke+8iQpjZCBiYWNrZW5kICYmIEFSQ0hTPWFtZDY0IGJhc2ggYnVpbGQuc2ggICAgICAjIOS6p+eJqe+8mmJhY2tlbmQvcmVsZWFzZS9seGRhcGktdjzniYjmnKw+LWxpbnV4LWFtZDY0LnRhci5negojIOaIlu+8mkNHT19FTkFCTEVEPTAgZ28gYnVpbGQgLW8gbHhkYXBpIC4vY21kL2x4ZGFwaQoKIyAyLiDpg6jnvbIKbWtkaXIgLXAgL29wdC9seGRjbG91ZCAmJiBjcCBseGRhcGktYW1kNjQgL29wdC9seGRjbG91ZC9seGRhcGkKY3AgLXIgLi4vY29uZmlncyAvb3B0L2x4ZGNsb3VkLwpjcCAtciAuLi9mcm9udGVuZCAvb3B0L2x4ZGNsb3VkLwoKIyAzLiDliY3nq68gTmdpbnjvvIjmiJbnlKggR28g5Luj55CG77yM6KeB6YOo572y5paH5qGj77yJCmNkIC9vcHQvbHhkY2xvdWQvZnJvbnRlbmQgJiYgc3VkbyBiYXNoIGRlcGxveS5zaCB5b3VyLWRvbWFpbi5jb20KYGBgCgojIyDkuInnq6/lip/og70KCnwg56uvIHwg5YWl5Y+jIHwg6Z2i5ZCRIHwg5Li76KaB6IO95YqbIHwKfC0tLXwtLS18LS0tfC0tLXwKfCBBZG1pbiB8IGBhZG1pbi9sb2dpbi5odG1sYCB8IOi/kOe7tC/nrqHnkIblkZggfCDlrrnlmajnrqHnkIbjgIHnlKjmiLfnrqHnkIbjgIHllYblk4Ev6K6i5Y2V44CB5qih5p2/44CB5a2Y5YKo5rGg44CBSVAg5rGg44CB56uv5Y+j5pig5bCE77yI5ZCrIE5BVCDphY3nva4v56uv5Y+j6IyD5Zu0L+e9kee7nCBOQVTvvInjgIFOZ2lueCDnq5nngrnjgIHku7vliqHjgIHpmLLngavlopnjgIHlk4HniYzorr7nva7jgIHkuLvmnLrotYTmupDjgIHlnKjnur/mlofku7bnrqHnkIYgfAp8IFVzZXIgfCBgdXNlci9sb2dpbi5odG1sYCB8IOW5s+WPsOeUqOaItyB8IOamguiniOe7n+iuoeOAgeaIkeeahOWuueWZqO+8iOWQq+W8uuWItuWQjOatpe+8ieOAgeerr+WPo+aYoOWwhOOAgeWPjeWQkeS7o+eQhuOAgeaooeadv+OAgeS7u+WKoeOAgeWcqOe6v+aWh+S7tueuoeeQhiB8CnwgQ29udGFpbmVyIHwgYGNvbnRhaW5lci9sb2dpbi5odG1sYCB8IOWuueWZqOeUqOaItyB8IOi1hOa6kOebkeaOp+OAgeWcqOe6v+aWh+S7tueuoeeQhuOAgVdlYiDnu4jnq6/jgIFJUCDnrqHnkIbjgIHnq6/lj6PmmKDlsITjgIHlj43lkJHku6PnkIbjgIFETlPjgIHph43oo4XjgIHph43nva7lr4bnoIEgfAoKIyMg5a6J5YWo54m55oCnCgotICoq566h55CG5ZGY5a+G56CBIGJjcnlwdCDlk4jluIzlrZjlgqgqKu+8mmBjb25maWcueWFtbGAg5Lit5a2Y5pS+5ZOI5biM6ICM6Z2e5piO5paH77yI5YW85a655pen5piO5paH6YWN572u77yM5ZCv5Yqo5pe25ZGK6K2m77yJ77yb5Y2g5L2N5a+G56CB77yIYENIQU5HRV9NRWAg562J77yJ5ouS57ud55m75b2VCi0gKipTZXNzaW9uIENvb2tpZSoq77yaYEh0dHBPbmx5YCArIGBTYW1lU2l0ZT1MYXhg77yMYFNlY3VyZWAg5oyJ6K+35rGC5piv5ZCmIEhUVFBTIOiHquWKqOiuvue9ru+8iOWPr+mFjee9ru+8ie+8m+acqumFjee9ruS8muivneWvhumSpeaXtumaj+acuueUn+aIkAotICoq57O757uf57qnIEFQSSoq77yaYGFwaV9oYXNoYCDmnKrphY3nva7ml7bmlbTkvZPnpoHnlKjvvIzluLjph4/ml7bpl7Tmr5TovoMKLSAqKui2iuadg+mYsuaKpCoq77yaV2ViIOe7iOerr+S7pOeJjOagoemqjOWuueWZqOW9kuWxnu+8iOeUqOaItyAvIOWuueWZqOiuv+mXrueggeWPquiDvei/nuiHquW3seeahOWuueWZqO+8iQotICoq5pSv5LuY5Zue6LCDKirvvJrpqoznrb4gKyDllYbmiLflj7cgKyDph5Hpop3moKHpqozvvIzorqLljZXnirbmgIHljp/lrZDmm7TmlrDvvIzpmLLph43lpI3lvIDpgJoKLSAqKuWFrOW8gOaOpeWPo+S4jeazhOmcsiBUTFMg56eB6ZKlKirvvJvmlofku7bnrqHnkIbot6/lvoTovazkuYkgKyDmjqfliLblrZfnrKbov4fmu6TvvJtETlMg5LuF5o6l5Y+X5ZCI5rOVIElQ77yb55So5oi35ZCNIC8g6YKu566xIC8g5a655Zmo5ZCN5qC85byP5qCh6aqMCi0gKirnmbvlvZXpmZDmtYEqKuWPquS/oeS7u+acrOacuiAvIOWGhee9keWPjeS7o+eahCBgWC1Gb3J3YXJkZWQtRm9yYO+8jOmYsuS8qumAoCBJUCDnu5Xov4cKLSAqKuaXoCBMWEQg5Y+L5aW96ZmN57qnKirvvJrmnKrlronoo4UgTFhEIOeahOiKgueCueS4iu+8jOWuueWZqOaTjeS9nOi/lOWbnuS4reaWh+WPi+WlveaPkOekuuiAjOmdnuW6leWxgiBleGVjIOmUmeivrwoKIyMg6Ym05p2D5py65Yi2Cgp8IOerryB8IOmJtOadg+aWueW8jyB8IOivtOaYjiB8CnwtLS18LS0tfC0tLXwKfCBBZG1pbiB8IENvb2tpZSBTZXNzaW9u77yIYGx4ZGFwaV9zZXNzaW9uYO+8iSB8IOeZu+W9lSBgUE9TVCAvYXBpL2FkbWluL2xvZ2luYO+8iHVzZXJuYW1lL3Bhc3N3b3JkL2NhcHRjaGHvvIzlj6/lnKggY29uZmlnIOWFs+mXremqjOivgeegge+8iSB8CnwgVXNlciB8IOeUqOaIt+WQjSArIOWvhueggSAvIEFQSSBLZXkgfCDnmbvlvZUgYFBPU1QgL2FwaS91c2VyL2xvZ2luYO+8m+iHquWKqeazqOWGjOeUqOaIt+eUqOazqOWGjOWvhuegge+8jOeuoeeQhuWRmOWIm+W7uueahOiAgeeUqOaIt+WvhueggeWtl+auteWhqyBBUEkgS2V5IHwKfCBDb250YWluZXIgfCDor7fmsYLlpLQgYFgtQ29udGFpbmVyLUhhc2hgIHwg5a655Zmo6K6/6Zeu56CBIEhhc2jvvIjor6bmg4XpobXlj6/mn6XnnIsv5aSN5Yi2L+W/q+aNt+i/nuaOpe+8iSB8CgojIyDlnKjnur/mlofku7bnrqHnkIYKCuS4ieerr+Wdh+aPkOS+m+WcqOe6v+aWh+S7tueuoeeQhu+8jOaUr+aMge+8mioq55uu5b2V5rWP6KeIIC8g6Z2i5YyF5bGR5a+86IiqIC8g5paw5bu655uu5b2VIC8g5LiK5LygIC8g5LiL6L29IC8g6YeN5ZG95ZCNIC8g5Yig6ZmkKirjgIIKCuWuieWFqOmZkOWItu+8mui3r+W+hOW/hemhu+S4uue7neWvuei3r+W+hOS4lOemgeatoiBgLi5gIOi3s+i9rO+8iOWQjuerr+W8uuWItuagoemqjO+8ieOAggoKIyMg546v5aKD6KaB5rGCCgotIExpbnV4IOWuv+S4u+acuu+8iERlYmlhbi9VYnVudHUg5o6o6I2Q77yJCi0gTFhEIOW3suWuieijheW5tui/kOihjO+8iGBzbmFwIGluc3RhbGwgbHhkICYmIGx4ZCBpbml0IC0tYXV0b2DvvIkKLSBHbyAxLjIzK++8iOS7hee8luivkemcgOimge+8jOe6ryBHbyDml6DpnIAgQ0dP77yJ44CBTmdpbnjvvIjliY3nq6/miZjnrqHvvInmiJYgRG9ja2VyCgojIyDniYjmnKzkuI7lj5HluIMKCmBgYGJhc2gKYmFzaCBzY3JpcHRzL3JlbGVhc2Uuc2ggICAgICAgICAgICAjIHBhdGNo77yaMS4xLjAg4oaSIDEuMS4xCmJhc2ggc2NyaXB0cy9yZWxlYXNlLnNoIG1pbm9yICAgICAgIyAxLjEueCDihpIgMS4yLjAKYmFzaCBzY3JpcHRzL3JlbGVhc2Uuc2ggbWFqb3IgICAgICAjIDEueC55IOKGkiAyLjAuMApgYGAKCiMjIOeJiOacrOWOhuWPsgoKLSAqKnYxLjEuMjAqKiDigJQg5Luj56CB5a6h5p+l6KGl5by677ya6YCA5qy+5Y2V5LqL5Yqh77yI54q25oCB57+76L2s5LiO5L2Z6aKd5Yiw6LSm5ZCM5LiA5LqL5Yqh77yJ44CB5byA6YCa5qC45a+56LaF5pe277yIbHhjIGluZm8vc3RhcnQg5Yqg6LaF5pe277yJ44CBTFhEIOajgOa1iyAxMCDliIbpkp/lpI3mo4DjgIHmlofku7bnrqHnkIbmiZPljIUgNTAwTUIg5LiK6ZmQICsgYmFzZTY0L+ino+WOi+WFvOWuuSArIOWQjuWPsOaWh+S7tuaJqeWxlei3r+eUseOAgemVnOWDj+WbnumAgOWIq+WQjeWFnOW6leOAgeiKgueCuemVnOWDj+W/q+mAn+i3r+W+hOOAgeW5tuWPkeeUqOaIt+WIm+W7uuOAguivpuingSBbQ0hBTkdFTE9HLm1kXShDSEFOR0VMT0cubWQpCi0gKip2MS4xLjE5Kiog4oCUIOWkmuiKgueCueW8gOmAmueos+WumuaAp++8mumVnOWDj+WkseaViOiHquWKqOWQjOatpeS4juWIm+W7uuWbnumAgO+8iOS4jeWPr+eUqOmVnOWDj+iHquWKqOWbnumAgOWIsOWPr+eUqOmVnOWDj++8iQotICoqdjEuMS4xOCoqIOKAlCDnlKjmiLfpnaLmnb/kuI7mlofku7bnrqHnkIblop7lvLrvvJrkuKrkurrkuK3lv4Ppgq7nrrEv5pi156ew57yW6L6R44CB5a655Zmo6K+m5oOF56uv5Y+j5pig5bCEL+WPjeS7o+WxleekuuOAgeS7u+WKoeaXpeW/l+OAgeaWsOW7ui/lnKjnur/nvJbovpEv5omT5YyF6Kej5Y6LL+adg+mZkOeuoeeQhgotICoqdjEuMS4wKiog4oCUIOWJjeerr+WTjeW6lOW8j+mHjeaehCArIOa3sea1heiJsuS4u+mimCArIOmAmueUqOS6pOS6kuWinuW8uu+8m+S/ruWkjSBUTFMg56eB6ZKl5rOE6Zyy44CB57uI56uv6LaK5p2D44CB57O757ufIEFQSSDnqbrlr4bpkqXnu5Xov4fjgIHmlK/ku5jlm57osIPph5Hpop3moKHpqoznrYnlronlhajpl67popjvvJvkv67lpI0gYnVpbGQuc2jvvJvmlrDlop4gQ0hBTkdFTE9HIC8gVkVSU0lPTiAvIOWPkeW4g+iEmuacrOOAguivpuingSBbQ0hBTkdFTE9HLm1kXShDSEFOR0VMT0cubWQpCi0gKip2MS4wKiog4oCUIOWuieWFqOWKoOWbuu+8iGJjcnlwdC9TZWN1cmUgQ29va2llL+WPi+WlveaKpemUme+8iSsg5YmN56uv6KGl6b2Q77yITkFUIOmFjee9ri/nq6/lj6PojIPlm7Qv572R57ucIE5BVC/lvLrliLblkIzmraXvvIkKCiMjIyDmj5Lku7bvvIjlj43lkJHku6PnkIYgLyDpmLLngavlopnvvIkKCmBpbnN0YWxsLnNoYCDlronoo4XlkI7nq6/ml7bkvJroh6rliqjmiafooYwgYHNjcmlwdHMvaW5zdGFsbC1wbHVnaW5zLnNoYO+8muWIm+W7uiBgcGx1Z2lucy9uZ2lueGDjgIFgcGx1Z2lucy9vcGVuZ2Z3YCDnm67lvZXvvIzlsIblj43ku6Pnq5nngrnmjqXlhaXns7vnu58gTmdpbnjvvIhgL2V0Yy9uZ2lueC9jb25mLmQvbHhkY2xvdWQtcHJveGllcy5jb25mYO+8ie+8jOWuieijhSBPcGVuR0ZXIOeoi+W6j+S4jiBHZW9JUC9HZW9TaXRlIOaVsOaNruW5tuWKoOi9vSBgbmZuZXRsaW5rX3F1ZXVlYOOAguW3sumDqOe9sueahOmdouadv+WPr+WNleeLrOaJp+ihjO+8mmBzdWRvIGJhc2ggc2NyaXB0cy9pbnN0YWxsLXBsdWdpbnMuc2ggL29wdC9seGRhcGlgIOWQjumHjeWQr+acjeWKoeOAggo=
+# LXD Cloud
+
+![version](https://img.shields.io/badge/version-1.1.20-38bdf8) ![go](https://img.shields.io/badge/Go-1.23%2B-00ADD8) ![license](https://img.shields.io/badge/UI-responsive%20%7C%20dark%2Flight-6366f1)
+
+基于 **LXD** 的云主机管理面板（商业化版），由 Go 后端（lxdapi）与原生静态前端（lxdpanel）组成，提供 **管理后台 / 用户中心 / 容器面板** 三端能力，支持容器全生命周期管理、IP/端口映射、NAT 配置、反向代理、在线文件管理、商品订单与支付等模块。
+
+- 当前版本：见 [`VERSION`](VERSION)，更新记录见 [`CHANGELOG.md`](CHANGELOG.md)
+- 在线演示（无 LXD 的演示模式，容器操作会提示"当前节点未安装LXD"）：<https://lxd.freehost.ypvps.com>
+  - 管理后台 `/admin/login.html` · 用户中心 `/user/login.html`（可自行注册） · 容器面板 `/container/login.html`
+
+## 界面特性（v1.1）
+
+- 响应式卡片布局：桌面 / 平板 / 手机自适应；管理后台手机端抽屉菜单、桌面端侧栏可收起；用户中心手机端折叠导航
+- 深色 / 浅色主题一键切换，选择记忆在浏览器本地，未选择时跟随系统
+- 统计卡片、表格窄屏横向滚动、Toast 提示、危险操作确认框、提交防重复点击、IP / 访问码一键复制
+- 三端共享一套设计系统：`frontend/css/style.css`（主题变量）+ `frontend/js/theme.js`（主题初始化）+ `frontend/js/app.js`（通用增强）
+
+## 项目概览
+
+| 组件 | 目录 | 技术栈 | 说明 |
+|---|---|---|---|
+| 后端 API | `backend/` | Go + Gin + LXD + SQLite/MySQL/PostgreSQL | 编译产物为单文件二进制 `lxdapi` |
+| 前端面板 | `frontend/` | 原生 HTML/CSS/JS + xterm.js | 纯静态，Nginx 或 Go 代理托管 |
+| 配置示例 | `configs/` | YAML | 后端配置模板（脱敏） |
+| Docker | `Dockerfile` + `docker-compose.yml` | 多阶段构建 | 一键容器化部署 |
+| 文档 | `docs/` | Markdown | 部署文档、使用说明 |
+
+## 目录结构
+
+```
+lxdcloud/
+├── backend/                  # lxdapi Go 后端源码
+│   ├── cmd/lxdapi/           # 主程序（main.go、内嵌模板/静态资源）
+│   ├── internal/api/         # 各端 API 实现
+│   │   ├── admin/            # 管理后台接口（含在线文件管理）
+│   │   ├── container/        # 容器面板接口（含在线文件管理）
+│   │   ├── user/             # 用户中心接口（含在线文件管理）
+│   │   ├── console/          # Web 控制台（WebSocket）
+│   │   ├── public/           # 公开接口（注册/登录/商品）
+│   │   └── system/           # 系统级接口（节点/模板/网络）
+│   ├── internal/service/     # 业务逻辑
+│   ├── models/ pkg/ plugins/ # 数据模型 / 工具库 / 插件（nginx 反代、防火墙等）
+│   └── build.sh              # 编译打包脚本（amd64/arm64，v1.1.0 已修复）
+├── frontend/                 # lxdpanel 静态前端
+│   ├── admin/                # 管理后台（容器/用户/订单/模板/IP池/端口映射/Nginx/防火墙…）
+│   ├── user/                 # 用户中心（我的容器/订单/工单/个人资料…）
+│   ├── container/            # 容器面板（资源监控/文件管理/Web终端…）
+│   ├── js/ css/              # 公共 JS 与设计系统
+│   └── deploy.sh             # 前端一键部署脚本（生成 Nginx 站点配置）
+├── configs/config.yaml       # 后端配置示例（部署时按需修改）
+├── scripts/release.sh        # 版本发布：递增版本号 → 更新 CHANGELOG → 提交 → 打 tag → 推送
+├── VERSION / CHANGELOG.md    # 版本号与更新日志
+├── Dockerfile                # 后端多阶段构建
+├── docker-compose.yml        # 一键 Docker 部署（含前端 Nginx）
+└── docs/
+    ├── 部署文档.md           # 二进制部署 + Docker 部署 + 升级流程
+    └── 使用说明.md           # 三端使用指南
+```
+
+## 快速开始
+
+### 方式一：Docker（一键）
+
+```bash
+# 1. 准备配置（首次）
+cp configs/config.yaml configs/config.prod.yaml
+# 编辑 config.prod.yaml：修改 admin.password（bcrypt 哈希）、api_hash、session_secret
+
+# 2. 启动
+docker compose up -d --build
+
+# 3. 访问
+# http://<服务器IP>/admin/login.html
+```
+
+> Docker 部署要求宿主机已安装 LXD（挂载 unix socket）。详见 `docs/部署文档.md` 第四章。
+
+### 方式二：二进制 + Nginx（传统）
+
+```bash
+# 1. 编译后端（纯 Go，无需 CGO，可交叉编译）
+cd backend && ARCHS=amd64 bash build.sh      # 产物：backend/release/lxdapi-v<版本>-linux-amd64.tar.gz
+# 或：CGO_ENABLED=0 go build -o lxdapi ./cmd/lxdapi
+
+# 2. 部署
+mkdir -p /opt/lxdcloud && cp lxdapi-amd64 /opt/lxdcloud/lxdapi
+cp -r ../configs /opt/lxdcloud/
+cp -r ../frontend /opt/lxdcloud/
+
+# 3. 前端 Nginx（或用 Go 代理，见部署文档）
+cd /opt/lxdcloud/frontend && sudo bash deploy.sh your-domain.com
+```
+
+## 三端功能
+
+| 端 | 入口 | 面向 | 主要能力 |
+|---|---|---|---|
+| Admin | `admin/login.html` | 运维/管理员 | 容器管理、用户管理、商品/订单、模板、存储池、IP 池、端口映射（含 NAT 配置/端口范围/网络 NAT）、Nginx 站点、任务、防火墙、品牌设置、主机资源、在线文件管理 |
+| User | `user/login.html` | 平台用户 | 概览统计、我的容器（含强制同步）、端口映射、反向代理、模板、任务、在线文件管理 |
+| Container | `container/login.html` | 容器用户 | 资源监控、在线文件管理、Web 终端、IP 管理、端口映射、反向代理、DNS、重装、重置密码 |
+
+## 安全特性
+
+- **管理员密码 bcrypt 哈希存储**：`config.yaml` 中存放哈希而非明文（兼容旧明文配置，启动时告警）；占位密码（`CHANGE_ME` 等）拒绝登录
+- **Session Cookie**：`HttpOnly` + `SameSite=Lax`，`Secure` 按请求是否 HTTPS 自动设置（可配置）；未配置会话密钥时随机生成
+- **系统级 API**：`api_hash` 未配置时整体禁用，常量时间比较
+- **越权防护**：Web 终端令牌校验容器归属（用户 / 容器访问码只能连自己的容器）
+- **支付回调**：验签 + 商户号 + 金额校验，订单状态原子更新，防重复开通
+- **公开接口不泄露 TLS 私钥**；文件管理路径转义 + 控制字符过滤；DNS 仅接受合法 IP；用户名 / 邮箱 / 容器名格式校验
+- **登录限流**只信任本机 / 内网反代的 `X-Forwarded-For`，防伪造 IP 绕过
+- **无 LXD 友好降级**：未安装 LXD 的节点上，容器操作返回中文友好提示而非底层 exec 错误
+
+## 鉴权机制
+
+| 端 | 鉴权方式 | 说明 |
+|---|---|---|
+| Admin | Cookie Session（`lxdapi_session`） | 登录 `POST /api/admin/login`（username/password/captcha，可在 config 关闭验证码） |
+| User | 用户名 + 密码 / API Key | 登录 `POST /api/user/login`；自助注册用户用注册密码，管理员创建的老用户密码字段填 API Key |
+| Container | 请求头 `X-Container-Hash` | 容器访问码 Hash（详情页可查看/复制/快捷连接） |
+
+## 在线文件管理
+
+三端均提供在线文件管理，支持：**目录浏览 / 面包屑导航 / 新建目录 / 上传 / 下载 / 重命名 / 删除**。
+
+安全限制：路径必须为绝对路径且禁止 `..` 跳转（后端强制校验）。
+
+## 环境要求
+
+- Linux 宿主机（Debian/Ubuntu 推荐）
+- LXD 已安装并运行（`snap install lxd && lxd init --auto`）
+- Go 1.23+（仅编译需要，纯 Go 无需 CGO）、Nginx（前端托管）或 Docker
+
+## 版本与发布
+
+```bash
+bash scripts/release.sh            # patch：1.1.0 → 1.1.1
+bash scripts/release.sh minor      # 1.1.x → 1.2.0
+bash scripts/release.sh major      # 1.x.y → 2.0.0
+```
+
+## 版本历史
+
+- **v1.1.20** — 代码审查补强：退款单事务（状态翻转与余额到账同一事务）、开通核对超时（lxc info/start 加超时）、LXD 检测 10 分钟复检、文件管理打包 500MB 上限 + base64/解压兼容 + 后台文件扩展路由、镜像回退别名兜底、节点镜像快速路径、并发用户创建。详见 [CHANGELOG.md](CHANGELOG.md)
+- **v1.1.19** — 多节点开通稳定性：镜像失效自动同步与创建回退（不可用镜像自动回退到可用镜像）
+- **v1.1.18** — 用户面板与文件管理增强：个人中心邮箱/昵称编辑、容器详情端口映射/反代展示、任务日志、新建/在线编辑/打包解压/权限管理
+- **v1.1.0** — 前端响应式重构 + 深浅色主题 + 通用交互增强；修复 TLS 私钥泄露、终端越权、系统 API 空密钥绕过、支付回调金额校验等安全问题；修复 build.sh；新增 CHANGELOG / VERSION / 发布脚本。详见 [CHANGELOG.md](CHANGELOG.md)
+- **v1.0** — 安全加固（bcrypt/Secure Cookie/友好报错）+ 前端补齐（NAT 配置/端口范围/网络 NAT/强制同步）
+
+### 插件（反向代理 / 防火墙）
+
+`install.sh` 安装后端时会自动执行 `scripts/install-plugins.sh`：创建 `plugins/nginx`、`plugins/opengfw` 目录，将反代站点接入系统 Nginx（`/etc/nginx/conf.d/lxdcloud-proxies.conf`），安装 OpenGFW 程序与 GeoIP/GeoSite 数据并加载 `nfnetlink_queue`。已部署的面板可单独执行：`sudo bash scripts/install-plugins.sh /opt/lxdapi` 后重启服务。
