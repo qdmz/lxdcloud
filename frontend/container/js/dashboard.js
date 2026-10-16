@@ -710,7 +710,9 @@
       if (res.code === 200 && res.data && res.data.token) {
         const host = (containerData && containerData.ipv4 && containerData.ipv4.length) ? containerData.ipv4[0] : '';
         const pwd = (containerData && containerData.password) ? containerData.password : '';
+        const hash = (window.LXD && typeof LXD.getHash === 'function') ? LXD.getHash() : '';
         let qs = 'console.html?token=' + encodeURIComponent(res.data.token);
+        if (hash) qs += '&hash=' + encodeURIComponent(hash);
         if (host) qs += '&host=' + encodeURIComponent(host) + '&user=root';
         if (pwd) qs += '&pwd=' + encodeURIComponent(pwd);
         window.open(qs, '_blank');
