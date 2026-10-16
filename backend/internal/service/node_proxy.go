@@ -402,3 +402,24 @@ func UserNodeReverseProxies(username string) []interface{} {
 	})
 	return out
 }
+
+// ContainerHashNode 由容器访问码查所属节点（主控库直接查，不依赖网络探测）
+// 本机容器（NodeID=0）或查不到时返回 nil
+func ContainerHashNode(hash string) *models.Node {
+	cred, err := GetContainerByHash(hash)
+	if err != nil || cred == nil {
+		return nil
+	}
+	var container models.Container
+	if err := db.DB.Where("name = ?", cred.ContainerName).First(&container).Error; err != nil {
+		return nil
+	}
+	if container.NodeID == 0 {
+		return nil
+	}
+	node, err := GetNode(container.NodeID)
+	if err != nil {
+		return nil
+	}
+	return node
+}
