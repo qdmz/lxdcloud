@@ -5,6 +5,7 @@ import (
 	"crypto/subtle"
 	"encoding/json"
 	"io"
+	"log"
 	"strconv"
 	"strings"
 
@@ -372,20 +373,25 @@ func ContainerNodeFallback(c *gin.Context) bool {
 func ContainerConsoleNodeProxy() gin.HandlerFunc {
 	return func(c *gin.Context) {
 		h := c.GetHeader("X-Container-Hash")
+		log.Printf("[DEBUG] ContainerConsoleNodeProxy: hash=%.8s", h)
 		if h == "" {
 			c.Next()
 			return
 		}
 		// 主控库直接查容器 NodeID（不依赖网络探测）
 		if node := service.ContainerHashNode(h); node != nil {
+			log.Printf("[DEBUG] ContainerConsoleNodeProxy: proxy to node %d (%s)", node.ID, node.Name)
 			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
 			return
 		}
+		log.Printf("[DEBUG] ContainerConsoleNodeProxy: ContainerHashNode nil, try ResolveContainerHashNode")
 		// 兜底：网络探测（兼容主控库无记录的场景）
 		if node, _ := service.ResolveContainerHashNode(h); node != nil {
+			log.Printf("[DEBUG] ContainerConsoleNodeProxy: proxy to node %d via resolve", node.ID)
 			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
 			return
 		}
+		log.Printf("[DEBUG] ContainerConsoleNodeProxy: local handling")
 		c.Next()
 	}
 }
