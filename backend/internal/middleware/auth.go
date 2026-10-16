@@ -410,3 +410,25 @@ func ContainerNodeProxy(targetPath string) gin.HandlerFunc {
 		c.Next()
 	}
 }
+
+// ContainerNodeProxyAuto 容器面板通用节点转发：按请求路径自动转发到节点
+// 适用于所有 /api/container/* 下按容器 hash 鉴权的接口
+func ContainerNodeProxyAuto() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.GetHeader("X-Container-Hash")
+		if h == "" {
+			c.Next()
+			return
+		}
+		targetPath := c.Request.URL.Path
+		if node := service.ContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, targetPath, false)
+			return
+		}
+		if node, _ := service.ResolveContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, targetPath, false)
+			return
+		}
+		c.Next()
+	}
+}

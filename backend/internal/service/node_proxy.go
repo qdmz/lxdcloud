@@ -64,6 +64,10 @@ func ProxyToNode(c *gin.Context, node *models.Node, targetPath string, withHash 
 			if strings.HasSuffix(targetPath, "/console/create-token") {
 				recordConsoleToken(resp, node.ID)
 			}
+			// 容器信息：注入节点信息，方便前端显示
+			if targetPath == "/api/container/info" {
+				injectNodeInfo(resp, node)
+			}
 			return nil
 		},
 		ErrorHandler: func(w http.ResponseWriter, r *http.Request, e error) {
@@ -446,4 +450,30 @@ func ContainerHashNode(hash string) *models.Node {
 		}
 	}
 	return nil
+}
+
+// injectNodeInfo 向 /api/container/info 的代理响应中注入节点信息
+func injectNodeInfo(resp *http.Response, node *models.Node) {
+	if resp.Body == nil {
+		return
+	}
+	body, err := io.ReadAll(resp.Body)
+	if err != nil {
+		return
+	}
+	resp.Body.Close()
+	var env struct {
+		Code int                    `json:"code"`
+		Msg  string                 `json:"msg"`
+		Data map[string]interface{} `json:"data"`
+	}
+	if json.Unmarshal(body, &env) != nil || env.Code != 200 || env.Data == nil {
+		resp.Body = io.NopCloser(bytes.NewReader(body))
+		return
+	}
+	env.Data["node"] = map[string]interface{}{"id": node.ID, "name": node.Name}
+	newBody, _ := json.Marshal(env)
+	resp.Body = io.NopCloser(bytes.NewReader(newBody))
+	resp.ContentLength = int64(len(newBody))
+	resp.Header.Set("Content-Length", strconv.Itoa(len(newBody)))
 }
