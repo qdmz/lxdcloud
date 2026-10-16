@@ -147,9 +147,15 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 	
 	createErr := s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit)
 	if createErr != nil && isImageNotFoundErr(createErr) {
-		// 商品镜像可能指向节点上已被删除的本地镜像：回退到可用的默认镜像重试一次
-		if fb := fallbackImage(); fb != "" && fb != req.Image {
-			logger.Warn("镜像 %s 不可用（%v），回退默认镜像 %s 后重试", req.Image, createErr, fb)
+		// 商品镜像可能指向节点上已被删除的本地镜像：回退后重试一次。
+		// 注意 fallbackImage() 可能返回与失败镜像相同的别名（别名场景），此时改用远程预设兜底，
+		// 保证重试的镜像一定不同，避免"重试同一个坏镜像"的无效重试。
+		fb := fallbackImage()
+		if fb == "" || fb == req.Image {
+			fb = RemoteImagePresets[0].Value
+		}
+		if fb != "" && fb != req.Image {
+			logger.Warn("镜像 %s 不可用（%v），回退镜像 %s 后重试", req.Image, createErr, fb)
 			req.Image = fb
 			createErr = s.lxcClient.CreateContainerWithConfig(ctx, req.Name, req.Image, storagePool, req.CPU, memory, disk, ingress, egress, req.AllowNesting, req.MemorySwap, req.Privileged, "", cpuAllowance, ioRead, ioWrite, req.ProcessesLimit)
 		}
