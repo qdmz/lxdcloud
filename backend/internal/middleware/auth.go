@@ -366,3 +366,45 @@ func ContainerNodeFallback(c *gin.Context) bool {
 	}
 	return false
 }
+
+// ContainerConsoleNodeProxy 容器为节点实例申请网页终端令牌时转发到节点
+// （X-Container-Hash 属于节点容器时；本机容器走本机逻辑）
+func ContainerConsoleNodeProxy() gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.GetHeader("X-Container-Hash")
+		if h == "" {
+			c.Next()
+			return
+		}
+		if _, err := service.GetContainerByHash(h); err == nil {
+			c.Next() // 本机容器
+			return
+		}
+		if node, _ := service.ResolveContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
+			return
+		}
+		c.Next()
+	}
+}
+
+// ContainerNodeProxy 容器面板接口：访问码属于节点容器时转发到节点的对应接口
+// （用于已注册的容器端路由，如 port-mapping；未注册路由走 ContainerNodeFallback）
+func ContainerNodeProxy(targetPath string) gin.HandlerFunc {
+	return func(c *gin.Context) {
+		h := c.GetHeader("X-Container-Hash")
+		if h == "" {
+			c.Next()
+			return
+		}
+		if _, err := service.GetContainerByHash(h); err == nil {
+			c.Next() // 本机容器
+			return
+		}
+		if node, _ := service.ResolveContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, targetPath, false)
+			return
+		}
+		c.Next()
+	}
+}

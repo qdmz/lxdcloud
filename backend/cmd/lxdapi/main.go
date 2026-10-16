@@ -714,11 +714,11 @@ func main() {
 		containerAPI.PUT("/dns", container.SetDNS)
 		containerAPI.POST("/port-mapping/allocate", container.AllocatePortMapping)
 		containerAPI.POST("/port-mapping/release", container.ReleasePortMapping)
-		containerAPI.GET("/port-mapping", container.ListPortMappings)
+		containerAPI.GET("/port-mapping", middleware.ContainerNodeProxy("/api/container/port-mapping"), container.ListPortMappings)
 		containerAPI.GET("/ip", container.GetIP)
 		containerAPI.POST("/ip/allocate", container.AllocateIP)
 		containerAPI.POST("/ip/release", container.ReleaseIP)
-		containerAPI.POST("/console/create-token", console.CreateToken)
+		containerAPI.POST("/console/create-token", middleware.ContainerConsoleNodeProxy(), console.CreateToken)
 		// ---- 容器文件管理 ----
 		containerAPI.GET("/files", container.ListFiles)
 		containerAPI.GET("/files/download", container.DownloadFile)
