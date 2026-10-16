@@ -53,6 +53,16 @@ func GetInfo(c *gin.Context) {
 		info["traffic"] = traffic
 	}
 
+	// 节点信息：方便前端显示容器所在节点
+	hash := c.GetHeader("X-Container-Hash")
+	nodeInfo := gin.H{"id": 0, "name": "本机"}
+	if node := service.ContainerHashNode(hash); node != nil {
+		nodeInfo = gin.H{"id": node.ID, "name": node.Name}
+	} else if node, _ := service.ResolveContainerHashNode(hash); node != nil {
+		nodeInfo = gin.H{"id": node.ID, "name": node.Name}
+	}
+	info["node"] = nodeInfo
+
 	response.Success(c, info)
 }
 

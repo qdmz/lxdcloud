@@ -146,8 +146,10 @@
     const name = c.name || '未知容器';
     document.getElementById('pageContainerName').innerHTML = LXD.esc(name) + ' ' + LXD.statusBadge(c.status);
     document.getElementById('topContainerName').textContent = name;
+    const nodeName = (c.node && c.node.name) ? c.node.name : '本机';
+    const nodeLabel = (c.node && c.node.id) ? '节点：' + nodeName : '本机节点';
     document.getElementById('containerSub').textContent =
-      (c.image || '未知镜像') + ' · 更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
+      (c.image || '未知镜像') + ' · ' + nodeLabel + ' · 更新于 ' + new Date().toLocaleTimeString('zh-CN', { hour12: false });
 
     // 顶部访问码展示（点击可复制）
     const chip = document.getElementById('hashChip');
