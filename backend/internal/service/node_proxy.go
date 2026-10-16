@@ -412,15 +412,38 @@ func ContainerHashNode(hash string) *models.Node {
 		return nil
 	}
 	var container models.Container
-	if err := db.DB.Where("name = ?", cred.ContainerName).First(&container).Error; err != nil {
+	if err := db.DB.Where("name = ?", cred.ContainerName).First(&container).Error; err == nil {
+		if container.NodeID == 0 {
+			return nil
+		}
+		if node, err := GetNode(container.NodeID); err == nil {
+			return node
+		}
 		return nil
 	}
-	if container.NodeID == 0 {
-		return nil
+	// 库里没有容器记录：按容器名去各节点查（节点容器未同步到主控库的场景）
+	nodes, _ := ListNodes()
+	for i := range nodes {
+		n := &nodes[i]
+		res, err := nodeGetJSON(n, "/api/admin/containers", nil, 10*time.Second)
+		if err != nil || res == nil {
+			continue
+		}
+		if d, ok := res["data"].(map[string]interface{}); ok {
+			if list, ok := d["containers"].([]interface{}); ok {
+				for _, item := range list {
+					if m, ok := item.(map[string]interface{}); ok {
+						if name, ok := m["Name"].(string); ok && name == cred.ContainerName {
+							return n
+						}
+						// 兼容小写 name
+						if name, ok := m["name"].(string); ok && name == cred.ContainerName {
+							return n
+						}
+					}
+				}
+			}
+		}
 	}
-	node, err := GetNode(container.NodeID)
-	if err != nil {
-		return nil
-	}
-	return node
+	return nil
 }
