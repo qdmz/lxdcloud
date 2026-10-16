@@ -376,9 +376,13 @@ func ContainerConsoleNodeProxy() gin.HandlerFunc {
 			c.Next()
 			return
 		}
-		// 只信主控库的 NodeID：节点容器转发，本机容器（NodeID=0）走本机
-		// 不做网络探测兜底，避免误判
+		// 先查主控库 NodeID（快）
 		if node := service.ContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
+			return
+		}
+		// 库里没有时探测节点（节点容器未同步到主控库的场景）
+		if node, _ := service.ResolveContainerHashNode(h); node != nil {
 			service.ProxyToNode(c, node, "/api/admin/console/create-token", true)
 			return
 		}
@@ -396,6 +400,10 @@ func ContainerNodeProxy(targetPath string) gin.HandlerFunc {
 			return
 		}
 		if node := service.ContainerHashNode(h); node != nil {
+			service.ProxyToNode(c, node, targetPath, false)
+			return
+		}
+		if node, _ := service.ResolveContainerHashNode(h); node != nil {
 			service.ProxyToNode(c, node, targetPath, false)
 			return
 		}

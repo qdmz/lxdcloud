@@ -219,13 +219,14 @@ func ResolveContainerHashNode(hash string) (*models.Node, string) {
 		if err != nil || res == nil {
 			continue
 		}
+		// 必须拿到有效的容器名才算找到，避免空 data 误判
 		if d, ok := res["data"].(map[string]interface{}); ok {
-			if v, ok := d["name"].(string); ok {
+			if v, ok := d["name"].(string); ok && v != "" {
 				name = v
+				found = n
+				break
 			}
 		}
-		found = n
-		break
 	}
 	hashNodeCache.Lock()
 	if found != nil {
