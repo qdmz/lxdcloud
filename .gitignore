@@ -16,3 +16,7 @@ lxdapi-amd64*
 release/
 lxdapi-arm64*
 *.bak-*
+
+# 本地部署目录（含私钥/数据库/真实配置，不入库）
+deploy/
+auto-deploy.sh

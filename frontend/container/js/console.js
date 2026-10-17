@@ -161,7 +161,6 @@
     const host = urlParams.get('host');
     const cname = urlParams.get('name');
     const user = urlParams.get('user') || 'root';
-    const pwd = urlParams.get('pwd') || '';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
 
     const mask = document.createElement('div');
@@ -170,7 +169,7 @@
     let body = '<table style="width:100%;border-collapse:collapse;font-size:13px">' +
       '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">SFTP 地址</td><td class="mono" id="sftpAddr" style="padding:6px 0;word-break:break-all;color:var(--text-3)">查询公网转发端口...</td></tr>' +
       kv('用户名', user) +
-      kv('密码', pwd || '未随控制台令牌传递，请以容器详情/管理页展示的 SSH 密码为准') +
+      '<tr><td style="color:var(--text-2);padding:6px 10px 6px 0;white-space:nowrap;vertical-align:top">密码</td><td class="mono" id="sftpPwd" style="padding:6px 0;word-break:break-all;color:var(--text-3)">正在查询 SSH 密码...</td></tr>' +
       '</table>';
     body += '<div id="sftpHint" style="font-size:12px;color:var(--text-3);line-height:1.7;margin-top:8px;padding-top:10px;border-top:1px solid rgba(255,255,255,.08)">正在查询该容器的公网端口映射...</div>';
     mask.innerHTML = '<div class="modal" style="max-width:520px"><h3>SFTP 连接信息</h3><div style="max-height:50vh;overflow:auto">' + body + '</div>' +
@@ -178,6 +177,26 @@
     document.body.appendChild(mask);
     mask.querySelector('[data-act="close"]').onclick = () => mask.remove();
     mask.addEventListener('click', (e) => { if (e.target === mask) mask.remove(); });
+
+    // 密码不再随控制台 URL 明文传递：点击 SFTP 按钮时按需从容器详情接口取（hash 鉴权），内存里用完即止
+    (function resolveSshPwd() {
+      const pwdEl = mask.querySelector('#sftpPwd');
+      if (!pwdEl) return;
+      if (!(window.LXD && typeof LXD.authRequest === 'function')) {
+        pwdEl.style.color = '';
+        pwdEl.textContent = '鉴权组件不可用，请以容器详情页展示的 SSH 密码为准';
+        return;
+      }
+      LXD.authRequest('/api/container/info').then((r) => {
+        const d = (r && r.data) || {};
+        const pwd = d.password || '';
+        pwdEl.style.color = '';
+        pwdEl.textContent = pwd || '详情接口未返回，可点击容器管理页「重置密码」生成新密码';
+      }).catch(() => {
+        pwdEl.style.color = '';
+        pwdEl.textContent = '密码获取失败，请以容器详情页展示的 SSH 密码为准';
+      });
+    })();
 
     // 优先解析 22 端口的公网映射地址；无映射时回退内网地址并给出提示
     (function resolveSftp() {
