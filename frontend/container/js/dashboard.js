@@ -717,6 +717,7 @@
         if (hash) qs += '&hash=' + encodeURIComponent(hash);
         if (host) qs += '&host=' + encodeURIComponent(host) + '&user=root';
         if (pwd) qs += '&pwd=' + encodeURIComponent(pwd);
+        if (containerName) qs += '&name=' + encodeURIComponent(containerName);
         window.open(qs, '_blank');
       } else LXD.toast('error', res.msg || '创建控制台令牌失败');
     }).catch((err) => {

@@ -159,6 +159,7 @@
   // ---------- SFTP 连接信息 ----------
   document.getElementById('sftp-info').addEventListener('click', () => {
     const host = urlParams.get('host');
+    const cname = urlParams.get('name');
     const user = urlParams.get('user') || 'root';
     const pwd = urlParams.get('pwd') || '';
     const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (m) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[m]));
@@ -192,8 +193,11 @@
       LXD.authRequest('/api/container/port-mapping?version=all').then((r) => {
         const d = (r && r.data) || {};
         const list = ([]).concat(d.ipv4 || [], d.ipv6 || []);
-        const hit = list.find((x) => String(x.container_port) === '22' && (!x.protocol || x.protocol === 'tcp'))
-          || list.find((x) => String(x.container_port) === '22');
+        // 与容器详情页（user-containers.js）逻辑对齐：按容器名匹配该容器自己的 22 端口映射；
+        // 无 name 参数时保持旧行为（全局第一个 22 映射）
+        const byName = (x) => !cname || (x.container_name || x.name || x.container) === cname;
+        const hit = list.find((x) => byName(x) && String(x.container_port) === '22' && (!x.protocol || x.protocol === 'tcp'))
+          || list.find((x) => byName(x) && String(x.container_port) === '22');
         if (hit && hit.public_ip && hit.public_port) {
           const sftpUrl = 'sftp://' + user + '@' + hit.public_ip + ':' + hit.public_port;
           const sshCmd = 'ssh ' + user + '@' + hit.public_ip + ' -p ' + hit.public_port;
