@@ -51,6 +51,10 @@ func ProxyToNode(c *gin.Context, node *models.Node, targetPath string, withHash 
 			r.Host = base.Host
 			r.Header.Del("Cookie")
 			r.Header.Del("X-Forwarded-For")
+			// 去掉浏览器原样的 Accept-Encoding：Go Transport 在请求无此头时会自动加 gzip
+			// 并透明解压；若原样转发，节点 nginx 返回 gzip 体而 Transport 不解压，
+			// ModifyResponse 里的 JSON 解析会静默失败（node 注入/token 记录双双丢失）
+			r.Header.Del("Accept-Encoding")
 			if withHash {
 				r.Header.Set("X-API-Hash", node.APIHash)
 			} else {
