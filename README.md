@@ -1,12 +1,22 @@
 # LXD Cloud
 
-![version](https://img.shields.io/badge/version-1.1.20-38bdf8) ![go](https://img.shields.io/badge/Go-1.23%2B-00ADD8) ![license](https://img.shields.io/badge/UI-responsive%20%7C%20dark%2Flight-6366f1)
+![version](https://img.shields.io/badge/version-1.1.21-38bdf8) ![go](https://img.shields.io/badge/Go-1.23%2B-00ADD8) ![license](https://img.shields.io/badge/UI-responsive%20%7C%20dark%2Flight-6366f1)
 
 基于 **LXD** 的云主机管理面板（商业化版），由 Go 后端（lxdapi）与原生静态前端（lxdpanel）组成，提供 **管理后台 / 用户中心 / 容器面板** 三端能力，支持容器全生命周期管理、IP/端口映射、NAT 配置、反向代理、在线文件管理、商品订单与支付等模块。
 
 - 当前版本：见 [`VERSION`](VERSION)，更新记录见 [`CHANGELOG.md`](CHANGELOG.md)
-- 在线演示（无 LXD 的演示模式，容器操作会提示"当前节点未安装LXD"）：<https://lxd.freehost.ypvps.com>
+- 在线演示（无 LXD 的演示模式，容器操作会提示"当前节点未安装LXD"）：<https://qdmzctyun.dpdns.org>
   - 管理后台 `/admin/login.html` · 用户中心 `/user/login.html`（可自行注册） · 容器面板 `/container/login.html`
+
+## 界面预览
+
+| 首页 | 管理后台登录 |
+|---|---|
+| ![首页](docs/screenshots/home.png) | ![管理后台登录](docs/screenshots/admin-login.png) |
+
+| 用户中心登录 | 容器面板登录 |
+|---|---|
+| ![用户中心登录](docs/screenshots/user-login.png) | ![容器面板登录](docs/screenshots/container-login.png) |
 
 ## 界面特性（v1.1）
 
@@ -140,6 +150,7 @@ bash scripts/release.sh major      # 1.x.y → 2.0.0
 
 ## 版本历史
 
+- **v1.1.21** — 安全加固：控制台 URL 不再携带明文 SSH 密码（防浏览器历史/代理日志泄露）；SFTP 密码改为点击时按需从接口获取、用完即止；控制台 SFTP 弹窗按容器名精确过滤 22 端口映射。详见 [CHANGELOG.md](CHANGELOG.md)
 - **v1.1.20** — 代码审查补强：退款单事务（状态翻转与余额到账同一事务）、开通核对超时（lxc info/start 加超时）、LXD 检测 10 分钟复检、文件管理打包 500MB 上限 + base64/解压兼容 + 后台文件扩展路由、镜像回退别名兜底、节点镜像快速路径、并发用户创建。详见 [CHANGELOG.md](CHANGELOG.md)
 - **v1.1.19** — 多节点开通稳定性：镜像失效自动同步与创建回退（不可用镜像自动回退到可用镜像）
 - **v1.1.18** — 用户面板与文件管理增强：个人中心邮箱/昵称编辑、容器详情端口映射/反代展示、任务日志、新建/在线编辑/打包解压/权限管理
