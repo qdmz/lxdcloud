@@ -164,18 +164,9 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 		return fmt.Errorf("创建容器失败: %v", createErr)
 	}
 	
-	if err := s.lxcClient.StartContainer(ctx, req.Name); err != nil {
-		if lxc.IsTCUnsupportedError(err) && (ingress != "" || egress != "") {
-			// 宿主机内核不支持 tc 分类器：去掉网卡限速后重试，保证容器可用
-			logger.Warn("宿主机内核不支持 tc 限速，已移除容器 %s 的带宽限制后重试启动", req.Name)
-			if cerr := s.lxcClient.ClearNICLimits(ctx, req.Name); cerr != nil {
-				logger.Warn("移除带宽限制失败: %v", cerr)
-			} else if err2 := s.lxcClient.StartContainer(ctx, req.Name); err2 != nil {
-				logger.Warn("启动容器失败: %v", err2)
-			}
-		} else {
-			logger.Warn("启动容器失败: %v", err)
-		}
+	// 启动失败若因宿主机不支持网卡限速参数，自动去限速后重试（容错，不影响开通）
+	if err := s.lxcClient.StartContainerWithLimitFallback(ctx, req.Name); err != nil {
+		logger.Warn("启动容器失败: %v", err)
 	}
 	
 	imageAlias := req.Image
@@ -354,7 +345,8 @@ func (s *ContainerService) Create(ctx context.Context, req *models.CreateContain
 }
 
 func (s *ContainerService) Start(ctx context.Context, name string) error {
-	if err := s.lxcClient.StartContainer(ctx, name); err != nil {
+	// 详情页手动启动：限速参数不受宿主机支持时自动去限速后重试，保证能开起来
+	if err := s.lxcClient.StartContainerWithLimitFallback(ctx, name); err != nil {
 		return err
 	}
 	db.DB.Model(&models.Container{}).Where("name = ?", name).Update("status", "running")
@@ -373,6 +365,18 @@ func (s *ContainerService) Stop(ctx context.Context, name string) error {
 
 func (s *ContainerService) Restart(ctx context.Context, name string) error {
 	if err := s.lxcClient.RestartContainer(ctx, name); err != nil {
+		// 重启内部是停+启：若因限速参数不受宿主机支持失败，去限速后重试启动
+		if lxc.IsLimitUnsupportedError(err) {
+			logger.Warn("容器 %s 重启失败疑似限速参数不受支持（%v），尝试移除带宽限制后启动", name, err)
+			if cerr := s.lxcClient.ClearNICLimits(ctx, name); cerr == nil {
+				if err2 := s.lxcClient.StartContainer(ctx, name); err2 == nil {
+					logger.OK("容器 %s 已移除带宽限制并启动成功（本次不限速）", name)
+					db.DB.Model(&models.Container{}).Where("name = ?", name).Update("status", "running")
+					cache.RefreshContainerCache(ctx, name)
+					return nil
+				}
+			}
+		}
 		return err
 	}
 	db.DB.Model(&models.Container{}).Where("name = ?", name).Update("status", "running")

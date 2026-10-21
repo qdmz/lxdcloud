@@ -117,31 +117,29 @@ func (c *Client) CreateContainerWithConfig(ctx context.Context, name, image, sto
 	
 	logger.OK("容器初始化成功: %s", name)
 	
-	needCustomDevice := macAddress != "" || ingress != "" || egress != ""
-	
-	if needCustomDevice {
-		deviceArgs := []string{"config", "device", "override", name, "eth0"}
-		
-		if macAddress != "" {
-			deviceArgs = append(deviceArgs, fmt.Sprintf("hwaddr=%s", macAddress))
-			logger.Info("设置固定MAC地址: %s", macAddress)
-		}
-		
-		if ingress != "" {
-			deviceArgs = append(deviceArgs, fmt.Sprintf("limits.ingress=%s", ingress))
-		}
-		if egress != "" {
-			deviceArgs = append(deviceArgs, fmt.Sprintf("limits.egress=%s", egress))
-		}
-		
-		logger.Info("配置网络设备: lxc %s", strings.Join(deviceArgs, " "))
-		_, err = c.exec(ctx, deviceArgs...)
-		if err != nil {
+	// MAC 地址单独 override：固定 IP 依赖它，失败则整体失败
+	if macAddress != "" {
+		deviceArgs := []string{"config", "device", "override", name, "eth0", fmt.Sprintf("hwaddr=%s", macAddress)}
+		logger.Info("设置固定MAC地址: %s", macAddress)
+		if _, err := c.exec(ctx, deviceArgs...); err != nil {
 			return fmt.Errorf("配置网络设备失败: %v", err)
 		}
-		
-		if macAddress != "" {
-			logger.OK("MAC地址已固定: %s，重装后IP将保持不变", macAddress)
+		logger.OK("MAC地址已固定: %s，重装后IP将保持不变", macAddress)
+	}
+
+	// 带宽限制单独设置：宿主机不支持时仅告警跳过，不影响容器开通和使用（容错）
+	if ingress != "" {
+		if _, err := c.exec(ctx, "config", "device", "set", name, "eth0", "limits.ingress", ingress); err != nil {
+			logger.Warn("设置入站带宽限制失败（宿主机可能不支持，已跳过，不影响使用）: %v", err)
+		} else {
+			logger.Info("入站带宽限制已设置: %s", ingress)
+		}
+	}
+	if egress != "" {
+		if _, err := c.exec(ctx, "config", "device", "set", name, "eth0", "limits.egress", egress); err != nil {
+			logger.Warn("设置出站带宽限制失败（宿主机可能不支持，已跳过，不影响使用）: %v", err)
+		} else {
+			logger.Info("出站带宽限制已设置: %s", egress)
 		}
 	}
 	
@@ -511,13 +509,33 @@ func (c *Client) GetContainerDNS(ctx context.Context, name string) ([]string, er
 	return dnsServers, nil
 }
 
-// IsTCUnsupportedError 内核缺少 tc 分类器（cls_u32 等）时设置网卡限速会导致容器无法启动
-func IsTCUnsupportedError(err error) bool {
+// IsLimitUnsupportedError 判断错误是否由"宿主机不支持网卡限速参数"引起：
+//   - 内核缺少 tc 分类器（cls_u32 等），启动时应用限速失败；
+//   - 内核缺少 htb qdisc（tc qdisc add 报 Specified qdisc kind is unknown），
+//     启动时创建根 qdisc 失败；
+//   - 网卡类型/驱动在配置阶段就拒绝 limits.ingress/limits.egress。
+func IsLimitUnsupportedError(err error) bool {
 	if err == nil {
 		return false
 	}
-	msg := err.Error()
-	return strings.Contains(msg, "TC classifier not found") || strings.Contains(msg, "Failed to create tc filter")
+	msg := strings.ToLower(err.Error())
+	if strings.Contains(msg, "tc classifier not found") ||
+		strings.Contains(msg, "failed to create tc filter") ||
+		strings.Contains(msg, "failed to create root tc qdisc") ||
+		strings.Contains(msg, "qdisc kind is unknown") ||
+		strings.Contains(msg, "rtnetlink answers: operation not supported") {
+		return true
+	}
+	mentionsLimit := strings.Contains(msg, "limits.ingress") || strings.Contains(msg, "limits.egress")
+	if mentionsLimit && (strings.Contains(msg, "not supported") || strings.Contains(msg, "unsupported") || strings.Contains(msg, "invalid")) {
+		return true
+	}
+	return false
+}
+
+// IsTCUnsupportedError 旧名保留，逻辑已并入 IsLimitUnsupportedError
+func IsTCUnsupportedError(err error) bool {
+	return IsLimitUnsupportedError(err)
 }
 
 // ClearNICLimits 移除容器 eth0 的带宽限制（limits.ingress / limits.egress）
@@ -527,5 +545,27 @@ func (c *Client) ClearNICLimits(ctx context.Context, name string) error {
 			return err
 		}
 	}
+	return nil
+}
+
+// StartContainerWithLimitFallback 启动容器；若因宿主机不支持网卡限速参数而失败，
+// 自动移除该容器的带宽限制后重试，保证容器可用（本次降级为不限速）。
+func (c *Client) StartContainerWithLimitFallback(ctx context.Context, name string) error {
+	err := c.StartContainer(ctx, name)
+	if err == nil {
+		return nil
+	}
+	if !IsLimitUnsupportedError(err) {
+		return err
+	}
+	logger.Warn("容器 %s 启动失败疑似限速参数不受宿主机支持（%v），尝试移除带宽限制后重试", name, err)
+	if cerr := c.ClearNICLimits(ctx, name); cerr != nil {
+		logger.Warn("移除容器 %s 带宽限制失败: %v", name, cerr)
+		return err
+	}
+	if err2 := c.StartContainer(ctx, name); err2 != nil {
+		return fmt.Errorf("已移除带宽限制但启动仍然失败: %v", err2)
+	}
+	logger.OK("容器 %s 已移除不受支持的带宽限制并启动成功（本次不限速）", name)
 	return nil
 }
