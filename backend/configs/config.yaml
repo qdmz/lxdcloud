@@ -69,6 +69,20 @@ lxc:
   # 默认存储池
   default_storage: "default"
 
+# 节点本地离线软件包缓存（v1.1.22）：容器无法联网时，开通/重装/改密后用本地缓存离线安装 openssh/wget/curl
+pkgcache:
+  # 缓存目录，布局 <dir>/<发行版>/<版本>/<架构>/（需可写）
+  dir: "data/pkgcache"
+  # 在线安装超时(秒)，失败或超时改用本地缓存
+  online_timeout: 90
+  # true 时开通后不自动安装/配置 sshd
+  disabled: false
+
+# 镜像管理（v1.1.22）
+images:
+  # URL/文件方式导入镜像的下载临时目录（需可写，空间需大于镜像大小）
+  tmp_dir: "data/image-tmp"
+
 # 流量监控配置
 traffic:
   # 启用流量监控

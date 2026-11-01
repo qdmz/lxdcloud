@@ -190,6 +190,8 @@ type ImageOption struct {
 	Label  string `json:"label"`  // 展示名称
 	Arch   string `json:"arch"`   // 架构
 	Source string `json:"source"` // local=本地已缓存镜像 / remote=远程镜像（首次使用需下载）
+	// NoAlias 本地镜像没有别名，只能按指纹引用（LXD 自动更新或重新下载后指纹会变，商品应改用别名）
+	NoAlias bool `json:"no_alias,omitempty"`
 }
 
 // RemoteImagePresets 常用远程镜像（LXD 默认远程：ubuntu: 为 Canonical 官方云镜像，images: 为社区镜像；
@@ -283,7 +285,7 @@ func (s *TemplateService) imageOptions(ctx context.Context, allow func(models.Te
 			continue
 		}
 		seen[ref] = true
-		opts = append(opts, ImageOption{Value: ref, Label: templateLabel(t), Arch: t.Architecture, Source: "local"})
+		opts = append(opts, ImageOption{Value: ref, Label: templateLabel(t), Arch: t.Architecture, Source: "local", NoAlias: t.Alias == ""})
 	}
 	for _, r := range RemoteImagePresets {
 		if !seen[r.Value] {

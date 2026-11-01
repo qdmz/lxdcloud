@@ -65,7 +65,7 @@
       '  <div class="field"><label>名称</label><input class="input" id="pName" value="' + LXD.esc(p.name || '') + '"></div>' +
       '  <div class="field"><label>类型</label><select class="input" id="pType"><option value="container"' + (p.type !== 'vm' ? ' selected' : '') + '>容器</option><option value="vm"' + (p.type === 'vm' ? ' selected' : '') + '>虚拟机</option></select><div class="sub" id="pTypeHint" style="font-size:12px;color:var(--danger,#e5484d);display:none">节点开通接口只能创建 LXC 容器，所选节点不支持虚拟机；虚拟机仅支持具备 KVM 的主控本机</div></div>' +
       '  <div class="field"><label>所属节点（机房 / 节点）</label><select class="input" id="pNode"><option value="0">主控本机</option>' + nodeOpts + '</select><div class="sub" style="font-size:12px;color:var(--text-2)">镜像与存储池列表取自所选节点</div></div>' +
-      '  <div class="field"><label>系统镜像</label><select class="input" id="pImage"><option value="">加载中...</option></select></div>' +
+      '  <div class="field"><label>系统镜像</label><select class="input" id="pImage"><option value="">加载中...</option></select><div class="sub" id="pImageHint" style="font-size:12px;color:var(--danger,#e5484d);display:none">当前绑定的是本地指纹，镜像自动更新或重新下载后会失效；请在「镜像管理」给镜像加别名后改选别名</div><div class="sub" style="font-size:12px;color:var(--text-2)">列表取自所选节点的本地镜像（按别名）；缺少镜像可到「镜像管理」从远程下载</div></div>' +
       '  <div class="field"><label>存储池</label><select class="input" id="pPool"><option value="">加载中...</option></select></div>' +
       '  <div class="field"><label>CPU(核)</label><input class="input" id="pCPU" type="number" value="' + (p.cpu || 1) + '"></div>' +
       '  <div class="field"><label>内存(MB)</label><input class="input" id="pMem" type="number" value="' + (p.memory || 512) + '"></div>' +
@@ -99,10 +99,13 @@
       ADMIN.request('/api/admin/image-options' + nodeQuery()).then(res => {
         const list = (res.data && res.data.images) || [];
         let html = '<option value="">自动（默认镜像）</option>' + list.map(t =>
-          '<option value="' + LXD.esc(t.value) + '">' + LXD.esc(t.label || t.value) + (t.source === 'local' ? '' : '（远程）') + '</option>').join('');
+          '<option value="' + LXD.esc(t.value) + '">' + LXD.esc(t.label || t.value) + (t.source === 'local' ? (t.no_alias ? '（无别名·指纹会变，建议在「镜像管理」加别名）' : '') : '（远程）') + '</option>').join('');
         if (curImg && !list.some(t => t.value === curImg)) html += '<option value="' + LXD.esc(curImg) + '">' + LXD.esc(curImg) + '（节点上未找到）</option>';
         imgSel.innerHTML = html;
         imgSel.value = curImg;
+        // v1.1.22：商品应绑定节点镜像的别名，而不是易变的本地指纹
+        const hint = document.getElementById('pImageHint');
+        if (hint) hint.style.display = /^[0-9a-f]{12,64}$/.test(imgSel.value) ? '' : 'none';
       }).catch(e => { imgSel.innerHTML = '<option value="' + LXD.esc(curImg) + '">' + LXD.esc(curImg || '自动（默认镜像）') + '</option>'; LXD.toast('error', '读取节点镜像失败：' + e.message); });
       ADMIN.request('/api/admin/storage-pools' + nodeQuery()).then(res => {
         const list = (res.data && res.data.pools) || [];
@@ -114,6 +117,7 @@
       }).catch(() => { poolSel.innerHTML = '<option value="' + LXD.esc(curPool) + '">' + LXD.esc(curPool || '自动（节点优先级默认池）') + '</option>'; });
     }
     loadNodeOptions(true);
+    imgSel.addEventListener('change', () => { const h = document.getElementById('pImageHint'); if (h) h.style.display = /^[0-9a-f]{12,64}$/.test(imgSel.value) ? '' : 'none'; });
     nodeSel.addEventListener('change', () => loadNodeOptions(String(p.node_id || 0) === nodeSel.value));
     // 虚拟机类型 + 远程节点：节点不支持，给出提示（保存时后端也会拒绝）
     const typeSel = document.getElementById('pType');

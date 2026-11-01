@@ -14,6 +14,49 @@ type Config struct {
 	Task     TaskConfig     `yaml:"task"`
 	Admin    AdminConfig    `yaml:"admin"`
 	Plugins  PluginsConfig  `yaml:"plugins"`
+	// v1.1.22：节点本地离线软件包缓存与镜像下载
+	PkgCache PkgCacheConfig `yaml:"pkgcache"`
+	Images   ImagesConfig   `yaml:"images"`
+}
+
+// PkgCacheConfig 节点本地常用包缓存（容器无法联网时离线安装 openssh/wget/curl 等）
+type PkgCacheConfig struct {
+	// Dir 缓存根目录，布局 <dir>/<发行版>/<版本>/<架构>/；留空为 data/pkgcache（相对工作目录）
+	Dir string `yaml:"dir"`
+	// OnlineTimeout 开通/改密后在线安装的超时秒数，超时或失败改用本地缓存离线安装；0 为默认 90
+	OnlineTimeout int `yaml:"online_timeout"`
+	// Disabled 为 true 时开通后不再自动安装/配置 sshd
+	Disabled bool `yaml:"disabled"`
+}
+
+// ImagesConfig 镜像管理
+type ImagesConfig struct {
+	// TmpDir 从 URL/文件方式导入镜像时的下载临时目录；留空为 data/image-tmp
+	TmpDir string `yaml:"tmp_dir"`
+}
+
+// PkgCacheDir 包缓存根目录（含默认值）
+func PkgCacheDir() string {
+	if GlobalConfig != nil && strings.TrimSpace(GlobalConfig.PkgCache.Dir) != "" {
+		return strings.TrimSpace(GlobalConfig.PkgCache.Dir)
+	}
+	return "data/pkgcache"
+}
+
+// PkgCacheOnlineTimeout 在线安装超时秒数（含默认值）
+func PkgCacheOnlineTimeout() int {
+	if GlobalConfig != nil && GlobalConfig.PkgCache.OnlineTimeout > 0 {
+		return GlobalConfig.PkgCache.OnlineTimeout
+	}
+	return 90
+}
+
+// ImageTmpDir 镜像下载临时目录（含默认值）
+func ImageTmpDir() string {
+	if GlobalConfig != nil && strings.TrimSpace(GlobalConfig.Images.TmpDir) != "" {
+		return strings.TrimSpace(GlobalConfig.Images.TmpDir)
+	}
+	return "data/image-tmp"
 }
 
 type SystemConfig struct {

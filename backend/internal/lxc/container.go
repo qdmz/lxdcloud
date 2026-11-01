@@ -292,12 +292,16 @@ func (c *Client) SetRootPassword(ctx context.Context, name, password string) err
 	
 	encoded := base64.StdEncoding.EncodeToString([]byte("root:" + password))
 	cmd := []string{"exec", name, "--", "sh", "-c", fmt.Sprintf("echo %s | base64 -d | chpasswd", encoded)}
-	_, err := c.exec(ctx, cmd...)
+	// 命令行含密码（base64），不写入日志
+	_, err := c.execQuiet(ctx, "exec "+name+" -- chpasswd（参数已隐藏）", cmd...)
 	if err != nil {
 		return fmt.Errorf("设置root密码失败: %v", err)
 	}
 	
 	logger.OK("容器 %s 的root密码设置成功", name)
+	// 精简镜像（如 Alpine）默认不带 sshd，root 密码与 22 端口映射无法使用；后台确保已安装并允许密码登录
+	// （先在线安装，失败/超时用节点本地包缓存离线安装，见 pkgcache.go）
+	go c.EnsureSSHServer(name)
 	return nil
 }
 

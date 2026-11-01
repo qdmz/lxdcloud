@@ -90,6 +90,7 @@ func Init() error {
 		&models.Notification{},
 		&models.Region{},
 		&models.AppMigration{},
+		&models.ImageSource{},
 	); err != nil {
 		return err
 	}

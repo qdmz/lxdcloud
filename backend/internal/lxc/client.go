@@ -70,6 +70,41 @@ func (c *Client) exec(ctx context.Context, args ...string) (string, error) {
 	return stdout.String(), nil
 }
 
+// execQuiet 与 exec 相同，但日志只记录 logLabel（用于命令行含密码等敏感参数的场景）
+func (c *Client) execQuiet(ctx context.Context, logLabel string, args ...string) (string, error) {
+	if !BinaryAvailable() {
+		return "", ErrLXDNotInstalled
+	}
+	cmd := exec.CommandContext(ctx, "lxc", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	logger.Info("执行LXC命令: lxc %s", logLabel)
+	if err := cmd.Run(); err != nil {
+		errMsg := stderr.String()
+		if errMsg == "" {
+			errMsg = err.Error()
+		}
+		logger.Error("LXC命令执行失败: %s", errMsg)
+		return "", fmt.Errorf("%s", errMsg)
+	}
+	return stdout.String(), nil
+}
+
+// execOutput 执行 lxc 命令并同时返回 stdout 与 stderr（脚本执行时便于记录失败原因）；日志只记录 logLabel
+func (c *Client) execOutput(ctx context.Context, logLabel string, args ...string) (string, string, error) {
+	if !BinaryAvailable() {
+		return "", "", ErrLXDNotInstalled
+	}
+	cmd := exec.CommandContext(ctx, "lxc", args...)
+	var stdout, stderr bytes.Buffer
+	cmd.Stdout = &stdout
+	cmd.Stderr = &stderr
+	logger.Info("执行LXC命令: lxc %s", logLabel)
+	err := cmd.Run()
+	return stdout.String(), stderr.String(), err
+}
+
 func (c *Client) execJSON(ctx context.Context, result interface{}, args ...string) error {
 	output, err := c.exec(ctx, append(args, "--format=json")...)
 	if err != nil {

@@ -10,7 +10,7 @@
     dashboard: '◈', containers: '▤', templates: '▣', storage: '◫',
     users: '◉', tasks: '◷', brand: '✎', firewall: '◬', nginx: '⛨',
     ip: '◍', port: '⇄', menu: '☰', refresh: '↻', logout: '⎋', chevron: '▾',
-    nodes: '⌘', products: '◈', orders: '◉', instances: '▣', tickets: '✉', mail: '✉', pay: '¤'
+    nodes: '⌘', images: '◰', pkgcache: '⬢', products: '◈', orders: '◉', instances: '▣', tickets: '✉', mail: '✉', pay: '¤'
   };
 
   const MENUS = [
@@ -19,6 +19,8 @@
       label: '容器', items: [
         { id: 'containers', text: '容器管理', href: '/admin/containers', icon: ICONS.containers },
         { id: 'templates', text: '模板管理', href: '/admin/templates', icon: ICONS.templates },
+        { id: 'images', text: '镜像管理', href: '/admin/images', icon: ICONS.images },
+        { id: 'pkgcache', text: '包缓存', href: '/admin/pkgcache', icon: ICONS.pkgcache },
         { id: 'storage_pools', text: '存储池', href: '/admin/storage-pools', icon: ICONS.storage }
       ]
     },
@@ -54,9 +56,10 @@
 
   /* ---- 节点切换：容器/模板/存储池等页面可切到远程节点（请求附带 node_id，由主控转发） ---- */
   // v1.1.17：IP 池、端口映射（含 NAT/端口段）、反向代理、防火墙同样是节点本地资源，必须按节点配置
-  const NODE_SCOPE_PAGES = ['containers.html', 'container-detail.html', 'file-manager.html', 'templates.html', 'storage_pools.html', 'tasks.html',
+  // v1.1.22：镜像管理、包缓存（images / pkgcache；无 .html 的写法供内嵌皮肤 /admin/images 使用）
+  const NODE_SCOPE_PAGES = ['images.html', 'pkgcache.html', 'images', 'pkgcache', 'containers.html', 'container-detail.html', 'file-manager.html', 'templates.html', 'storage_pools.html', 'tasks.html',
     'ip_pool_v4.html', 'ip_pool_v6.html', 'port_mapping_v4.html', 'port_mapping_v6.html', 'nginx.html', 'firewall.html'];
-  const NODE_SCOPE_API = /^\/api\/admin\/(containers|templates|image-options|storage-pools|tasks|cache|container-templates|console|host|network|ip|ip-pool|port-mapping|port-range|nat-config|nginx|firewall)(\/|\?|$)/;
+  const NODE_SCOPE_API = /^\/api\/admin\/(images|pkgcache|containers|templates|image-options|storage-pools|tasks|cache|container-templates|console|host|network|ip|ip-pool|port-mapping|port-range|nat-config|nginx|firewall)(\/|\?|$)/;
   function nodeScoped() {
     const f = (location.pathname.split('/').pop() || '').toLowerCase();
     return NODE_SCOPE_PAGES.indexOf(f) >= 0;

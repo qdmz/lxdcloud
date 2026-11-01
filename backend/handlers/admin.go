@@ -142,6 +142,20 @@ func AdminNginx(c *gin.Context) {
 	}))
 }
 
+func AdminImages(c *gin.Context) {
+	c.HTML(http.StatusOK, "admin/admin_images.html", utils.MergeTemplateData(c, gin.H{
+		"title":    "镜像管理 - LXD API 管理",
+		"username": "admin",
+	}))
+}
+
+func AdminPkgCache(c *gin.Context) {
+	c.HTML(http.StatusOK, "admin/admin_pkgcache.html", utils.MergeTemplateData(c, gin.H{
+		"title":    "包缓存 - LXD API 管理",
+		"username": "admin",
+	}))
+}
+
 func AdminStoragePools(c *gin.Context) {
 	c.HTML(http.StatusOK, "admin/storage_pools.html", utils.MergeTemplateData(c, gin.H{
 		"title":    "存储池管理 - LXD API 管理",

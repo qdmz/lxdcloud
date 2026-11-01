@@ -49,7 +49,7 @@ import (
 var embeddedFiles embed.FS
 
 // Version 程序版本号，发布时可通过 -ldflags "-X main.Version=x.y.z" 注入
-var Version = "1.1.21"
+var Version = "1.1.22"
 
 // sessionSecret 返回会话签名密钥；未配置或仍为占位符时生成随机密钥（重启后需重新登录）
 func sessionSecret(cfg *core.Config) []byte {
@@ -242,6 +242,10 @@ func main() {
 		return containerService.Reinstall(ctx, name, image, password)
 	})
 
+	// v1.1.22：镜像下载/导入、包缓存同步作业（redis 队列按 action 查找执行器）
+	service.AppVersion = Version
+	service.RegisterBgJobExecutors()
+
 	executor.ClearPendingTasks()
 
 	if err := executor.InitQueue(); err != nil {
@@ -367,6 +371,10 @@ func main() {
 		// 插件未启用/初始化失败时，其路由不会注册：给出明确提示而不是"接口不存在"
 		for _, dp := range disabledPluginAPIs {
 			if !pluginRegistered(pluginManager, dp.plugin) && hasAnyPrefix(path, dp.prefixes) {
+				// 先按接口所属端校验登录，未登录不返回提示（提示含插件加载失败原因/内部路径）
+				if !pluginHintAuth(c, path) {
+					return
+				}
 				if c.Request.Method == "GET" {
 					response.Success(c, dp.emptyData(path))
 				} else {
@@ -446,6 +454,8 @@ func main() {
 		adminPages.GET("/firewall", handlers.AdminFirewall)
 		adminPages.GET("/nginx", handlers.AdminNginx)
 		adminPages.GET("/storage-pools", handlers.AdminStoragePools)
+		adminPages.GET("/images", handlers.AdminImages)
+		adminPages.GET("/pkgcache", handlers.AdminPkgCache)
 	}
 	
 	r.POST("/api/admin/logout", admin.Logout)
@@ -561,6 +571,21 @@ func main() {
 		adminAPI.POST("/templates/batch-delete", admin.BatchDeleteTemplates)
 		adminAPI.GET("/templates/:fingerprint/permission", admin.GetTemplatePermission)
 		adminAPI.PUT("/templates/:fingerprint/permission", admin.SetTemplatePermission)
+		// ---- v1.1.22 镜像管理 / 远程镜像下载 / 节点包缓存（仅管理端；带 node_id 时转发到节点） ----
+		adminAPI.GET("/images", admin.ListImages)
+		adminAPI.GET("/images/remote", admin.RemoteImages)
+		adminAPI.GET("/images/jobs", admin.ImageJobs)
+		adminAPI.POST("/images/download", admin.DownloadImage)
+		adminAPI.POST("/images/import-url", admin.ImportImageURL)
+		adminAPI.DELETE("/images/:fingerprint", admin.DeleteImage)
+		adminAPI.PUT("/images/:fingerprint/aliases", admin.UpdateImageAliases)
+		adminAPI.GET("/image-sources", admin.ListImageSources)
+		adminAPI.POST("/image-sources", admin.CreateImageSource)
+		adminAPI.DELETE("/image-sources/:id", admin.DeleteImageSource)
+		adminAPI.GET("/pkgcache", admin.GetPkgCache)
+		adminAPI.PUT("/pkgcache/settings", admin.SavePkgCacheSettings)
+		adminAPI.POST("/pkgcache/sync", admin.SyncPkgCache)
+		adminAPI.DELETE("/pkgcache/entry", admin.DeletePkgCache)
 		adminAPI.GET("/brand-settings", admin.GetBrandSettings)
 		adminAPI.POST("/brand-settings", admin.UpdateBrandSettings)
 		adminAPI.GET("/container-templates", admin.GetContainerTemplates)
@@ -870,6 +895,24 @@ var disabledPluginAPIs = []disabledPluginAPI{
 		prefixes: []string{"/api/admin/firewall"},
 		hint:     "防火墙插件未加载：请确认 plugins/opengfw 目录及 OpenGFW 程序已安装后重启 lxdapi",
 	},
+}
+
+// pluginHintAuth 插件占位提示接口的登录校验：/api/admin 需管理员，/api/user 需用户，/api/container 需容器访问码。
+// 校验失败时中间件已写出 401 响应，返回 false
+func pluginHintAuth(c *gin.Context, path string) bool {
+	var h gin.HandlerFunc
+	switch {
+	case strings.HasPrefix(path, "/api/admin/"):
+		h = middleware.AdminAuth()
+	case strings.HasPrefix(path, "/api/user/"):
+		h = middleware.UserAuth()
+	case strings.HasPrefix(path, "/api/container/"):
+		h = middleware.ContainerAuth()
+	default:
+		return true
+	}
+	h(c)
+	return !c.IsAborted()
 }
 
 func pluginRegistered(m *plugin.Manager, name string) bool {

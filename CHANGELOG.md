@@ -1,5 +1,36 @@
 # 更新日志
 
+## v1.1.22 - 2026-11-01
+
+镜像管理与远程镜像下载、节点离线软件包缓存、插件占位接口鉴权
+
+### 新增：镜像管理（管理后台「容器 → 镜像管理」，仅管理端）
+- feat: 按节点列出本地镜像（别名、指纹、发行版/版本/变体、架构、大小、创建/导入时间、自动更新），可删除镜像、编辑别名（整体替换，别名被其它镜像占用时拒绝）
+- feat: 从远程服务器下载镜像：内置 LXD 官方 `images.lxd.canonical.com`（images:）、Ubuntu 官方云镜像（ubuntu: 与 minimal）、清华 TUNA / 北外 BFSU lxc-images、南大 NJU Ubuntu 云镜像、linuxcontainers.org；支持自定义 simplestreams 或 LXD 公共远程地址（自定义源保存在主控库 `image_sources` 表）
+- feat: 浏览/搜索远程镜像目录（按系统、架构过滤，默认节点架构；目录缓存 30 分钟），选择后下载到当前节点并设置本地别名，可选「覆盖同名别名」「LXD 自动更新」
+- feat: 下载走 LXD REST `POST /1.0/images`（source.type=image，等价 Go client `CopyImage`），异步轮询 operation 显示进度；仅提供 `incus.tar.xz` 的源（linuxcontainers.org 及其国内镜像，LXD 无法直接拉取）自动改为节点下载 metadata + rootfs（校验 sha256）后 `lxc image import`
+- feat: 从 URL 导入 tar 镜像（统一格式或 metadata + rootfs 拆分格式），节点下载到 `images.tmp_dir` 后导入并设置别名
+- feat: 下载/导入作业加入现有任务队列（任务管理可见，类型 `image_download` / `image_import`），页面实时显示进度与失败原因；完成后自动同步模板表
+- feat: 商品表单的系统镜像下拉读取所选节点镜像并以别名为值；无别名的本地镜像标注「无别名·指纹会变」，选中指纹时给出改用别名的提示（商品不应绑定易变的本地指纹）
+- 多节点：所有镜像接口带 `node_id` 由主控 `AdminNodeProxy` 转发到节点执行，镜像只存在节点本地（沿用 1.1.17 起的设计）；用户端、容器端不暴露
+
+### 新增：节点本地常用包共享仓库（管理后台「容器 → 包缓存」）
+- feat: 解决容器不能联网时装不上 openssh-server/sftp-server/wget/curl、导致 SSH/SFTP 不可用的问题。节点维护本地缓存目录（`pkgcache.dir`，默认 `data/pkgcache/<发行版>/<版本>/<架构>/`，含 manifest.json）
+- feat: 后台「同步」由节点宿主机发起：用所选镜像起临时容器（ephemeral，走宿主机网络出口），在容器内用该发行版包管理器下载完整依赖闭包——Alpine `apk fetch --recursive`（并生成 APKINDEX）、Debian/Ubuntu `apt-get download`（apt-cache depends 递归闭包）、RHEL 系 `dnf download --resolve --alldeps` / `yumdownloader --resolve`（openSUSE/Arch 尽力而为），再 `lxc file pull` 回节点，完成后删除临时容器；不要求宿主机与容器同发行版
+- feat: 开通、重装、修改 root 密码后（`SetRootPassword` 之后后台执行）：先在线安装缺失的包（容器内 `timeout`，默认 90 秒，可配置），失败或超时则把缓存包 `lxc file push` 进容器离线安装（`apk add --allow-untrusted` 本地仓库 / `dpkg -i` 只装缺失包 / `dnf|yum --disablerepo='*'` 或 `rpm -Uvh`），之后配置 sshd：`PermitRootLogin yes`、`PasswordAuthentication yes`、`ssh-keygen -A`、开机自启并启动（OpenRC / systemd / 直接启动）
+- feat: 后台可查看各节点缓存状态、删除缓存、选择预装包列表（默认 openssh、wget、curl，可加 sudo 等）、设置在线安装超时、关闭自动安装；设置保存在节点 `<pkgcache.dir>/settings.json`
+- 全程失败只记 Warn 日志，不影响开通；同一容器同时只运行一个安装流程
+
+### 安全
+- fix(安全): 插件（nginx/防火墙）未加载时的占位提示接口先按所属端鉴权：`/api/admin` 走 AdminAuth、`/api/user` 走 UserAuth、`/api/container` 走 ContainerAuth，未登录返回 401（此前未登录可读到插件加载失败原因等提示）
+- fix(安全): 设置 root 密码的 `lxc exec … chpasswd` 命令行含 base64 编码的密码，不再写入 lxdapi 日志
+
+### 其它
+- test: 控制台令牌记录（`recordConsoleToken`）单元测试；gzip 问题沿用 v1.1.21 的「转发时去掉 Accept-Encoding」修复
+- chore: 配置文件新增 `pkgcache`（dir / online_timeout / disabled）与 `images`（tmp_dir）段，均有默认值，旧配置无需修改
+- chore: 前端与内嵌皮肤静态资源 `?v=` 统一刷为 1.1.22；内嵌皮肤（backend/cmd/lxdapi/static）同步新增页面与菜单
+- chore: VERSION / main.go 版本号 1.1.21 → 1.1.22
+
 ## v1.1.21 - 2026-10-17
 
 安全：控制台 URL 不再携带明文 SSH 密码
