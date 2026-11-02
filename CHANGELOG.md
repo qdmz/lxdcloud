@@ -1,5 +1,29 @@
 # 更新日志
 
+## v1.1.23 - 2026-11-02
+
+修复 Alpine 离线包缓存缺少 openrc 子包、OpenGFW NFQUEUE 规则重复添加
+
+### 包缓存（Alpine）
+- fix: 同步 Alpine 包缓存时，`apk fetch --recursive` 拿到依赖闭包后，再为闭包中每个包尝试下载对应的 `<包名>-openrc` 子包（含其依赖）。Alpine 把 init 脚本拆在靠 `install_if` 自动安装的子包里（如 `/etc/init.d/sshd` 在 `openssh-server-common-openrc`，旧版本为 `openssh-server-openrc`），它们不在依赖闭包内，之前完全离线安装后 sshd 没有启动脚本、起不来
+- fix: 离线安装时本地仓库增加 `noarch` → `<架构>` 链接。索引中 `A:noarch` 的包（openssh-server-common、各 `*-openrc`、ca-certificates-bundle 等）apk 会到 `<repo>/noarch/` 下找，之前报 `package mentioned in index not found`，按需安装失败后退回「装全部 .apk」（七牛实测）
+- fix: 兜底的「装全部 .apk」分支加 `--repositories-file /dev/null`，容器无网络时不再去拉官方索引而卡住
+- fix: 离线安装成功后，再补装缓存中「主包已安装、自身未安装」的 `*-openrc` 子包（`install_if` 未触发时的兜底）
+- feat: 配置 sshd 前检查 OpenRC 系统上 `/etc/init.d/sshd` 是否存在，不存在时记录明确的 Warn（指出缺哪个子包、提示用 1.1.23+ 重新同步包缓存）
+- 注意：1.1.22 同步的 Alpine 缓存缺少这些子包，升级后请在「容器 → 包缓存」对 Alpine 条目重新同步
+- test: 用模拟 apk 实际运行同步与离线安装脚本，验证 openrc 子包被下载、noarch 链接、只补装主包已安装的子包；init 脚本检查
+- 实测：七牛节点临时 Alpine 3.22 容器删除默认路由、清空 DNS（确认无法出站、在线 apk 失败）后，用新同步的缓存离线安装：`/etc/init.d/sshd` 存在，sshd 启动并开机自启，重启容器后仍运行，SSH 与 SFTP 读写正常
+
+### OpenGFW 防火墙插件
+- fix: NFQUEUE 规则去重判断写错：代码查找 `queue num 100`，而 nft 1.0.x 显示为 `queue flags bypass to 100`，导致每次 lxdapi 启动都会再加一对规则（曾累积到 10 对）
+- fix: 新规则带 comment 标记（`lxdcloud-opengfw-q100-in` / `-out`）；识别时优先看标记，兼容 `queue num 100`、`queue to 100`、`queue flags bypass to 100`、`queue flags bypass,fanout to 100-101` 等显示格式，并按 `iifname/oifname "lxdbr0"` 区分方向
+- fix: 启动时每个方向只保留一条（优先保留带标记的），多余的重复规则自动删除；只缺一个方向时只补该方向；添加失败时回滚本次新增；旧版 nft 不支持规则 comment 时退回无标记写法
+- fix: `Remove` 一次列出后逐条删除，删除失败不再可能死循环
+- test: 解析各种显示格式、去重计划、模拟 nft 链多次启动/补齐/回滚
+
+### 其它
+- chore: VERSION / main.go 版本号 1.1.22 → 1.1.23；前端与内嵌皮肤静态资源 `?v=` 刷为 1.1.23
+
 ## v1.1.22 - 2026-11-01
 
 镜像管理与远程镜像下载、节点离线软件包缓存、插件占位接口鉴权

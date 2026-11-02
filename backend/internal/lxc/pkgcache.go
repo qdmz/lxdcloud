@@ -335,19 +335,45 @@ const pkgPushDir = "/tmp/lxdcloud-pkgcache"
 
 // offlineInstallScript 用推入容器的缓存包离线安装
 func offlineInstallScript(pm string, pkgs []string) string {
-	D := pkgPushDir
+	return offlineInstallScriptIn(pm, pkgs, pkgPushDir)
+}
+
+// apkOpenRCHelper 输出 shell 函数 lxdc_openrc DIR：列出 DIR 中「主包已安装、自身未安装」的 *-openrc 子包名。
+// Alpine 的 init 脚本拆在 *-openrc 子包里（如 sshd 的 /etc/init.d/sshd 在 openssh-server-common-openrc），
+// 它们靠 install_if 自动安装，不在 apk fetch --recursive 的依赖闭包里。
+const apkOpenRCHelper = `lxdc_openrc() {
+  for f in "$1"/*-openrc-*.apk; do
+    [ -f "$f" ] || continue
+    n=$(basename "$f" | sed -n -E 's/^(.+-openrc)-[0-9][^-]*-r[0-9]+\.apk$/\1/p')
+    [ -n "$n" ] || continue
+    apk info -e "${n%-openrc}" >/dev/null 2>&1 || continue
+    apk info -e "$n" >/dev/null 2>&1 || echo "$n"
+  done
+}
+`
+
+func offlineInstallScriptIn(pm string, pkgs []string, D string) string {
 	list := strings.Join(pkgs, " ")
 	switch pmFamily(pm) {
 	case "apk":
-		// apk 本地仓库需 <repo>/<arch>/APKINDEX.tar.gz；有索引时只按需安装，否则直接装全部 .apk
-		return `D=` + D + `; cd $D || exit 3
+		// apk 本地仓库需 <repo>/<arch>/APKINDEX.tar.gz；有索引时只按需安装，否则直接装全部 .apk。
+		// 索引里 A:noarch 的包（如 openssh-server-common、*-openrc）apk 会到 <repo>/noarch/ 下找，
+		// 所以 noarch 指向同一目录，否则报 "package mentioned in index not found"。
+		// 装完主包后再补装缓存里对应的 *-openrc 子包（install_if 未触发时的兜底）。
+		// 兜底分支也禁用远程仓库，避免无网络时 apk 去拉官方索引卡住。
+		return apkOpenRCHelper + `D=` + D + `; cd $D || exit 3
 A=$(apk --print-arch 2>/dev/null)
 if [ -n "$A" ] && [ -f APKINDEX.tar.gz ]; then
   mkdir -p "$A" && mv -f ./*.apk APKINDEX.tar.gz "$A/" 2>/dev/null
-  apk add --allow-untrusted --no-cache --repositories-file /dev/null --repository "$D" ` + list + ` && exit 0
+  [ "$A" = noarch ] || ln -sfn "$A" noarch
+  if apk add --allow-untrusted --no-cache --repositories-file /dev/null --repository "$D" ` + list + `; then
+    x=$(lxdc_openrc "$D/$A")
+    [ -z "$x" ] || apk add --allow-untrusted --no-cache --repositories-file /dev/null --repository "$D" $x || echo "openrc 子包安装失败: $x" >&2
+    exit 0
+  fi
   mv -f "$A"/*.apk . 2>/dev/null
 fi
-apk add --allow-untrusted --no-cache ./*.apk`
+apk add --allow-untrusted --no-cache --repositories-file /dev/null ./*.apk`
 	case "apt":
 		// 只安装容器内尚未安装的包（缓存为完整依赖闭包，避免无谓重装 libc 等基础包）
 		return `D=` + D + `; cd $D || exit 3
@@ -389,6 +415,16 @@ else
   /usr/sbin/sshd
 fi
 echo ok`
+
+// sshdInitCheckScript 检查 OpenRC 系统上 sshd 的启动脚本是否存在
+const sshdInitCheckScript = `if command -v rc-update >/dev/null 2>&1 || [ -x /sbin/openrc-run ]; then
+  if [ -f /etc/init.d/sshd ]; then echo "LXDC-INITD ok"; else echo "LXDC-INITD missing"; fi
+else echo "LXDC-INITD n/a"; fi`
+
+// sshdInitMissing 根据 sshdInitCheckScript 的输出判断是否缺少 /etc/init.d/sshd
+func sshdInitMissing(out string) bool {
+	return strings.Contains(out, "LXDC-INITD missing")
+}
 
 // ensureRunning 同一容器同一时间只跑一个安装流程（开通后紧接着改密等场景）
 var ensureRunning sync.Map
@@ -448,6 +484,13 @@ func (c *Client) EnsureSSHServer(name string) {
 	if !info.Has["sshd"] {
 		logger.Warn("容器 %s 未能安装 sshd（无法联网且节点无 %s 的本地包缓存，可在后台「包缓存」同步）", name, info.Key())
 		return
+	}
+	if out, _, err := c.execOutput(ctx, "exec "+name+" -- 检查 sshd 启动脚本", "exec", name, "--", "sh", "-c", sshdInitCheckScript); err == nil && sshdInitMissing(out) {
+		hint := ""
+		if pmFamily(info.PM) == "apk" {
+			hint = "，Alpine 由 openssh-server-common-openrc（旧版为 openssh-server-openrc）子包提供；离线安装时请在后台「包缓存」用 1.1.23+ 重新同步 " + info.Key()
+		}
+		logger.Warn("容器 %s 已安装 sshd 但缺少 /etc/init.d/sshd（OpenRC 启动脚本）%s，sshd 无法通过 rc-service 启动和开机自启", name, hint)
 	}
 	out, stderr, err := c.execOutput(ctx, "exec "+name+" -- 配置 sshd", "exec", name, "--", "sh", "-c", sshdConfigScript)
 	if err != nil {
@@ -540,13 +583,23 @@ func lastLine(s string) string {
 
 // syncDownloadScript 在临时容器内下载完整依赖闭包到 /tmp/lxdcloud-pkgs
 func syncDownloadScript(pm string, pkgs []string) string {
+	return syncDownloadScriptIn(pm, pkgs, "/tmp/lxdcloud-pkgs")
+}
+
+func syncDownloadScriptIn(pm string, pkgs []string, O string) string {
 	list := strings.Join(pkgs, " ")
-	head := "O=/tmp/lxdcloud-pkgs; rm -rf $O; mkdir -p $O; cd $O || exit 3\n"
+	head := "O=" + O + "; rm -rf $O; mkdir -p $O; cd $O || exit 3\n"
 	tail := "\nn=$(ls $O | grep -cE '\\.(apk|deb|rpm)$|\\.pkg\\.tar\\.'); echo \"LXDC-FILES $n\"; [ \"$n\" -gt 0 ]"
 	switch pmFamily(pm) {
 	case "apk":
 		return head + `apk update -q || exit 4
 apk fetch --recursive -o $O ` + list + ` || exit 5
+# 依赖闭包里每个包若有 -openrc 子包（install_if 安装，如 openssh-server-common-openrc 提供 /etc/init.d/sshd）一并下载
+for n in $(ls $O | sed -n -E 's/^(.+)-[0-9][^-]*-r[0-9]+\.apk$/\1/p' | sort -u); do
+  case "$n" in *-openrc|*-doc|*-dev) continue ;; esac
+  ls $O | grep -q "^$n-openrc-[0-9]" && continue
+  apk fetch --recursive -q -o $O "$n-openrc" >/dev/null 2>&1 && echo "LXDC-OPENRC $n-openrc"
+done
 apk index --allow-untrusted -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 || apk index -o APKINDEX.tar.gz ./*.apk >/dev/null 2>&1 || true` + tail
 	case "apt":
 		return head + `export DEBIAN_FRONTEND=noninteractive

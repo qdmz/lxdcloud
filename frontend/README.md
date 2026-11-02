@@ -10,10 +10,10 @@
 ### 新页面接入约定（v1.1）
 
 ```html
-<link rel="stylesheet" href="../css/style.css?v=1.1.22">
-<script src="../js/theme.js?v=1.1.22"></script>   <!-- head 内，避免主题闪烁 -->
+<link rel="stylesheet" href="../css/style.css?v=1.1.23">
+<script src="../js/theme.js?v=1.1.23"></script>   <!-- head 内，避免主题闪烁 -->
 ...
-<script src="../js/app.js?v=1.1.22"></script>      <!-- body 末尾，先于各页面脚本 -->
+<script src="../js/app.js?v=1.1.23"></script>      <!-- body 末尾，先于各页面脚本 -->
 ```
 
 - 复制按钮：`<button class="copy-btn" data-copy="要复制的文本">复制</button>`，或给元素加 `data-copyable` 自动追加
